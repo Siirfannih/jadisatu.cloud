@@ -1,0 +1,57 @@
+name: Auto Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: 22
+          script: |
+            set -e
+
+            # ── 1. Pull latest code ────────────────────────────────────────
+            cd ${{ secrets.DEPLOY_PATH }}
+            git fetch origin main
+            git reset --hard origin/main
+            echo "✅ Code updated"
+
+            # ── 2. Copy frontend files to Nginx web root ───────────────────
+            NGINX_ROOT="${{ secrets.NGINX_ROOT }}"
+            if [ -n "$NGINX_ROOT" ] && [ -d "$NGINX_ROOT" ]; then
+              cp -r frontend/* "$NGINX_ROOT/"
+              echo "✅ Frontend copied to $NGINX_ROOT"
+            fi
+
+            # ── 3. Update Python backend dependencies ──────────────────────
+            cd ${{ secrets.DEPLOY_PATH }}/hunter-agent/backend
+            pip install -r requirements.txt --quiet
+            echo "✅ Python deps updated"
+
+            # ── 4. Restart Python backend ──────────────────────────────────
+            SERVICE="${{ secrets.BACKEND_SERVICE }}"
+            if systemctl is-active --quiet "$SERVICE" 2>/dev/null; then
+              systemctl restart "$SERVICE"
+              echo "✅ Service $SERVICE restarted"
+            else
+              pkill -f "uvicorn api:app" 2>/dev/null || true
+              sleep 1
+              cd ${{ secrets.DEPLOY_PATH }}/hunter-agent/backend
+              nohup uvicorn api:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
+              echo "✅ Backend started"
+            fi
+
+            # ── 5. Reload Nginx ────────────────────────────────────────────
+            nginx -s reload 2>/dev/null && echo "✅ Nginx reloaded" || true
+
+            echo "🚀 Deploy selesai: $(date '+%Y-%m-%d %H:%M:%S')"
