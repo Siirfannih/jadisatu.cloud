@@ -4385,8 +4385,18 @@
                 var schema = (templateData && templateData.template_schema) || {};
                 var slide = slidesData[currentSlideIndex] || {};
 
+                // Initialize font registry from schema (uses font_roles if present)
+                if (schema.typography && schema.typography.font_roles) {
+                    _fontRegistry.initFromSchema(schema.typography.font_roles);
+                } else if (schema.font_roles) {
+                    _fontRegistry.initFromSchema(schema.font_roles);
+                } else {
+                    // Fallback: infer from template family
+                    _fontRegistry.inferFromFamily(schema.template_family || '');
+                }
+
                 // Start feedback session
-                var presetName = _fontRegistry.inferFromFamily(schema.template_family || '');
+                var presetName = _fontRegistry.getCurrentPreset();
                 _feedbackMemory.startSession(
                     schema.template_family || 'unknown',
                     schema.template_family || '',
@@ -4400,11 +4410,17 @@
                 // Build editor elements from schema + current slide
                 _canvasEditor.buildFromCanvas(schema, slide);
 
+                // Apply editor elements to the live DOM (icons, fonts, visibility)
+                _canvasEditor.applyToDOM();
+
                 // Sync visual mode buttons
                 _syncVisualModeButtons();
                 _syncFontRoleSelectors();
                 _refreshInspectorList();
                 _updateEditCount();
+
+                // Refresh Lucide icons after editing layer updates
+                if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 
                 console.log('[EditingLayer] Template applied — editor elements built');
                 console.log('[EditingLayer] template_family:', schema.template_family);
@@ -4424,11 +4440,11 @@
                 _refreshInspectorList();
                 _syncVisualModeButtons();
             };
-            // Override global goToSlide
-            if (typeof goToSlide !== 'undefined') {
-                // Patch — careful not to break existing references
-                window._patchedGoToSlide = _patchedGoToSlide;
-            }
+            // Override global goToSlide — replace the actual function
+            // The prev/next buttons call goToSlide() directly, so we must
+            // reassign the outer-scope variable for the patch to take effect.
+            goToSlide = _patchedGoToSlide;
+            window.goToSlide = _patchedGoToSlide;
 
             // ── Sync inline edits back to schema ────────────────────────
             var headlineEl = document.getElementById('carousel-preview-headline');
