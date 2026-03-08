@@ -28,13 +28,73 @@
      * @param {number} height - Canvas height (default 400)
      * @returns {string} SVG markup string
      */
-    DiagramEngine.render = function (schema, width, height) {
+    /**
+     * Populate diagram data with slide content (keywords, headline).
+     * Replaces generic placeholder labels with actual slide text.
+     */
+    DiagramEngine._populateWithSlideContent = function (data, slideContext) {
+        if (!slideContext || !data) return data;
+        var populated = JSON.parse(JSON.stringify(data)); // deep clone
+        var keywords = slideContext.keywords || [];
+        var headline = slideContext.headline || '';
+        var body = slideContext.body || '';
+
+        // Extract meaningful words from headline/body as fallback labels
+        var words = [];
+        if (keywords.length > 0) {
+            words = keywords;
+        } else if (headline) {
+            words = headline.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 3; });
+        }
+
+        // Populate center node
+        if (populated.center && populated.center.label) {
+            if (headline && headline.length < 30) {
+                populated.center.label = headline;
+            } else if (words.length > 0) {
+                populated.center.label = words[0];
+            }
+        }
+
+        // Populate satellite nodes with keywords
+        if (populated.nodes && populated.nodes.length > 0) {
+            for (var i = 0; i < populated.nodes.length; i++) {
+                if (words.length > 0) {
+                    populated.nodes[i].label = words[(i + 1) % words.length] || populated.nodes[i].label;
+                }
+            }
+        }
+
+        // Populate arc/timeline labels
+        if (words.length >= 2) {
+            if (populated.start_label) populated.start_label = words[0];
+            if (populated.end_label) populated.end_label = words[words.length - 1];
+        }
+        if (headline && populated.center_text) {
+            populated.center_text = headline.length < 25 ? headline : (words[0] || populated.center_text);
+        }
+
+        // Populate axis
+        if (populated.axis) {
+            if (words.length >= 2 && populated.axis.label_top) populated.axis.label_top = words[0];
+            if (words.length >= 2 && populated.axis.label_bottom) populated.axis.label_bottom = words[1];
+        }
+
+        return populated;
+    };
+
+    DiagramEngine.render = function (schema, width, height, slideContext) {
         width = width || 500;
         height = height || 400;
         var type = (schema && schema.diagram_type) || 'flowchart';
         var data = (schema && schema.diagram_data) || {};
         var cr = (schema && schema.color_roles) || {};
         var cp = (schema && schema.color_palette) || {};
+
+        // Populate diagram with slide content instead of reference image text
+        if (slideContext) {
+            data = DiagramEngine._populateWithSlideContent(data, slideContext);
+        }
 
         var colors = {
             stroke: cr.line || cp.primary || '#ffffff',
@@ -844,7 +904,7 @@
      * Render all visual elements for a slide based on schema.
      * Returns { diagramHtml, componentHtml, decorativeHtml, brandingHtml }
      */
-    VisualEngine.prototype.renderAll = function (schema) {
+    VisualEngine.prototype.renderAll = function (schema, slideContext) {
         this._currentSchema = schema || {};
         var cr = schema.color_roles || {};
         var cp = schema.color_palette || {};
@@ -869,7 +929,7 @@
 
         // Diagram
         if (schema.visual_mode === 'diagram' && schema.diagram_data) {
-            result.diagramHtml = DiagramEngine.render(schema, 480, 380);
+            result.diagramHtml = DiagramEngine.render(schema, 480, 380, slideContext);
         }
 
         // Component blocks

@@ -62,6 +62,14 @@ Extract a SPECIFIC, ACCURATE Design Schema JSON. Return ONLY valid JSON — no m
 
 Study the actual colors, fonts, layout, and components visible in the image.
 
+CRITICAL: You are extracting the VISUAL DESIGN STYLE and STRUCTURE — NOT the actual text content.
+- DO NOT copy headlines, body text, or content from the images
+- DO NOT include the brand name, company name, or author name from the images
+- For diagram_data: describe the STRUCTURE (number of nodes, layout pattern, connection style) using generic placeholder labels like "Node 1", "Node 2", "Topic A", "Topic B"
+- For branding: set logo_text to "" (empty), footer_left/right to "" (empty) — the user's own brand will be applied later
+- For component_blocks: use generic labels like "Feature 1", "Category A" — NOT the actual text from the image
+- For text_highlights: describe the STYLE (color, bold/italic) but use generic placeholder phrases like "keyword" or "highlight"
+
 Return this exact structure:
 
 {
@@ -93,15 +101,16 @@ Return this exact structure:
   "visual_mode": "<exactly one of: diagram | illustration | icon | none>",
   "diagram_type": "<only when visual_mode is diagram: hub_spoke | flowchart | arc | cycle | comparison | timeline | coherence_arc | funnel | none>",
   "diagram_data": {
-    "NOTE": "Only include this object when visual_mode is diagram. Otherwise set to null.",
-    "center": {"label": "<center node text if hub/spoke>", "style": "<filled_dark or filled_accent or outline>"},
+    "NOTE": "Only include when visual_mode is diagram. Describe the STRUCTURE, not content. Use generic placeholder labels.",
+    "center": {"label": "Center", "style": "<filled_dark or filled_accent or outline>"},
     "nodes": [
-      {"label": "<node label>", "icon": "<lucide icon name>", "position": "<top or bottom or left or right or on_curve>"}
+      {"label": "Node 1", "icon": "<lucide icon name>", "position": "<top or bottom or left or right or on_curve>"}
     ],
-    "axis": {"label_top": "<text above axis>", "label_bottom": "<text below axis>", "style": "<dashed or solid or none>"},
-    "start_label": "<label at start of arc/timeline>",
-    "end_label": "<label at end of arc/timeline>",
-    "center_text": "<text in center area like 'Inner Work'>",
+    "node_count": "<total number of nodes visible in the diagram>",
+    "axis": {"label_top": "Top", "label_bottom": "Bottom", "style": "<dashed or solid or none>"},
+    "start_label": "Start",
+    "end_label": "End",
+    "center_text": "Center",
     "connection_style": "<dashed or solid or none>"
   },
   "text_highlights": [
@@ -111,8 +120,9 @@ Return this exact structure:
     {
       "type": "<icon_card or feature_card or stat_block or quote_block or icon_grid>",
       "items": [
-        {"icon": "<lucide icon name>", "label": "<card label>", "title": "<card title>", "description": "<card description>", "color": "<accent color hex>", "style": "<light or dark or accent or elevated>"}
+        {"icon": "<lucide icon name>", "label": "Label", "title": "Title", "description": "", "color": "<accent color hex>", "style": "<light or dark or accent or elevated>"}
       ],
+      "item_count": "<total number of items/cards visible>",
       "layout": "<horizontal or vertical or grid>",
       "position": "<top or center or bottom>"
     }
@@ -125,9 +135,9 @@ Return this exact structure:
   },
   "branding": {
     "logo_position": "<top_left or top_center or none>",
-    "logo_text": "<brand name visible>",
-    "footer_left": "<text at bottom left>",
-    "footer_right": "<text at bottom right>",
+    "logo_text": "",
+    "footer_left": "",
+    "footer_right": "",
     "pagination": "<true or false>",
     "pagination_style": "<dots or numbers or fraction>"
   },
@@ -172,13 +182,13 @@ CRITICAL RULES:
 
 2. text_highlights — Scan the heading and body text carefully. If ANY word or phrase uses a DIFFERENT color than surrounding text, or is italic when others are not, list it. Examples: "here." in green, "entire" in green italic, "miss it." in purple italic. If no highlights exist, return empty array [].
 
-3. diagram_data — Only populate when visual_mode=diagram. Extract ALL visible nodes with their labels. For hub-spoke: identify center node and satellite nodes with their icons. For arc: identify stages along the curve. For flowchart: identify boxes and connections. If visual_mode is not diagram, set diagram_data to null.
+3. diagram_data — Only populate when visual_mode=diagram. Count the nodes and describe the STRUCTURE (layout pattern, connection style, node positions). Do NOT copy the actual text labels from the diagram — use generic placeholders. For hub-spoke: count satellite nodes and identify their positions/icons. For arc: count stages along the curve. For flowchart: count boxes. Set node_count to the total. If visual_mode is not diagram, set diagram_data to null.
 
-4. component_blocks — Detect card groups, stat displays, icon grids. Each card should capture: icon name (use closest Lucide icon), label, title, description, and accent color. Lucide icon names use lowercase-kebab-case: mail, bot, calendar, code, file-text, dollar-sign, message-square, monitor, etc.
+4. component_blocks — Detect card groups, stat displays, icon grids. Count the items and note their layout pattern. Use generic placeholder labels, NOT the actual text from the image. Capture: icon name (closest Lucide icon), accent color, and style. Lucide icon names use lowercase-kebab-case: mail, bot, calendar, code, file-text, dollar-sign, message-square, monitor, etc.
 
 5. decorative_elements — Note geometric line patterns in background (thin triangles, dots, grids). These are subtle overlay decorations, not main content.
 
-6. branding — Extract visible brand text (logo, author, copyright, pagination dots/numbers).
+6. branding — Detect the POSITION and STYLE of branding elements (logo placement, footer placement, pagination style). Do NOT copy the actual brand name or text — leave logo_text, footer_left, footer_right as empty strings.
 
 7. visual_mode classification:
    - diagram: design has charts, node graphs, flow diagrams, hub-spoke, arc curves, connected elements

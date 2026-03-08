@@ -3642,6 +3642,17 @@
                 var visualImg = document.getElementById('carousel-preview-visual-img');
                 var visualArea = document.getElementById('carousel-preview-visual-area');
 
+                // Build slide context for diagram content population
+                var _slideCtx = null;
+                if (typeof slidesData !== 'undefined' && slidesData[currentSlideIndex]) {
+                    var _s = slidesData[currentSlideIndex];
+                    _slideCtx = {
+                        headline: _s.headline || '',
+                        body: _s.body || '',
+                        keywords: _s.keywords || []
+                    };
+                }
+
                 // Reset all visual elements
                 if (iconWrap) iconWrap.classList.add('hidden');
                 if (visualImg) visualImg.classList.add('hidden');
@@ -3666,7 +3677,7 @@
                 var canvas = document.getElementById('carousel-live-canvas');
 
                 if (ve && schema) {
-                    var rendered = ve.renderAll(schema);
+                    var rendered = ve.renderAll(schema, _slideCtx);
 
                     // Diagram
                     if (mode === 'diagram' && rendered.diagramHtml) {
@@ -3729,8 +3740,14 @@
                         }
                     }
 
-                    // Branding overlay
+                    // Branding overlay — strip reference image text, use user's brand
                     if (rendered.brandingHtml && canvas) {
+                        // Override branding text with user's actual brand (not from reference image)
+                        var _userBrand = null;
+                        try {
+                            var _appS = typeof getAppSettings === 'function' ? getAppSettings() : {};
+                            _userBrand = _appS.brand_config || null;
+                        } catch(e) {}
                         var brandEl = document.createElement('div');
                         brandEl.id = 'carousel-branding-overlay';
                         brandEl.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:4;';
