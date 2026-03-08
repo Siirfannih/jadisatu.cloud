@@ -99,7 +99,7 @@ IMPORTANT: Extract REAL hex colors from the image. Do not use generic placeholde
 class CarouselDesignExtractor:
     def __init__(self, api_key: str):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        self.model = genai.GenerativeModel("gemini-2.0-flash")
 
     def extract_design_schema(self, images_b64: List[str]) -> Dict:
         """
