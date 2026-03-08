@@ -2351,17 +2351,6 @@
             }
             currentItem = item;
 
-            // Debug: log full_script content
-            console.log('[DEBUG] item.full_script length:', (item.full_script || '').length);
-            console.log('[DEBUG] item.full_script first 200 chars:', (item.full_script || '').substring(0, 200));
-            console.log('[DEBUG] item.value_text length:', (item.value_text || '').length);
-            console.log('[DEBUG] item.hook_text:', (item.hook_text || '').substring(0, 80));
-            if (window._carouselToast) {
-                var _fsLen = (item.full_script || '').length;
-                var _vtLen = (item.value_text || '').length;
-                window._carouselToast('Debug: full_script=' + _fsLen + ' chars, value_text=' + _vtLen + ' chars');
-            }
-
             var preflight = preflightCheck(item);
             if (preflight.warnings.length > 0 && window._carouselToast) {
                 window._carouselToast('Pre-flight: ' + preflight.warnings.join('; ') + '. Isi di Creative Hub jika perlu.');
@@ -2378,24 +2367,8 @@
             if (limitEl) limitEl.textContent = 'Max ' + preflight.maxSlides + ' slides';
 
             document.getElementById('carousel-content-meta').textContent = 'Content ID: ' + esc(item.id) + ' | "' + esc((item.title || '').substring(0, 40)) + (item.title && item.title.length > 40 ? '…' : '') + '"';
-            var hookEl = document.getElementById('carousel-sidebar-hook');
-            if (hookEl) hookEl.value = item.hook_text || '';
-            var valuesEl = document.getElementById('carousel-sidebar-values');
-            if (valuesEl) {
-                var points = (item.value_text || '').split(/\r?\n/).map(function (s) { return s.replace(/^\s*[\d\.\-\*]+\s*/, '').trim(); }).filter(Boolean);
-                document.getElementById('carousel-values-count').textContent = points.length + ' slide' + (points.length !== 1 ? 's' : '');
-                var html = '<div class="absolute left-3 top-4 bottom-4 w-px bg-white/10"></div>';
-                points.forEach(function (p, i) {
-                    html += '<div class="relative pl-6"><div class="absolute left-[-16px] top-2.5 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(139,92,246,0.8)]"></div>';
-                    html += '<div class="relative bg-surface/40 hover:bg-surface/80 rounded-xl border border-white/5 overflow-hidden transition-all group">';
-                    html += '<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary/30 group-hover:bg-primary transition-colors"></div>';
-                    html += '<textarea class="w-full bg-transparent border-0 p-3.5 pl-4 text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none h-20 leading-relaxed custom-scroll">' + esc(p) + '</textarea>';
-                    html += '</div></div>';
-                });
-                if (points.length === 0) html += '<p class="text-[11px] text-gray-500 pl-4">Belum ada value points.</p>';
-                valuesEl.innerHTML = html;
-            }
 
+            // Build slides FIRST, then populate sidebar from slidesData
             var aiSlides = await fetchAISlides(item);
             if (aiSlides && aiSlides.length > 0) {
                 slidesData = aiSlides.slice(0, platformRules.maxSlides);
@@ -2411,9 +2384,16 @@
                     console.log('[Slides] Built ' + slidesData.length + ' slides from value_text');
                 }
             }
-            // Unified slide count: always use slidesData as source of truth
-            updateValuesCount();
+            // Populate sidebar from slidesData (Full Script is the source of truth)
             currentSlideIndex = 0;
+            // Hook sidebar: first slide
+            var hookEl = document.getElementById('carousel-sidebar-hook');
+            if (hookEl && slidesData.length > 0) {
+                var _hookSlide = slidesData[0];
+                hookEl.value = (_hookSlide.headline || '') + (_hookSlide.body ? '\n' + _hookSlide.body : '');
+            }
+            // Values & count sidebar: from slidesData
+            updateValuesCount();
             applyBrandToPreview();
             renderSlideStrip();
             renderMainPreview();

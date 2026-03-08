@@ -13,6 +13,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from database import Database
 import json
+import re
 
 app = FastAPI(title="Hunter Agent API", version="1.0.0")
 
@@ -408,6 +409,76 @@ def get_template_families():
     """Returns available template families and their component sets."""
     from carousel_processor import TEMPLATE_FAMILIES
     return {"families": TEMPLATE_FAMILIES}
+
+
+
+# ────────────────────────────────────────────────────
+# AI Script Writer (Copywriter & Social Media Strategist)
+# ────────────────────────────────────────────────────
+class AIScriptRequest(BaseModel):
+    title: str = ""
+    hook: str = ""
+    value: str = ""
+    cta: str = ""
+    existing_script: str = ""
+    platforms: list = []
+
+@app.post("/api/ai-script")
+async def ai_script_writer(req: AIScriptRequest):
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    import google.generativeai as genai
+    genai.configure(api_key=gemini_key)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+    platform_str = ", ".join(req.platforms) if req.platforms else "Instagram"
+
+    prompt = f"""Kamu adalah AI Copywriter & Social Media Strategist profesional.
+Tugas: Buat FULL SCRIPT carousel konten untuk platform {platform_str}.
+
+KONTEKS:
+- Judul/Topik: {req.title or '(tidak ada)'}
+- Hook (pembuka): {req.hook or '(belum ada)'}
+- Value points: {req.value or '(belum ada)'}
+- CTA (penutup): {req.cta or '(belum ada)'}
+- Script yang sudah ada: {req.existing_script[:500] if req.existing_script else '(belum ada)'}
+
+INSTRUKSI:
+1. Buat script carousel dengan 7-10 slide
+2. Gunakan format "Hal N:" untuk memisahkan setiap slide
+3. Hal 1 = HOOK yang powerful (3 detik pertama harus menarik)
+4. Hal 2-8 = VALUE (edukasi, insight, tips, atau storytelling)
+5. Slide terakhir = CTA yang jelas
+6. Setiap slide:
+   - Baris pertama = HEADLINE (maks 10 kata, impactful)
+   - Baris selanjutnya = BODY (deskripsi 1-3 kalimat)
+7. Gunakan bahasa sehari-hari Indonesia (casual tapi bermakna)
+8. Jika sudah ada script/hook/value, TINGKATKAN kualitasnya (lebih engaging, hook lebih kuat, value lebih tajam)
+
+FORMAT OUTPUT (HANYA script, tanpa penjelasan tambahan):
+Hal 1:
+[hook headline]
+[hook body]
+
+Hal 2:
+[value headline]
+[value body]
+
+...dst"""
+
+    try:
+        response = model.generate_content(prompt)
+        script_text = response.text.strip()
+        slide_count = len(re.findall(r'^Hal\s*\d+\s*:', script_text, re.MULTILINE | re.IGNORECASE))
+        return {
+            "success": True,
+            "full_script": script_text,
+            "slide_count": slide_count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
 
 
 if __name__ == "__main__":

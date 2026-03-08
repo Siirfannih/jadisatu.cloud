@@ -565,11 +565,27 @@
                     </div>
                 </div>
                 <div>
-                    <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Full
-                        Script</label>
-                    <textarea id="creative-modal-script" rows="6"
-                        class="w-full rounded-lg bg-black/30 border border-white/10 p-3 text-sm text-white placeholder-gray-500 resize-none outline-none focus:border-personal/50"
-                        placeholder="Hal 2:\nJudul slide pertama\nDeskripsi...\n\nHal 3:\nJudul slide kedua\nDeskripsi...\n\nGunakan Hal N: untuk memisahkan slide"></textarea>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Full Script
+                            <span class="text-gray-500 normal-case font-normal">(primary — pisahkan slide dengan Hal N:)</span>
+                        </label>
+                        <div class="flex gap-1.5">
+                            <button type="button" id="creative-modal-ai-enhance"
+                                class="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 transition-all"
+                                title="AI Copywriter: perkuat hook, tambah value, rapikan CTA">
+                                <i data-lucide="sparkles" class="w-3 h-3"></i> AI Enhance
+                            </button>
+                            <button type="button" id="creative-modal-sync-down"
+                                class="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400 hover:bg-white/10"
+                                title="Parse Full Script → isi Hook/Value/CTA otomatis">
+                                <i data-lucide="arrow-down" class="w-3 h-3"></i> Parse
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="creative-modal-script" rows="10"
+                        class="w-full rounded-lg bg-black/30 border border-emerald-500/20 p-3 text-sm text-white placeholder-gray-500 resize-none outline-none focus:border-emerald-500/50 custom-scroll"
+                        placeholder="Hal 1:\nHook — kalimat pembuka yang menarik perhatian\n\nHal 2:\nValue point pertama — isi edukatif\n\nHal 3:\nValue point kedua\n\nHal 4:\nCTA — ajakan bertindak"></textarea>
+                    <div id="creative-modal-script-meta" class="text-[9px] text-gray-600 mt-1 text-right"></div>
                 </div>
                 <div class="date-picker-trigger-wrap">
                     <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Tanggal
@@ -860,6 +876,7 @@
                     document.getElementById('creative-modal-value').value = item.value_text || '';
                     document.getElementById('creative-modal-cta').value = item.cta_text || '';
                     document.getElementById('creative-modal-script').value = item.full_script || '';
+                    updateScriptMeta();
                     document.getElementById('creative-modal-scheduled-date').value = item.scheduled_date ? item.scheduled_date.split('T')[0] : '';
                     modalPlatforms = (item.platform || []).slice();
                     document.querySelectorAll('.creative-modal-pill').forEach(function (b) {
@@ -942,7 +959,163 @@
                     }
                     ta.value = scriptParts.join('\n\n');
                     toast('Script digenerate. ' + scriptParts.length + ' slide.');
+                    updateScriptMeta();
                 }
+
+                // ─── Parse Full Script → Hook/Value/CTA ──────────────
+                function parseFullScriptToFields() {
+                    var script = document.getElementById('creative-modal-script').value.trim();
+                    if (!script) { toast('Full Script kosong.'); return; }
+                    var sections = [];
+                    var lines = script.split(/\r?\n/);
+                    var current = null;
+                    for (var i = 0; i < lines.length; i++) {
+                        var t = lines[i].trim();
+                        // Detect Hal N: header
+                        if (/^(Hal|Slide|Page)\s*\d+\s*:?/i.test(t)) {
+                            if (current) sections.push(current);
+                            var hText = t.replace(/^(Hal|Slide|Page)\s*\d+\s*:?\s*/i, '').trim();
+                            current = { lines: hText ? [hText] : [] };
+                        } else if (/^#{1,3}(\s|$)/.test(t)) {
+                            if (current) sections.push(current);
+                            var hh = t.replace(/^#{1,3}\s*/, '').trim();
+                            current = { lines: hh ? [hh] : [] };
+                        } else if (t) {
+                            if (!current) current = { lines: [] };
+                            current.lines.push(t);
+                        }
+                    }
+                    if (current) sections.push(current);
+
+                    if (sections.length === 0) { toast('Tidak ada section ditemukan.'); return; }
+
+                    // First section = Hook
+                    var hookText = sections[0].lines.join('\n');
+                    // Middle sections = Value
+                    var valueLines = [];
+                    for (var j = 1; j < sections.length - 1; j++) {
+                        valueLines.push(sections[j].lines.join('\n'));
+                    }
+                    // Last section = CTA (if more than 1 section)
+                    var ctaText = sections.length > 1 ? sections[sections.length - 1].lines.join('\n') : '';
+
+                    document.getElementById('creative-modal-hook').value = hookText;
+                    document.getElementById('creative-modal-value').value = valueLines.join('\n');
+                    document.getElementById('creative-modal-cta').value = ctaText;
+                    toast('Parsed: ' + sections.length + ' section → Hook + ' + valueLines.length + ' Value + CTA');
+                }
+
+                // ─── Full Script meta (char count, slide count) ──────
+                function updateScriptMeta() {
+                    var ta = document.getElementById('creative-modal-script');
+                    var meta = document.getElementById('creative-modal-script-meta');
+                    if (!ta || !meta) return;
+                    var text = ta.value || '';
+                    var halCount = (text.match(/^(Hal|Slide|Page)\s*\d+\s*:?/gim) || []).length;
+                    meta.textContent = text.length + ' chars · ' + halCount + ' slide';
+                }
+
+                // ─── AI Enhance (Gemini) ─────────────────────────────
+                async function aiEnhanceScript() {
+                    var hookEl = document.getElementById('creative-modal-hook');
+                    var valueEl = document.getElementById('creative-modal-value');
+                    var ctaEl = document.getElementById('creative-modal-cta');
+                    var scriptEl = document.getElementById('creative-modal-script');
+                    var titleEl = document.getElementById('creative-modal-title');
+                    var aiBtn = document.getElementById('creative-modal-ai-enhance');
+
+                    var title = (titleEl && titleEl.value) || '';
+                    var hook = (hookEl && hookEl.value) || '';
+                    var value = (valueEl && valueEl.value) || '';
+                    var cta = (ctaEl && ctaEl.value) || '';
+                    var existingScript = (scriptEl && scriptEl.value) || '';
+
+                    if (!title && !hook && !value && !existingScript) {
+                        toast('Isi judul atau salah satu field dulu.');
+                        return;
+                    }
+
+                    // Show loading state
+                    if (aiBtn) {
+                        aiBtn.disabled = true;
+                        aiBtn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Generating...';
+                    }
+
+                    try {
+                        var selectedPlatforms = [];
+                        document.querySelectorAll('.creative-modal-pill.active, .creative-modal-pill[style*="personal"]').forEach(function(p) {
+                            selectedPlatforms.push(p.getAttribute('data-p'));
+                        });
+
+                        var res = await fetch('/api/ai-script', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: title,
+                                hook: hook,
+                                value: value,
+                                cta: cta,
+                                existing_script: existingScript,
+                                platforms: selectedPlatforms
+                            })
+                        });
+
+                        if (!res.ok) throw new Error('AI request failed: ' + res.status);
+                        var data = await res.json();
+
+                        if (data.full_script) {
+                            scriptEl.value = data.full_script;
+                            // Auto-parse into fields
+                            parseFullScriptToFields();
+                            updateScriptMeta();
+                            toast('AI script generated! ' + (data.slide_count || '?') + ' slides.');
+                        } else {
+                            toast('AI tidak menghasilkan output. Coba lagi.');
+                        }
+                    } catch (err) {
+                        console.error('[AI Enhance]', err);
+                        toast('AI gagal: ' + err.message);
+                    } finally {
+                        if (aiBtn) {
+                            aiBtn.disabled = false;
+                            aiBtn.innerHTML = '<i data-lucide="sparkles" class="w-3 h-3"></i> AI Enhance';
+                            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+                        }
+                    }
+                }
+
+                // ─── Wire up bidirectional sync ──────────────────
+                // Parse button
+                var _syncDownBtn = document.getElementById('creative-modal-sync-down');
+                if (_syncDownBtn) _syncDownBtn.addEventListener('click', parseFullScriptToFields);
+
+                // AI Enhance button
+                var _aiBtn = document.getElementById('creative-modal-ai-enhance');
+                if (_aiBtn) _aiBtn.addEventListener('click', aiEnhanceScript);
+
+                // Update meta on script input
+                var _scriptTa = document.getElementById('creative-modal-script');
+                if (_scriptTa) _scriptTa.addEventListener('input', updateScriptMeta);
+
+                // Auto-rebuild Full Script when Hook/Value/CTA fields change
+                ['creative-modal-hook', 'creative-modal-value', 'creative-modal-cta'].forEach(function(fid) {
+                    var el = document.getElementById(fid);
+                    if (el) el.addEventListener('input', function() {
+                        var h = document.getElementById('creative-modal-hook').value.trim();
+                        var v = document.getElementById('creative-modal-value').value.trim();
+                        var c = document.getElementById('creative-modal-cta').value.trim();
+                        if (!h && !v && !c) return;
+                        var parts = [];
+                        if (h) parts.push('Hal 1:\n' + h);
+                        var vLines = v.split(/\r?\n/).filter(function(l) { return l.trim(); });
+                        vLines.forEach(function(vl, vi) {
+                            parts.push('Hal ' + (vi + 2) + ':\n' + vl.trim());
+                        });
+                        if (c) parts.push('Hal ' + (vLines.length + 2) + ':\n' + c);
+                        var ta = document.getElementById('creative-modal-script');
+                        if (ta) { ta.value = parts.join('\n\n'); updateScriptMeta(); }
+                    });
+                });
 
                 function toast(msg) {
                     var el = document.getElementById('creative-toast');
