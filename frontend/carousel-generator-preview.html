@@ -892,11 +892,13 @@
                                         class="absolute bottom-5 inset-x-5 flex justify-between items-end z-20 pointer-events-none">
 
                                         <!-- Navigation -->
-                                        <div class="flex gap-2 pointer-events-auto">
+                                        <div class="flex gap-2 pointer-events-auto items-center">
                                             <button id="carousel-prev-btn" type="button"
                                                 class="w-12 h-12 rounded-full glass-panel flex items-center justify-center hover:bg-white/10 hover:text-white transition-all shadow-[0_8px_20px_rgba(0,0,0,0.5)] border-glass text-gray-500 disabled:opacity-30">
                                                 <i data-lucide="chevron-left" class="w-6 h-6"></i>
                                             </button>
+                                            <!-- Style indicator dots (per-slide style selection) -->
+                                            <div id="slide-style-indicator" class="hidden flex gap-1.5 items-center glass-panel rounded-full px-3 py-2 shadow-[0_8px_20px_rgba(0,0,0,0.5)] border-glass"></div>
                                             <button id="carousel-next-btn" type="button"
                                                 class="w-12 h-12 rounded-full glass-panel flex items-center justify-center hover:bg-white/10 text-white transition-all shadow-[0_8px_20px_rgba(0,0,0,0.5)] border-glass">
                                                 <i data-lucide="chevron-right" class="w-6 h-6"></i>
@@ -1266,6 +1268,10 @@
         var currentSlideIndex = 0;
         var platformRules = { platform: 'instagram', maxSlides: 10, canvasSize: '1080x1080' };
 
+        // ─── Template Folder System (per-slide styles) ────────────────────
+        var templateFolder = null;       // { name, shared_brand, styles: [{index, name, schema}] }
+        var slideStyleAssignments = [];  // parallel to slidesData: [styleIndex, ...]
+
         var PLATFORM_RULES = {
             instagram: { maxSlides: 10, canvasSize: '1080x1080', label: 'Instagram' },
             linkedin: { maxSlides: 10, canvasSize: '1080x1080', label: 'LinkedIn' },
@@ -1350,6 +1356,100 @@
             });
         }
 
+        // ─── Template Folder Helpers ───────────────────────────────────────
+        function isDarkColor(hex) {
+            if (!hex || hex.length < 4) return true;
+            hex = hex.replace('#', '');
+            if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+            var r = parseInt(hex.substr(0,2), 16);
+            var g = parseInt(hex.substr(2,2), 16);
+            var b = parseInt(hex.substr(4,2), 16);
+            return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+        }
+
+        function getVisualRichness(schema) {
+            // Score: diagram=3, illustration=2, icon=1, none=0
+            var mode = (schema && schema.visual_mode) || 'none';
+            if (mode === 'diagram') return 3;
+            if (mode === 'illustration') return 2;
+            if (mode === 'icon') return 1;
+            return 0;
+        }
+
+        function autoAssignStyles(slides, styles) {
+            if (!styles || styles.length === 0) { slideStyleAssignments = []; return; }
+            if (styles.length === 1) {
+                slideStyleAssignments = slides.map(function() { return 0; });
+                return;
+            }
+
+            // Sort styles by visual richness to find most/least visual
+            var scored = styles.map(function(s, i) { return { idx: i, score: getVisualRichness(s.schema) }; });
+            scored.sort(function(a, b) { return b.score - a.score; }); // descending
+            var mostVisualIdx = scored[0].idx;
+            var leastVisualIdx = scored[scored.length - 1].idx;
+
+            slideStyleAssignments = slides.map(function(slide, i) {
+                if (slide.type === 'hook') return mostVisualIdx;
+                if (slide.type === 'cta') return leastVisualIdx;
+                // Value slides cycle through all styles
+                return i % styles.length;
+            });
+
+            console.log('[TemplateFolders] Auto-assigned styles:', slideStyleAssignments.map(function(s, i) {
+                return 'Slide ' + (i+1) + ' → Style ' + (s+1);
+            }));
+        }
+
+        function applySlideStyle(slideIndex) {
+            if (!templateFolder || !templateFolder.styles || !templateFolder.styles.length) return;
+            var styleIdx = (slideStyleAssignments[slideIndex] != null) ? slideStyleAssignments[slideIndex] : 0;
+            var style = templateFolder.styles[styleIdx];
+            if (!style || !style.schema) return;
+
+            console.log('[TemplateFolders] Applying Style ' + (styleIdx + 1) + ' (' + (style.schema.template_family || 'unknown') + ') to slide ' + (slideIndex + 1));
+
+            // Apply visual mode from this style's schema
+            applyVisualMode(style.schema);
+
+            // Update style indicator dots
+            updateStyleIndicator(styleIdx, templateFolder.styles.length);
+        }
+
+        function updateStyleIndicator(activeIdx, totalStyles) {
+            var container = document.getElementById('slide-style-indicator');
+            if (!container) return;
+            if (!templateFolder || totalStyles <= 1) {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            var html = '';
+            for (var i = 0; i < totalStyles; i++) {
+                var style = templateFolder.styles[i];
+                var bgColor = (style && style.schema && style.schema.color_palette) ? style.schema.color_palette.primary : '#8b5cf6';
+                var isActive = i === activeIdx;
+                html += '<button class="style-dot" data-style-index="' + i + '" title="Style ' + (i+1) + ': ' + (style ? style.name : '') + '"'
+                    + ' style="width:' + (isActive ? '24px' : '10px') + '; height:10px; border-radius:5px; border:1.5px solid ' + (isActive ? bgColor : 'rgba(255,255,255,0.2)') + '; background:' + (isActive ? bgColor : 'transparent')
+                    + '; transition:all 0.2s; cursor:pointer; outline:none; padding:0;"'
+                    + '></button>';
+            }
+            container.innerHTML = html;
+            // Click handlers for style dots
+            container.querySelectorAll('.style-dot').forEach(function(dot) {
+                dot.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var idx = parseInt(this.getAttribute('data-style-index'), 10);
+                    if (!isNaN(idx) && templateFolder && templateFolder.styles[idx]) {
+                        slideStyleAssignments[currentSlideIndex] = idx;
+                        applySlideStyle(currentSlideIndex);
+                        renderSlideStrip(); // Update thumbnail style dots
+                        console.log('[TemplateFolders] Manual override: Slide ' + (currentSlideIndex+1) + ' → Style ' + (idx+1));
+                    }
+                });
+            });
+        }
+
         function renderSlideStrip() {
             var container = document.getElementById('carousel-slide-strip');
             if (!container) return;
@@ -1365,7 +1465,12 @@
                 html += '<div class="absolute inset-0 p-2.5 flex flex-col justify-between">';
                 html += '  <div class="flex justify-between items-start">';
                 html += '    <span class="inline-flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-bold ' + (isActive ? 'bg-primary text-white' : 'bg-white/10 text-gray-400') + '">' + (i + 1) + '</span>';
-                if (slide.type === 'hook') { html += '    <span class="text-[8px] uppercase tracking-widest font-bold text-primary-light">Hook</span>'; }
+                // Style dot indicator on thumbnail
+                var _styleIdx = slideStyleAssignments[i];
+                if (templateFolder && templateFolder.styles && templateFolder.styles.length > 1 && _styleIdx != null) {
+                    var _stylePrimary = (templateFolder.styles[_styleIdx] && templateFolder.styles[_styleIdx].schema && templateFolder.styles[_styleIdx].schema.color_palette) ? templateFolder.styles[_styleIdx].schema.color_palette.primary : '#8b5cf6';
+                    html += '    <span style="width:8px; height:8px; border-radius:50%; background:' + _stylePrimary + '; border:1px solid rgba(255,255,255,0.3); flex-shrink:0;" title="Style ' + (_styleIdx+1) + '"></span>';
+                } else if (slide.type === 'hook') { html += '    <span class="text-[8px] uppercase tracking-widest font-bold text-primary-light">Hook</span>'; }
                 html += '  </div>';
                 html += '  <span class="line-clamp-3 text-[9px] leading-tight ' + (isActive ? 'text-gray-200' : 'text-gray-500') + '">' + esc(slide.headline || '') + '</span>';
                 html += '</div></div>';
@@ -1819,6 +1924,53 @@
             }
         }
 
+        async function saveTemplateFolderToDB(folder) {
+            if (!folder) return false;
+            try {
+                var folderData = {
+                    name: folder.name || 'Template Folder',
+                    shared_brand: folder.shared_brand || {},
+                    styles: folder.styles || [],
+                    source: 'smart-extractor'
+                };
+
+                // Save to Supabase if logged in
+                if (supabaseClient && currentUserId) {
+                    try {
+                        var res = await supabaseClient.from('user_template_folders').insert({
+                            user_id: currentUserId,
+                            name: folderData.name,
+                            shared_brand: folderData.shared_brand,
+                            styles: folderData.styles,
+                            source: folderData.source
+                        });
+                        if (res.error) throw res.error;
+                        console.log('[TemplateFolders] Saved folder to Supabase');
+                        return true;
+                    } catch (e) {
+                        console.warn('[TemplateFolders] Supabase save failed, falling back to localStorage:', e);
+                    }
+                }
+
+                // Fallback: localStorage
+                try {
+                    var local = JSON.parse(localStorage.getItem('jadisatu_template_folders') || '[]');
+                    folderData.created_at = new Date().toISOString();
+                    local.unshift(folderData);
+                    if (local.length > 20) local = local.slice(0, 20);
+                    localStorage.setItem('jadisatu_template_folders', JSON.stringify(local));
+                    console.log('[TemplateFolders] Saved folder to localStorage');
+                    return true;
+                } catch (e) {
+                    console.warn('[TemplateFolders] localStorage save failed:', e);
+                    return false;
+                }
+            } catch (e) {
+                console.error('[TemplateFolders] Save error:', e);
+                return false;
+            }
+        }
+
         function goToSlide(delta) {
             var next = currentSlideIndex + delta;
             if (next < 0 || next >= slidesData.length) return;
@@ -1828,6 +1980,8 @@
             if (slide && slide._layout) applyLayout(slide._layout);
             renderSlideStrip();
             renderMainPreview();
+            // Apply per-slide style from template folder
+            applySlideStyle(currentSlideIndex);
             // Hide tweak/reject panels and update feedback on slide change
             if (typeof window._hideTweakAndReject === 'function') window._hideTweakAndReject();
             if (typeof window._updateFeedbackUI === 'function') window._updateFeedbackUI();
@@ -2123,6 +2277,8 @@
             if (slide && slide._layout) applyLayout(slide._layout);
 
             renderMainPreview();
+            // Apply per-slide style for export
+            applySlideStyle(slideIndex);
             autoFitText(); // ensure text fits before capture
             if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 
@@ -2440,18 +2596,25 @@
                                 seSetStep(3, 'Menganalisis desain dengan Gemini Vision…', 'Gemini Vision');
 
                                 // ── Call Python AI Backend (Gemini Vision) ──────────────────
-                                var res = await fetch(CAROUSEL_AI_BACKEND_URL + '/api/carousel/extract-template', {
+                                var isMultiImage = payload.images.length > 1;
+                                var apiEndpoint = isMultiImage
+                                    ? '/api/carousel/extract-template-folder'
+                                    : '/api/carousel/extract-template';
+
+                                console.log('[Smart Extractor] Using ' + (isMultiImage ? 'per-image folder' : 'single') + ' extraction (' + payload.images.length + ' images)');
+
+                                var res = await fetch(CAROUSEL_AI_BACKEND_URL + apiEndpoint, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ images: payload.images })
                                 });
 
                                 // Step 4: Extract design tokens from schema
-                                seSetStep(4, 'Mengekstrak design tokens…', 'Token Extractor');
+                                seSetStep(4, isMultiImage ? 'Mengekstrak ' + payload.images.length + ' style per gambar…' : 'Mengekstrak design tokens…', 'Token Extractor');
                                 await new Promise(function (r) { setTimeout(r, 200); });
 
                                 // Step 5: Template Family Classifier
-                                seSetStep(5, 'Mengklasifikasikan template family…', 'Family Classifier');
+                                seSetStep(5, isMultiImage ? 'Mengklasifikasikan ' + payload.images.length + ' template families…' : 'Mengklasifikasikan template family…', 'Family Classifier');
                                 await new Promise(function (r) { setTimeout(r, 200); });
 
                                 var data = await res.json();
@@ -2460,26 +2623,75 @@
                                 console.group('%c[Smart Extractor] Gemini Vision Pipeline Response', 'color: #a78bfa; font-weight: bold');
                                 console.log('Status:', res.status, res.ok ? 'OK' : 'ERROR');
                                 console.log('Pipeline:', data.pipeline || 'unknown');
-                                console.log('Images processed:', data.images_processed || 1);
-                                console.log('template_schema:', data.template_schema);
-                                console.log('color_roles:', data.template_schema ? data.template_schema.color_roles : 'n/a');
-                                console.log('visual_mode:', data.template_schema ? data.template_schema.visual_mode : 'n/a');
-                                console.log('diagram_type:', data.template_schema ? data.template_schema.diagram_type : 'n/a');
-                                console.log('extracted_style:', data.extracted_style);
-                                console.log('asset_plan:', data.asset_plan);
+                                console.log('Mode:', isMultiImage ? 'per-image folder' : 'single');
+                                if (isMultiImage) {
+                                    console.log('Style count:', data.style_count || 0);
+                                    console.log('Styles:', data.styles);
+                                    console.log('Shared brand:', data.shared_brand);
+                                } else {
+                                    console.log('Images processed:', data.images_processed || 1);
+                                    console.log('template_schema:', data.template_schema);
+                                }
                                 if (data.error) console.error('Error:', data.error, data.detail || '');
                                 console.groupEnd();
 
-                                if (!res.ok || !data.success || !data.template_schema) {
+                                if (!res.ok || !data.success) {
                                     seShowError(data.error || data.detail || 'Gagal ekstrak template dari AI backend');
                                     return;
                                 }
 
-                                // Step 6: Build Design Schema + QA
-                                seSetStep(6, 'Membangun Design Schema JSON…', 'Schema Builder');
-                                await new Promise(function (r) { setTimeout(r, 300); });
+                                // ── Handle per-image folder result ──────────────────────
+                                if (isMultiImage && data.styles && data.styles.length > 0) {
+                                    seSetStep(6, 'Membangun Template Folder (' + data.styles.length + ' styles)…', 'Folder Builder');
+                                    await new Promise(function (r) { setTimeout(r, 300); });
 
-                                var schema = data.template_schema || {};
+                                    // Build template folder
+                                    templateFolder = {
+                                        name: 'Folder — ' + new Date().toLocaleDateString('id-ID'),
+                                        shared_brand: data.shared_brand || {},
+                                        styles: data.styles
+                                    };
+
+                                    // Auto-assign styles to slides
+                                    autoAssignStyles(slidesData, templateFolder.styles);
+
+                                    // Use first style's schema as the primary schema for brand/canvas setup
+                                    var schema = templateFolder.styles[0].schema;
+
+                                    console.group('%c[Template Folder] Built folder with ' + templateFolder.styles.length + ' styles', 'color: #34d399; font-weight: bold');
+                                    templateFolder.styles.forEach(function(s) {
+                                        console.log('  Style ' + (s.index + 1) + ': ' + (s.schema.template_family || 'unknown') + ' | visual_mode=' + (s.schema.visual_mode || 'n/a'));
+                                    });
+                                    console.log('Auto-assignments:', slideStyleAssignments);
+                                    console.groupEnd();
+
+                                } else {
+                                    // Single image — wrap in folder for consistency
+                                    if (!data.template_schema) {
+                                        seShowError('Gagal ekstrak template dari AI backend');
+                                        return;
+                                    }
+
+                                    // Step 6: Build Design Schema + QA
+                                    seSetStep(6, 'Membangun Design Schema JSON…', 'Schema Builder');
+                                    await new Promise(function (r) { setTimeout(r, 300); });
+
+                                    var schema = data.template_schema;
+
+                                    // Wrap single schema in folder format
+                                    templateFolder = {
+                                        name: ((schema.template_family || 'AI Template').replace(/_/g, ' ')) + ' — ' + new Date().toLocaleDateString('id-ID'),
+                                        shared_brand: {
+                                            color_palette: schema.color_palette || {},
+                                            typography: schema.typography || {},
+                                            canvas: schema.canvas || { width: 1080, height: 1080 }
+                                        },
+                                        styles: [{ index: 0, name: 'Style 1', schema: schema }]
+                                    };
+                                    slideStyleAssignments = slidesData.map(function() { return 0; });
+                                }
+
+                                var schema = (templateFolder && templateFolder.styles[0]) ? templateFolder.styles[0].schema : data.template_schema;
                                 var cp     = schema.color_palette    || {};
                                 var typo   = schema.typography        || {};
                                 // Support both layout_structure (new) and composition (legacy)
@@ -2570,6 +2782,9 @@
                                 // Apply schema-driven template to canvas
                                 applyTemplateToCanvas(templateToSave);
 
+                                // Apply per-slide style (first slide)
+                                applySlideStyle(currentSlideIndex);
+
                                 // Step 8: Auto-save to DB
                                 seSetStep(8, 'Menyimpan template ke database…', 'Auto-Save');
 
@@ -2584,8 +2799,15 @@
                                 var saved = await saveTemplateToDB(templateToSave);
                                 if (saved) {
                                     console.log('[Smart Extractor] Template auto-saved to DB');
-                                    if (typeof window._loadTemplateGallery === 'function') window._loadTemplateGallery();
                                 }
+
+                                // Also save template folder if multi-style
+                                if (templateFolder && templateFolder.styles.length > 1) {
+                                    var folderSaved = await saveTemplateFolderToDB(templateFolder);
+                                    if (folderSaved) console.log('[Smart Extractor] Template folder auto-saved');
+                                }
+
+                                if (typeof window._loadTemplateGallery === 'function') window._loadTemplateGallery();
 
                                 seShowDone(schema);
                                 if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
@@ -3115,6 +3337,7 @@
                 if (!grid) return;
 
                 var templates = [];
+                var folders = [];
 
                 // Load from Supabase if logged in
                 if (supabaseClient && currentUserId) {
@@ -3129,6 +3352,19 @@
                             templates = res.data;
                         }
                     } catch (e) { console.warn('Load templates from DB failed:', e); }
+
+                    // Also load template folders
+                    try {
+                        var fRes = await supabaseClient
+                            .from('user_template_folders')
+                            .select('id, name, shared_brand, styles, source, created_at')
+                            .eq('user_id', currentUserId)
+                            .order('created_at', { ascending: false })
+                            .limit(12);
+                        if (fRes.data && fRes.data.length > 0) {
+                            folders = fRes.data;
+                        }
+                    } catch (e) { console.warn('Load template folders from DB failed:', e); }
                 }
 
                 // Fallback: load from localStorage
@@ -3136,6 +3372,12 @@
                     try {
                         var local = JSON.parse(localStorage.getItem('jadisatu_carousel_templates') || '[]');
                         templates = local.map(function (t, i) { return { id: 'local-' + i, name: t.name, template_data: t, created_at: t.created_at }; });
+                    } catch (e) { }
+                }
+                if (folders.length === 0) {
+                    try {
+                        var localFolders = JSON.parse(localStorage.getItem('jadisatu_template_folders') || '[]');
+                        folders = localFolders.map(function(f, i) { return { id: 'local-folder-' + i, name: f.name, shared_brand: f.shared_brand, styles: f.styles, source: f.source, created_at: f.created_at }; });
                     } catch (e) { }
                 }
 
@@ -3146,6 +3388,109 @@
                     grid.innerHTML = '<div id="template-gallery-empty" class="col-span-full text-center py-6"><p class="text-[11px] text-gray-500">Belum ada template tersimpan. Upload gambar di Smart Extractor.</p></div>';
                     return;
                 }
+
+                // Render template folder cards first
+                folders.forEach(function (folder) {
+                    var styles = folder.styles || [];
+                    var brand = folder.shared_brand || {};
+                    var cp = brand.color_palette || {};
+                    var bgColor = cp.background || '#0f0f11';
+                    var primaryColor = cp.primary || '#8b5cf6';
+                    var textColor = cp.text_primary || '#ffffff';
+                    var name = folder.name || 'Template Folder';
+                    var createdAt = folder.created_at ? new Date(folder.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+                    // Build multi-style preview (stacked color strips)
+                    var stripHtml = styles.map(function(s) {
+                        var scp = (s.schema && s.schema.color_palette) || {};
+                        var sBg = scp.background || '#1a1a2e';
+                        var sPrimary = scp.primary || '#8b5cf6';
+                        return '<div style="flex:1; background:' + sBg + '; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:4px;">'
+                            + '<div style="width:60%; height:4px; background:' + sPrimary + '; border-radius:2px; opacity:0.8;"></div>'
+                            + '<div style="width:80%; height:2px; background:' + (scp.text_primary || '#fff') + '; border-radius:1px; opacity:0.2;"></div>'
+                            + '</div>';
+                    }).join('');
+
+                    var previewHtml = '<div style="width:100%; height:100%; display:flex; overflow:hidden;">' + stripHtml + '</div>';
+
+                    var card = document.createElement('div');
+                    card.className = 'template-card';
+                    card.innerHTML =
+                        '<div class="tpl-preview" style="position:relative;">' + previewHtml
+                            + '<div style="position:absolute; top:4px; right:4px; background:' + primaryColor + '; color:' + (isDarkColor(primaryColor) ? '#fff' : '#000') + '; font-size:8px; font-weight:700; padding:2px 6px; border-radius:4px;">' + styles.length + ' styles</div>'
+                        + '</div>'
+                        + '<div class="tpl-colors">'
+                            + styles.map(function(s) {
+                                var scp = (s.schema && s.schema.color_palette) || {};
+                                return '<div class="tpl-swatch" title="Style ' + (s.index+1) + '" style="background:' + (scp.primary || '#8b5cf6') + '"></div>';
+                            }).join('')
+                        + '</div>'
+                        + '<div class="tpl-name">' + esc(name) + '</div>'
+                        + '<div class="tpl-date">' + createdAt + '</div>'
+                        + '<div class="tpl-apply-btn">Apply Folder</div>'
+                        + '<div class="tpl-delete-btn" data-folder-id="' + folder.id + '">Delete</div>';
+
+                    // Apply folder on click
+                    var applyFolder = function() {
+                        templateFolder = {
+                            name: folder.name,
+                            shared_brand: folder.shared_brand || {},
+                            styles: folder.styles || []
+                        };
+                        autoAssignStyles(slidesData, templateFolder.styles);
+                        // Apply first style as primary template
+                        if (templateFolder.styles.length > 0) {
+                            var firstSchema = templateFolder.styles[0].schema;
+                            var cp2 = firstSchema.color_palette || {};
+                            var typo2 = firstSchema.typography || {};
+                            var layout2 = firstSchema.layout_structure || firstSchema.composition || {};
+                            var templateToApply = {
+                                name: folder.name,
+                                layout: layout2.type || 'center',
+                                canvas_size: '1080x1080',
+                                template_schema: firstSchema,
+                                css_variables: {
+                                    '--preview-bg': cp2.background || '#0f0f11',
+                                    '--preview-primary': cp2.primary || '#8b5cf6',
+                                    '--preview-secondary': cp2.secondary || '#6366f1',
+                                    '--preview-accent': cp2.accent || '#f59e0b',
+                                    '--preview-font': (typo2.heading_font || 'Inter'),
+                                    '--canvas-padding': (layout2.padding || 64) + 'px',
+                                    '--canvas-gap': (layout2.gap || 24) + 'px',
+                                    '--canvas-align': layout2.alignment || 'center',
+                                    '--canvas-text-align': layout2.text_alignment || 'center'
+                                },
+                                source: 'template-folder'
+                            };
+                            applyTemplateToCanvas(templateToApply);
+                            applySlideStyle(currentSlideIndex);
+                        }
+                        if (window._carouselToast) window._carouselToast('Folder "' + name + '" diterapkan! (' + styles.length + ' styles)');
+                    };
+
+                    card.querySelector('.tpl-apply-btn').addEventListener('click', function(e) { e.stopPropagation(); applyFolder(); });
+                    card.addEventListener('click', applyFolder);
+
+                    // Delete folder
+                    card.querySelector('.tpl-delete-btn').addEventListener('click', async function(e) {
+                        e.stopPropagation();
+                        var id = this.getAttribute('data-folder-id');
+                        if (id.startsWith('local-folder-')) {
+                            var idx = parseInt(id.replace('local-folder-', ''));
+                            try {
+                                var localF = JSON.parse(localStorage.getItem('jadisatu_template_folders') || '[]');
+                                localF.splice(idx, 1);
+                                localStorage.setItem('jadisatu_template_folders', JSON.stringify(localF));
+                            } catch (err) { }
+                        } else if (supabaseClient) {
+                            try { await supabaseClient.from('user_template_folders').delete().eq('id', id); } catch (err) { console.warn('Delete folder failed:', err); }
+                        }
+                        loadTemplateGallery();
+                        if (window._carouselToast) window._carouselToast('Folder dihapus.');
+                    });
+
+                    grid.appendChild(card);
+                });
 
                 templates.forEach(function (tpl) {
                     var data = tpl.template_data || {};

@@ -292,6 +292,108 @@ class CarouselDesignExtractor:
             return {"success": False, "error": str(e)}
 
 
+    def _extract_single_image(self, img_b64: str, image_index: int = 0) -> Dict:
+        """
+        Extract schema from a SINGLE image.
+        Used by extract_design_schemas_per_image for per-image analysis.
+        """
+        try:
+            parts = [DESIGN_EXTRACTION_PROMPT]
+
+            if "," in img_b64:
+                header, data = img_b64.split(",", 1)
+                mime = (
+                    header.split(":")[1].split(";")[0]
+                    if ":" in header
+                    else "image/jpeg"
+                )
+            else:
+                data = img_b64
+                mime = "image/jpeg"
+
+            img_bytes = base64.b64decode(data)
+            parts.append({"mime_type": mime, "data": img_bytes})
+
+            response = self.model.generate_content(parts)
+            raw = response.text.strip()
+
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            elif raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+
+            gemini_schema = json.loads(raw)
+
+            family = gemini_schema.get("template_family", "")
+            if family not in TEMPLATE_FAMILIES:
+                classifier = TemplateFamilyClassifier()
+                family = classifier.classify(
+                    style_traits=gemini_schema.get("style_traits", []),
+                    color_palette=gemini_schema.get("color_palette", {}),
+                    visual_components=gemini_schema.get("visual_components", []),
+                )
+                gemini_schema["template_family"] = family
+
+            schema = build_complete_schema(gemini_schema)
+            print(f"  [Image {image_index + 1}] ✅ {schema['template_family']} | "
+                  f"visual_mode={schema['visual_mode']} | bg={schema['color_palette']['background']}")
+            return {"success": True, "schema": schema}
+
+        except json.JSONDecodeError as e:
+            print(f"  [Image {image_index + 1}] ❌ JSON parse error: {e}")
+            return {"success": False, "error": f"JSON parse error: {str(e)}"}
+        except Exception as e:
+            print(f"  [Image {image_index + 1}] ❌ Error: {e}")
+            return {"success": False, "error": str(e)}
+
+    def extract_design_schemas_per_image(self, images_b64: List[str]) -> Dict:
+        """
+        Analyze each image SEPARATELY with individual Gemini calls.
+        Returns N schemas (styles) + shared brand derived from first image.
+        """
+        print(f"🔄 Extracting {len(images_b64)} images (per-image mode)...")
+        schemas = []
+
+        for i, img_b64 in enumerate(images_b64[:5]):  # Max 5 images
+            print(f"  Processing image {i + 1}/{min(len(images_b64), 5)}...")
+            result = self._extract_single_image(img_b64, i)
+            if result.get("success"):
+                schemas.append({
+                    "index": i,
+                    "name": f"Style {i + 1}",
+                    "schema": result["schema"]
+                })
+            else:
+                print(f"  [Image {i + 1}] Skipped: {result.get('error', 'unknown error')}")
+
+        if not schemas:
+            return {"success": False, "error": "No images could be analyzed"}
+
+        # Derive shared brand from first image (canonical)
+        first = schemas[0]["schema"]
+        shared_brand = {
+            "color_palette": first.get("color_palette", {}),
+            "typography": first.get("typography", {}),
+            "canvas": first.get("canvas", {"width": 1080, "height": 1080, "aspect_ratio": "1:1"})
+        }
+
+        print(f"✅ Per-image extraction complete: {len(schemas)} styles")
+        for s in schemas:
+            sc = s["schema"]
+            print(f"   Style {s['index'] + 1}: {sc.get('template_family')} | "
+                  f"visual_mode={sc.get('visual_mode')} | "
+                  f"diagram_type={sc.get('diagram_type', 'n/a')}")
+
+        return {
+            "success": True,
+            "styles": schemas,
+            "shared_brand": shared_brand,
+            "style_count": len(schemas)
+        }
+
 # ─── Template Family Classifier ───────────────────────────────────────────────
 class TemplateFamilyClassifier:
     """

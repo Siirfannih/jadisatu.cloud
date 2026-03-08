@@ -350,6 +350,59 @@ Create 5-8 slides. Last slide should be CTA. Return ONLY valid JSON."""
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+
+class ExtractTemplateFolderRequest(BaseModel):
+    images: List[str]
+
+@app.post("/api/carousel/extract-template-folder")
+async def extract_template_folder(req: ExtractTemplateFolderRequest):
+    """
+    Analyze each image SEPARATELY.
+    Returns N schemas (styles) + shared brand for template folder system.
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+    if not req.images:
+        raise HTTPException(status_code=400, detail="No images provided")
+    if len(req.images) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 images allowed")
+
+    from carousel_processor import CarouselDesignExtractor
+    extractor = CarouselDesignExtractor(api_key=gemini_key)
+
+    if len(req.images) == 1:
+        # Single image — use existing extraction, wrap in folder format
+        result = extractor.extract_design_schema(req.images)
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Extraction failed"))
+        schema = result["schema"]
+        return {
+            "success": True,
+            "styles": [{"index": 0, "name": "Style 1", "schema": schema}],
+            "shared_brand": {
+                "color_palette": schema.get("color_palette", {}),
+                "typography": schema.get("typography", {}),
+                "canvas": schema.get("canvas", {})
+            },
+            "style_count": 1,
+            "pipeline": "gemini-vision-single-v1"
+        }
+
+    # Multiple images — per-image extraction
+    result = extractor.extract_design_schemas_per_image(req.images)
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Extraction failed"))
+
+    return {
+        "success": True,
+        "styles": result["styles"],
+        "shared_brand": result["shared_brand"],
+        "style_count": result["style_count"],
+        "pipeline": "gemini-vision-per-image-v1"
+    }
+
 @app.get("/api/carousel/template-families")
 def get_template_families():
     """Returns available template families and their component sets."""
