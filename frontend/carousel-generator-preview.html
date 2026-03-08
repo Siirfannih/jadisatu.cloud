@@ -465,6 +465,43 @@
             max-width: 160px;
             max-height: 160px;
         }
+
+        /* Layout Variants */
+        .layout-hero-center .slide-text-group {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; text-align: center; flex: 1;
+        }
+        .layout-hero-center #carousel-preview-headline {
+            font-size: 2rem !important; line-height: 1.2; font-weight: 800;
+            max-width: 90%;
+        }
+        .layout-hero-center #carousel-preview-body { display: none !important; }
+
+        .layout-card-detail #carousel-preview-body {
+            background: rgba(255,255,255,0.06); border-radius: 12px;
+            padding: 16px; border: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.85rem; line-height: 1.6;
+        }
+
+        .layout-text-heavy #carousel-preview-headline {
+            font-size: 1.3rem !important; margin-bottom: 4px;
+        }
+        .layout-text-heavy #carousel-preview-body {
+            font-size: 0.9rem; line-height: 1.7; white-space: pre-line;
+        }
+        .layout-text-heavy .slide-visual-group { display: none !important; }
+
+        .layout-dramatic-closer #carousel-slide-content {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; text-align: center;
+        }
+        .layout-dramatic-closer #carousel-preview-headline {
+            font-size: 1.8rem !important; line-height: 1.3; font-weight: 800;
+        }
+        .layout-dramatic-closer #carousel-preview-body {
+            font-size: 1rem; opacity: 0.8; margin-top: 12px;
+        }
+        .layout-dramatic-closer .slide-visual-group { display: none !important; }
     </style>
 </head>
 
@@ -1867,6 +1904,106 @@
         var currentLayout = 'center';
         var visualOnTop = true; // element order: visual above text
 
+
+        // ─── Layout Variant System ────────────────────────────────
+        var LAYOUT_CLASSES = ['layout-hero-center', 'layout-card-detail', 'layout-text-heavy', 'layout-dramatic-closer'];
+
+        function applyLayoutVariant(layoutType) {
+            var canvas = document.getElementById('carousel-live-canvas');
+            if (!canvas) return;
+            // Remove all layout classes
+            LAYOUT_CLASSES.forEach(function(cls) { canvas.classList.remove(cls); });
+            // Apply new layout
+            if (layoutType && layoutType !== 'default') {
+                canvas.classList.add('layout-' + layoutType);
+            }
+            console.log('[Layout] Applied:', layoutType || 'default');
+        }
+
+        function applyBgVariant(bgVariant, schema) {
+            var canvas = document.getElementById('carousel-live-canvas');
+            if (!canvas) return;
+            var cp = (schema && schema.color_palette) || {};
+            if (bgVariant === 'dark') {
+                canvas.style.background = cp.background || '#0f0f11';
+                canvas.style.color = '#ffffff';
+            } else {
+                canvas.style.background = cp.secondary || '#f5f5f0';
+                canvas.style.color = cp.text || '#1a1a1a';
+            }
+        }
+
+        function applySlideIcon(iconName) {
+            var iconWrap = document.getElementById('carousel-preview-icon-wrap');
+            if (!iconWrap || !iconName) return;
+            iconWrap.classList.remove('hidden');
+            iconWrap.style.width = '100px';
+            iconWrap.style.height = '100px';
+            iconWrap.innerHTML = '<i data-lucide="' + iconName + '" class="w-12 h-12"></i>';
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
+        // ─── Content Strategist Integration ──────────────────────
+        var _strategistData = null; // Per-slide decisions from AI
+
+        async function runContentStrategist(fullScript, designSchema) {
+            if (!fullScript || fullScript.length < 30) return null;
+            try {
+                var res = await fetch('/api/carousel/strategize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        full_script: fullScript,
+                        design_schema: designSchema || {},
+                        platform: (platformRules && platformRules.platform) || 'instagram'
+                    })
+                });
+                var data = await res.json();
+                if (data.success && data.slides) {
+                    console.log('[Strategist] Got ' + data.slides.length + ' slide decisions from AI');
+                    return data.slides;
+                } else {
+                    console.warn('[Strategist] Failed:', data.error || 'Unknown error');
+                    return null;
+                }
+            } catch (e) {
+                console.warn('[Strategist] Request failed:', e);
+                return null;
+            }
+        }
+
+        function applyStrategistToSlide(slideIndex) {
+            if (!_strategistData || !_strategistData[slideIndex]) return;
+            var decision = _strategistData[slideIndex];
+
+            // Apply layout variant
+            applyLayoutVariant(decision.layout_type || 'default');
+
+            // Apply bg variant
+            var schema = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
+            applyBgVariant(decision.bg_variant || 'light', schema);
+
+            // Apply visual mode
+            if (decision.visual_mode === 'icon' && decision.icon_name) {
+                applySlideIcon(decision.icon_name);
+            } else if (decision.visual_mode === 'none') {
+                var va = document.getElementById('carousel-preview-visual-area');
+                if (va) va.style.display = 'none';
+            }
+            // diagram mode handled by existing applyVisualMode
+
+            // Update headline/body from strategist (optimized text)
+            if (decision.headline && slidesData[slideIndex]) {
+                slidesData[slideIndex].headline = decision.headline;
+                slidesData[slideIndex].body = decision.body || '';
+                slidesData[slideIndex]._layoutType = decision.layout_type;
+                slidesData[slideIndex]._bgVariant = decision.bg_variant;
+                slidesData[slideIndex]._iconName = decision.icon_name;
+                slidesData[slideIndex]._visualMode = decision.visual_mode;
+                slidesData[slideIndex]._emotionalTone = decision.emotional_tone;
+            }
+        }
+
         function renderMainPreview() {
             var headlineEl = document.getElementById('carousel-preview-headline');
             var bodyEl = document.getElementById('carousel-preview-body');
@@ -2130,19 +2267,25 @@
             renderMainPreview();
             // Apply per-slide style from template folder
             applySlideStyle(currentSlideIndex);
-            // ALWAYS re-render visual mode per slide (diagram content changes per slide)
+            // Apply strategist layout per slide (if available)
+            if (_strategistData && _strategistData[currentSlideIndex]) {
+                applyStrategistToSlide(currentSlideIndex);
+            } else {
+                applyLayoutVariant('default');
+            }
+
+            // Re-render visual mode per slide
             var _vmo = slidesData[currentSlideIndex] && slidesData[currentSlideIndex]._visualModeOverride;
+            var _slide = slidesData[currentSlideIndex] || {};
             var _sch = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
             _sch = Object.assign({}, _sch);
-            if (_vmo) {
-                _sch.visual_mode = _vmo;
-            }
-            // Always re-render to update ContentDiagramMapper with new slide content
+            // Use strategist visual mode, or user override, or default
+            var _effectiveMode = _vmo || _slide._visualMode || _sch.visual_mode || 'icon';
+            _sch.visual_mode = _effectiveMode;
             if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch);
             // Sync inspector buttons
-            var _activeMode = _vmo || _sch.visual_mode || 'diagram';
             document.querySelectorAll('.visual-mode-btn').forEach(function(b) {
-                b.classList.toggle('active', b.getAttribute('data-mode') === _activeMode);
+                b.classList.toggle('active', b.getAttribute('data-mode') === _effectiveMode);
             });
             // Hide tweak/reject panels and update feedback on slide change
             if (typeof window._hideTweakAndReject === 'function') window._hideTweakAndReject();
@@ -2387,8 +2530,38 @@
                     console.log('[Slides] Built ' + slidesData.length + ' slides from value_text (fallback)');
                 }
             }
-            // Populate sidebar from slidesData (Full Script is the source of truth)
+            // Run Content Strategist Agent (async — enriches slides with layout/visual decisions)
             currentSlideIndex = 0;
+            var _fsForStrategist = (item.full_script || '').trim();
+            var _dsForStrategist = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
+            if (_fsForStrategist.length > 30) {
+                // Show loading state
+                if (window._carouselToast) window._carouselToast('AI Strategist menganalisis konten...');
+                runContentStrategist(_fsForStrategist, _dsForStrategist).then(function(result) {
+                    if (result && result.length > 0) {
+                        _strategistData = result;
+                        // Apply strategist decisions to all slides
+                        for (var si = 0; si < Math.min(result.length, slidesData.length); si++) {
+                            var d = result[si];
+                            if (d.headline) slidesData[si].headline = d.headline;
+                            if (d.body !== undefined) slidesData[si].body = d.body;
+                            slidesData[si]._layoutType = d.layout_type;
+                            slidesData[si]._bgVariant = d.bg_variant;
+                            slidesData[si]._iconName = d.icon_name;
+                            slidesData[si]._visualMode = d.visual_mode;
+                            slidesData[si]._emotionalTone = d.emotional_tone;
+                        }
+                        // Re-render current slide with strategist data
+                        renderSlideStrip();
+                        renderMainPreview();
+                        applyStrategistToSlide(currentSlideIndex);
+                        updateValuesCount();
+                        if (window._carouselToast) window._carouselToast('AI Strategist: ' + result.length + ' slide dioptimalkan!');
+                    }
+                });
+            }
+
+            // Populate sidebar from slidesData (Full Script is the source of truth)
             // Hook sidebar: first slide
             var hookEl = document.getElementById('carousel-sidebar-hook');
             if (hookEl && slidesData.length > 0) {
@@ -2434,6 +2607,10 @@
 
         // Render a single slide to PNG data URL (invisible — just sets data and captures)
         async function renderSlideToDataUrl(slideIndex) {
+            // Apply layout variant for this slide before capture
+            if (_strategistData && _strategistData[slideIndex]) {
+                applyStrategistToSlide(slideIndex);
+            }
             var origIndex = currentSlideIndex;
             currentSlideIndex = slideIndex;
 

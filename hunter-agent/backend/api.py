@@ -412,6 +412,133 @@ def get_template_families():
 
 
 
+
+# ────────────────────────────────────────────────────
+# Content Strategist Agent (Multi-phase pipeline)
+# ────────────────────────────────────────────────────
+class StrategistRequest(BaseModel):
+    full_script: str = ""
+    design_schema: dict = {}
+    platform: str = "instagram"
+
+@app.post("/api/carousel/strategize")
+async def strategize_content(req: StrategistRequest):
+    """
+    Phase 2 of Gemini's ideal pipeline: Content Strategist Agent.
+    Analyzes full_script and design_schema, returns per-slide decisions:
+    - layout_type: hero-center | card-detail | text-heavy | dramatic-closer
+    - visual_mode: diagram | icon | illustration | none
+    - headline & body (cleaned, optimized)
+    - emotional_tone: impact | educational | reflective | dramatic
+    - visual_hint: what kind of visual fits this slide
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    if not req.full_script.strip():
+        raise HTTPException(status_code=400, detail="full_script is required")
+
+    import google.generativeai as genai
+    genai.configure(api_key=gemini_key)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+    # Extract design context from schema
+    design_context = ""
+    if req.design_schema:
+        ds = req.design_schema
+        design_context = f"""
+DESIGN DNA dari referensi:
+- Template family: {ds.get('template_family', 'unknown')}
+- Color palette: {json.dumps(ds.get('color_palette', {}))}
+- Font: {ds.get('font_style', 'sans-serif')}
+- Visual mode default: {ds.get('visual_mode', 'icon')}
+- Style traits: {ds.get('style_traits', [])}
+"""
+
+    prompt = f"""Kamu adalah Content Strategist Agent untuk carousel {req.platform}.
+
+FULL SCRIPT:
+{req.full_script}
+
+{design_context}
+
+TUGAS: Analisis script di atas dan buat keputusan PER-SLIDE. Setiap slide harus dioptimalkan untuk engagement sosial media.
+
+ATURAN PENTING:
+1. Setiap "Hal N:" adalah 1 slide
+2. Slide pertama = HOOK (harus paling menarik, singkat, impactful)
+3. Slide terakhir = CTA (ajakan bertindak)
+4. Slide tengah = VALUE (edukasi/insight)
+5. Headline MAKSIMAL 8-10 kata (potong jika terlalu panjang)
+6. Body mendukung headline, bukan mengulang
+
+LAYOUT TYPES:
+- "hero-center": Headline besar di tengah, tanpa body. Untuk kalimat pendek & impactful.
+- "card-detail": Headline + body dalam card. Untuk slide dengan penjelasan.
+- "text-heavy": Multi-paragraf bertumpuk. Untuk narasi panjang (pecah jadi poin-poin).
+- "dramatic-closer": Background gelap, teks besar centered. Untuk penutup/punchline.
+
+VISUAL MODES:
+- "icon": Icon tunggal yang relevan dengan konten
+- "diagram": Diagram/chart jika ada data/perbandingan/proses
+- "none": Tanpa visual, teks saja (untuk slide teks panjang)
+
+EMOTIONAL TONES:
+- "impact": Mengejutkan, eye-catching (untuk hook)
+- "educational": Informatif, insight (untuk value)
+- "reflective": Kontemplatif, emosional (untuk narasi personal)
+- "dramatic": Kuat, final, berkesan (untuk CTA/penutup)
+
+Balas HANYA dalam format JSON array berikut (tanpa markdown, tanpa penjelasan):
+[
+  {{
+    "slide_number": 1,
+    "slide_type": "hook",
+    "layout_type": "hero-center",
+    "visual_mode": "icon",
+    "visual_hint": "deskripsi singkat visual yang cocok",
+    "icon_name": "nama icon lucide yang relevan",
+    "headline": "Headline yang sudah dioptimalkan",
+    "body": "Body text (kosongkan jika layout hero-center)",
+    "emotional_tone": "impact",
+    "bg_variant": "light"
+  }}
+]
+
+bg_variant: "light" (latar terang) atau "dark" (latar gelap) — variasikan untuk ritme visual.
+icon_name: gunakan nama icon dari Lucide icons (alert-triangle, heart, target, zap, compass, brain, lightbulb, shield, star, sparkles, flame, eye, hand, users, clock, map-pin, award, trending-up, check-circle, x-circle, dll).
+"""
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+
+        # Clean markdown fences if present
+        if raw_text.startswith("```"):
+            raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text)
+            raw_text = re.sub(r'```\s*$', '', raw_text)
+
+        slides = json.loads(raw_text)
+        if not isinstance(slides, list):
+            raise ValueError("Response is not a JSON array")
+
+        return {
+            "success": True,
+            "slides": slides,
+            "slide_count": len(slides)
+        }
+    except json.JSONDecodeError as e:
+        # Return raw text for debugging
+        return {
+            "success": False,
+            "error": f"JSON parse failed: {str(e)}",
+            "raw": raw_text[:1000] if 'raw_text' in dir() else ""
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Strategist failed: {str(e)}")
+
+
 # ────────────────────────────────────────────────────
 # AI Script Writer (Copywriter & Social Media Strategist)
 # ────────────────────────────────────────────────────
