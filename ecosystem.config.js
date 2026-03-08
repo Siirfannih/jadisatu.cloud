@@ -19,9 +19,9 @@ module.exports = {
     {
       name: "hunter-agent",
       cwd: "./hunter-agent/backend",
-      script: "uvicorn",
+      script: "/usr/local/bin/uvicorn",
       args: "api:app --host 0.0.0.0 --port 8000",
-      interpreter: "/usr/bin/python3",
+      interpreter: "none",
       env: {
         PORT: 8000
       },
