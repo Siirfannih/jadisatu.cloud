@@ -1409,8 +1409,10 @@
 
             console.log('[TemplateFolders] Applying Style ' + (styleIdx + 1) + ' (' + (style.schema.template_family || 'unknown') + ') to slide ' + (slideIndex + 1));
 
-            // Apply visual mode from this style's schema
-            applyVisualMode(style.schema);
+            // Apply visual mode from this style's schema (defined inside DOMContentLoaded)
+            if (typeof window.applyVisualMode === 'function') {
+                window.applyVisualMode(style.schema);
+            }
 
             // Update style indicator dots
             updateStyleIndicator(styleIdx, templateFolder.styles.length);
@@ -3992,6 +3994,10 @@
 
             // Expose for Smart Extractor auto-refresh
             window._loadTemplateGallery = loadTemplateGallery;
+
+            // Expose for top-level applySlideStyle
+            window.applyVisualMode = applyVisualMode;
+            window.applyTemplateToCanvas = applyTemplateToCanvas;
 
             // Refresh button
             var btnRefresh = document.getElementById('btn-refresh-templates');
