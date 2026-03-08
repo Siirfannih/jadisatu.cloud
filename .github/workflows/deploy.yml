@@ -12,7 +12,7 @@ jobs:
   deploy:
     name: Deploy to Production VPS
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -25,7 +25,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          command_timeout: 5m
+          command_timeout: 10m
           script: |
             cd /root/jadisatu.cloud
             bash deploy/deploy.sh
