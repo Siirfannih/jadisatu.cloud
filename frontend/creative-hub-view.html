@@ -569,7 +569,7 @@
                         Script</label>
                     <textarea id="creative-modal-script" rows="6"
                         class="w-full rounded-lg bg-black/30 border border-white/10 p-3 text-sm text-white placeholder-gray-500 resize-none outline-none focus:border-personal/50"
-                        placeholder="Generate atau tulis manual..."></textarea>
+                        placeholder="Hal 2:\nJudul slide pertama\nDeskripsi...\n\nHal 3:\nJudul slide kedua\nDeskripsi...\n\nGunakan Hal N: untuk memisahkan slide"></textarea>
                 </div>
                 <div class="date-picker-trigger-wrap">
                     <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Tanggal
@@ -927,12 +927,21 @@
                     var cta = document.getElementById('creative-modal-cta').value.trim();
                     var ta = document.getElementById('creative-modal-script');
                     if (!hook && !value) { toast('Isi Hook atau Value dulu.'); return; }
-                    var points = value.split('\n').filter(function (l) { return l.trim(); }).map(function (l) { return l.replace(/^\d+\.\s*/, ''); });
-                    var labels = ['Pertama', 'Kedua', 'Ketiga', 'Keempat', 'Kelima'];
-                    var body = points.length ? points.map(function (p, i) { return (labels[i] || 'Selanjutnya') + ', ' + (p.charAt(0).toLowerCase() + p.slice(1)) + '.'; }).join('\n\n') : 'Tambahkan poin di Value.';
-                    var full = hook + '\n\n' + body + '\n\n' + (cta || 'Follow untuk konten lainnya!');
-                    ta.value = full;
-                    toast('Script digenerate.');
+                    var points = value.split('\n').filter(function (l) { return l.trim(); }).map(function (l) { return l.replace(/^\d+\.\s*/, '').trim(); });
+                    // Build Full Script with Hal N: slide separators
+                    var scriptParts = [];
+                    // Hal 1 = Hook
+                    scriptParts.push('Hal 1:\n' + hook);
+                    // Hal 2..N = Value points (each is a slide)
+                    points.forEach(function (p, i) {
+                        scriptParts.push('Hal ' + (i + 2) + ':\n' + p);
+                    });
+                    // Last Hal = CTA
+                    if (cta) {
+                        scriptParts.push('Hal ' + (points.length + 2) + ':\n' + cta);
+                    }
+                    ta.value = scriptParts.join('\n\n');
+                    toast('Script digenerate. ' + scriptParts.length + ' slide.');
                 }
 
                 function toast(msg) {
