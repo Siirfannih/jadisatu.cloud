@@ -90,6 +90,33 @@ In PM2 logs (`pm2 logs hunter-agent --lines 10`):
    - Look for "Mixed Content" warnings
    - Frontend should use relative URLs (no `http://IP:port`)
 
+## Editing Layer Logging
+
+The Live Editor adds structured console logging for debugging:
+
+| Log prefix | Source | What it logs |
+|-----------|--------|-------------|
+| `[FontRegistry]` | font-registry.js | Preset applied, role changed, fonts loaded |
+| `[IconEngine]` | icon-engine.js | Icon selection per slide: keyword matches, family rules, dedup, final choice |
+| `[CanvasEditor]` | canvas-editor.js | Element built/updated/deleted, visual mode changes |
+| `[FeedbackMemory]` | feedback-memory.js | Session started, action recorded, session saved |
+| `[EditingLayer]` | carousel-generator-preview.html | Template applied hook, element count, font preset |
+
+To view icon selection decisions:
+```js
+window._iconEngine.getLog()
+```
+
+To view feedback session:
+```js
+window._feedbackMemory.getSession()
+```
+
+To view current element schema:
+```js
+window._canvasEditor.serialize()
+```
+
 ## Troubleshooting Flowchart
 
 ```

@@ -96,3 +96,38 @@ Array of specific visual elements detected in the design:
 | color_roles.muted_line | Falls back to color_palette.text_muted |
 
 Templates saved before this update (without color_roles/visual_mode) will render exactly as before.
+
+## Element Schema (Live Editor)
+
+When the Live Editor is active, the template schema is decomposed into editable elements:
+
+### Element types
+
+| Type | Description | Editable properties |
+|------|-------------|-------------------|
+| title_block | Main headline | text, color, font_size, font_weight, alignment, font_role |
+| subtitle_block | Body/subtitle text | text, color, font_size, font_weight, alignment, font_role |
+| text_block | Generic text block | text, color, font_size, font_weight, alignment, font_role |
+| icon_block | Lucide icon | icon_name, size, color |
+| diagram_block | SVG diagram | diagram_type, stroke_color, muted_color |
+| footer_block | Footer text | text, color, font_size |
+| divider_block | Horizontal divider | style (solid/dashed), color, thickness |
+| shape_block | Geometric shape | shape, width, height, fill, stroke |
+
+### Font roles
+
+Font roles map semantic names to actual font families via the FontRegistry:
+
+| Role key | Example role name | Resolved family |
+|----------|-----------------|-----------------|
+| heading | serif_editorial | Playfair Display |
+| body | sans_clean | Inter |
+| accent | mono_label | IBM Plex Mono |
+
+### Icon Engine layers
+
+1. Keyword → icon candidates (content-driven)
+2. Template family rules (layout-driven)
+3. Fallback constrained set
+
+See `/docs/live-editor.md` for full architecture details.
