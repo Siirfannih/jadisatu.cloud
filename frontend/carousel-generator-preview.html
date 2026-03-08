@@ -3642,16 +3642,8 @@
                 var visualImg = document.getElementById('carousel-preview-visual-img');
                 var visualArea = document.getElementById('carousel-preview-visual-area');
 
-                // Build slide context for diagram content population
-                var _slideCtx = null;
-                if (typeof slidesData !== 'undefined' && slidesData[currentSlideIndex]) {
-                    var _s = slidesData[currentSlideIndex];
-                    _slideCtx = {
-                        headline: _s.headline || '',
-                        body: _s.body || '',
-                        keywords: _s.keywords || []
-                    };
-                }
+                // Content-Driven Diagrams: generate diagram structure from slide text
+                var _currentSlide = (typeof slidesData !== 'undefined' && slidesData[currentSlideIndex]) ? slidesData[currentSlideIndex] : null;
 
                 // Reset all visual elements
                 if (iconWrap) iconWrap.classList.add('hidden');
@@ -3677,7 +3669,30 @@
                 var canvas = document.getElementById('carousel-live-canvas');
 
                 if (ve && schema) {
-                    var rendered = ve.renderAll(schema, _slideCtx);
+                    // Content-Driven: generate diagram from slide content, not reference image
+                    var _contentDiagram = null;
+                    if (mode === 'diagram' && _currentSlide && window.ContentDiagramMapper) {
+                        _contentDiagram = ContentDiagramMapper.map(
+                            _currentSlide,
+                            schema.diagram_type,
+                            schema.diagram_style || {}
+                        );
+                        if (_contentDiagram) {
+                            // Merge content-derived diagram into schema for rendering
+                            schema = Object.assign({}, schema, {
+                                diagram_type: _contentDiagram.diagram_type,
+                                diagram_data: _contentDiagram.diagram_data
+                            });
+                            console.log('[ContentDiagram] Generated ' + _contentDiagram.diagram_type
+                                + ' with ' + _contentDiagram.diagram_data.nodes.length + ' nodes from slide content');
+                        } else {
+                            // Not enough content for diagram → downgrade to icon
+                            console.log('[ContentDiagram] Not enough content for diagram, falling back to icon');
+                            mode = 'icon';
+                        }
+                    }
+
+                    var rendered = ve.renderAll(schema);
 
                     // Diagram
                     if (mode === 'diagram' && rendered.diagramHtml) {

@@ -28,73 +28,13 @@
      * @param {number} height - Canvas height (default 400)
      * @returns {string} SVG markup string
      */
-    /**
-     * Populate diagram data with slide content (keywords, headline).
-     * Replaces generic placeholder labels with actual slide text.
-     */
-    DiagramEngine._populateWithSlideContent = function (data, slideContext) {
-        if (!slideContext || !data) return data;
-        var populated = JSON.parse(JSON.stringify(data)); // deep clone
-        var keywords = slideContext.keywords || [];
-        var headline = slideContext.headline || '';
-        var body = slideContext.body || '';
-
-        // Extract meaningful words from headline/body as fallback labels
-        var words = [];
-        if (keywords.length > 0) {
-            words = keywords;
-        } else if (headline) {
-            words = headline.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 3; });
-        }
-
-        // Populate center node
-        if (populated.center && populated.center.label) {
-            if (headline && headline.length < 30) {
-                populated.center.label = headline;
-            } else if (words.length > 0) {
-                populated.center.label = words[0];
-            }
-        }
-
-        // Populate satellite nodes with keywords
-        if (populated.nodes && populated.nodes.length > 0) {
-            for (var i = 0; i < populated.nodes.length; i++) {
-                if (words.length > 0) {
-                    populated.nodes[i].label = words[(i + 1) % words.length] || populated.nodes[i].label;
-                }
-            }
-        }
-
-        // Populate arc/timeline labels
-        if (words.length >= 2) {
-            if (populated.start_label) populated.start_label = words[0];
-            if (populated.end_label) populated.end_label = words[words.length - 1];
-        }
-        if (headline && populated.center_text) {
-            populated.center_text = headline.length < 25 ? headline : (words[0] || populated.center_text);
-        }
-
-        // Populate axis
-        if (populated.axis) {
-            if (words.length >= 2 && populated.axis.label_top) populated.axis.label_top = words[0];
-            if (words.length >= 2 && populated.axis.label_bottom) populated.axis.label_bottom = words[1];
-        }
-
-        return populated;
-    };
-
-    DiagramEngine.render = function (schema, width, height, slideContext) {
+    DiagramEngine.render = function (schema, width, height) {
         width = width || 500;
         height = height || 400;
         var type = (schema && schema.diagram_type) || 'flowchart';
         var data = (schema && schema.diagram_data) || {};
         var cr = (schema && schema.color_roles) || {};
         var cp = (schema && schema.color_palette) || {};
-
-        // Populate diagram with slide content instead of reference image text
-        if (slideContext) {
-            data = DiagramEngine._populateWithSlideContent(data, slideContext);
-        }
 
         var colors = {
             stroke: cr.line || cp.primary || '#ffffff',
@@ -904,7 +844,7 @@
      * Render all visual elements for a slide based on schema.
      * Returns { diagramHtml, componentHtml, decorativeHtml, brandingHtml }
      */
-    VisualEngine.prototype.renderAll = function (schema, slideContext) {
+    VisualEngine.prototype.renderAll = function (schema) {
         this._currentSchema = schema || {};
         var cr = schema.color_roles || {};
         var cp = schema.color_palette || {};
@@ -929,7 +869,7 @@
 
         // Diagram
         if (schema.visual_mode === 'diagram' && schema.diagram_data) {
-            result.diagramHtml = DiagramEngine.render(schema, 480, 380, slideContext);
+            result.diagramHtml = DiagramEngine.render(schema, 480, 380);
         }
 
         // Component blocks
@@ -1000,9 +940,244 @@
 
 
     // ═════════════════════════════════════════════════════════════════
+    // CONTENT DIAGRAM MAPPER — generates diagram structure from slide text
+    // ═════════════════════════════════════════════════════════════════
+
+    var ContentDiagramMapper = {
+        /**
+         * Content-Driven Diagram Mapper.
+         * Reads slide content (headline, body, keywords) and generates
+         * the appropriate diagram structure.
+         *
+         * Detects content patterns:
+         * - Numbers/percentages → stat_block or comparison
+         * - Sequential steps (1. 2. 3.) → flowchart with icons
+         * - "vs" or comparison words → comparison diagram
+         * - Process words (langkah, step, cara) → timeline
+         * - Tool/app names → icon_grid
+         * - Bullet points → hub_spoke or flowchart
+         */
+        map: function (slide, preferredType, diagramStyle) {
+            // First: detect content pattern
+            var pattern = this._detectPattern(slide);
+            console.log('[ContentDiagram] Pattern detected:', pattern.type, '| items:', pattern.items.length);
+
+            if (pattern.items.length < 2) return null; // Not enough for diagram
+
+            var type = pattern.diagramType || this._chooseDiagramType(pattern.items, preferredType);
+            var data = this._buildDiagramData(pattern.items, type, slide, diagramStyle, pattern);
+            return { diagram_type: type, diagram_data: data };
+        },
+
+        // ── Icon mapping for common tools/concepts ────────────────────────
+        _iconMap: {
+            // Tools & Apps
+            'capcut': 'film', 'figma': 'pen-tool', 'canva': 'palette',
+            'photoshop': 'image', 'premiere': 'film', 'vscode': 'code',
+            'notion': 'file-text', 'slack': 'message-square', 'discord': 'message-circle',
+            'instagram': 'instagram', 'youtube': 'youtube', 'tiktok': 'music',
+            'twitter': 'twitter', 'facebook': 'facebook', 'linkedin': 'linkedin',
+            'whatsapp': 'message-circle', 'telegram': 'send',
+            'github': 'github', 'google': 'search', 'ai': 'bot',
+            'chatgpt': 'bot', 'gemini': 'sparkles', 'claude': 'bot',
+            // Actions
+            'upload': 'upload', 'download': 'download', 'edit': 'edit',
+            'buka': 'folder-open', 'open': 'folder-open', 'klik': 'mouse-pointer',
+            'click': 'mouse-pointer', 'tulis': 'pen-tool', 'write': 'pen-tool',
+            'save': 'save', 'simpan': 'save', 'kirim': 'send', 'send': 'send',
+            'share': 'share-2', 'bagikan': 'share-2', 'copy': 'copy',
+            'delete': 'trash-2', 'hapus': 'trash-2', 'search': 'search',
+            'cari': 'search', 'pilih': 'check-square', 'select': 'check-square',
+            // Concepts
+            'email': 'mail', 'money': 'dollar-sign', 'uang': 'dollar-sign',
+            'finance': 'trending-up', 'keuangan': 'trending-up',
+            'growth': 'trending-up', 'pertumbuhan': 'trending-up',
+            'data': 'database', 'analytics': 'bar-chart-2',
+            'target': 'target', 'goal': 'target', 'tujuan': 'target',
+            'time': 'clock', 'waktu': 'clock', 'schedule': 'calendar',
+            'jadwal': 'calendar', 'team': 'users', 'tim': 'users',
+            'code': 'code', 'kode': 'code', 'design': 'palette',
+            'desain': 'palette', 'content': 'file-text', 'konten': 'file-text',
+            'video': 'video', 'photo': 'camera', 'foto': 'camera',
+            'music': 'music', 'audio': 'headphones', 'document': 'file-text',
+            'dokumen': 'file-text', 'settings': 'settings', 'pengaturan': 'settings',
+            'security': 'shield', 'keamanan': 'shield', 'lock': 'lock',
+            'idea': 'lightbulb', 'ide': 'lightbulb', 'brain': 'brain',
+            'otak': 'brain', 'strategy': 'compass', 'strategi': 'compass',
+            'marketing': 'megaphone', 'pemasaran': 'megaphone',
+            'sales': 'shopping-cart', 'penjualan': 'shopping-cart',
+            'customer': 'user', 'pelanggan': 'user', 'brand': 'award',
+            'merek': 'award', 'launch': 'rocket', 'peluncuran': 'rocket',
+            'automation': 'zap', 'otomasi': 'zap', 'workflow': 'git-branch',
+            'pipeline': 'git-branch', 'process': 'repeat', 'proses': 'repeat',
+            'step': 'footprints', 'langkah': 'footprints',
+            'awareness': 'eye', 'kesadaran': 'eye',
+            'trust': 'heart', 'kepercayaan': 'heart',
+            'conversion': 'arrow-right-circle', 'konversi': 'arrow-right-circle',
+            'funnel': 'filter', 'website': 'globe', 'situs': 'globe',
+            'api': 'plug', 'database': 'database', 'server': 'server',
+            'cloud': 'cloud', 'mobile': 'smartphone', 'desktop': 'monitor',
+            'laptop': 'laptop', 'tablet': 'tablet',
+        },
+
+        _findIcon: function (text) {
+            var lower = text.toLowerCase();
+            var keys = Object.keys(this._iconMap);
+            for (var i = 0; i < keys.length; i++) {
+                if (lower.indexOf(keys[i]) !== -1) return this._iconMap[keys[i]];
+            }
+            return 'circle';
+        },
+
+        // ── Pattern Detection ─────────────────────────────────────────────
+        _detectPattern: function (slide) {
+            var body = (slide.body || '').trim();
+            var headline = (slide.headline || '').trim();
+            var fullText = headline + ' ' + body;
+
+            // Pattern 1: Numbers/percentages → stat comparison
+            var numbers = fullText.match(/\d+[%xX]?/g);
+            if (numbers && numbers.length >= 2) {
+                var statItems = [];
+                var sentences = fullText.split(/[.,;!?\n]+/);
+                for (var si = 0; si < sentences.length && statItems.length < 4; si++) {
+                    var s = sentences[si].trim();
+                    if (s.match(/\d/) && s.length > 3) {
+                        statItems.push(s.length > 30 ? s.substring(0, 28) + '..' : s);
+                    }
+                }
+                if (statItems.length >= 2) {
+                    return { type: 'stats', items: statItems, diagramType: 'comparison' };
+                }
+            }
+
+            // Pattern 2: Numbered steps (1. 2. 3. or step/langkah)
+            var numberedLines = body.match(/(?:^|\n)\s*\d+[.)\-]\s*.+/g);
+            if (numberedLines && numberedLines.length >= 2) {
+                var stepItems = numberedLines.map(function (line) {
+                    return line.replace(/^\s*\d+[.)\-]\s*/, '').trim();
+                }).filter(function (s) { return s.length > 2; });
+                return { type: 'steps', items: stepItems.slice(0, 8), diagramType: 'flowchart' };
+            }
+
+            // Pattern 3: Comparison (vs, versus, dibandingkan, atau)
+            var vsMatch = fullText.match(/(.+?)\s+(?:vs\.?|versus|dibandingkan dengan|atau|or)\s+(.+)/i);
+            if (vsMatch) {
+                return { type: 'comparison', items: [vsMatch[1].trim(), vsMatch[2].trim()], diagramType: 'comparison' };
+            }
+
+            // Pattern 4: Process keywords (langkah, step, cara, tahap, fase, phase)
+            if (/\b(langkah|step|cara|tahap|fase|phase|proses|process)\b/i.test(fullText)) {
+                var processItems = this._extractLineItems(body);
+                if (processItems.length >= 2) {
+                    return { type: 'process', items: processItems, diagramType: 'timeline' };
+                }
+            }
+
+            // Pattern 5: Bullet points (-, *, •)
+            var bullets = body.match(/(?:^|\n)\s*[-*\u2022]\s*.+/g);
+            if (bullets && bullets.length >= 2) {
+                var bulletItems = bullets.map(function (line) {
+                    return line.replace(/^\s*[-*\u2022]\s*/, '').trim();
+                }).filter(function (s) { return s.length > 2; });
+                return { type: 'list', items: bulletItems.slice(0, 8), diagramType: null };
+            }
+
+            // Pattern 6: Line breaks (multiple lines)
+            var lines = body.split(/\n/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 2; });
+            if (lines.length >= 2) {
+                return { type: 'lines', items: lines.slice(0, 8), diagramType: null };
+            }
+
+            // Pattern 7: Keywords array
+            if (slide.keywords && slide.keywords.length >= 2) {
+                return { type: 'keywords', items: slide.keywords.slice(0, 8), diagramType: null };
+            }
+
+            // Pattern 8: Sentence splitting
+            var sents = body.split(/[.!?]+/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 5; });
+            if (sents.length >= 2) {
+                var sentItems = sents.map(function (s) {
+                    var words = s.split(/\s+/);
+                    return words.length > 5 ? words.slice(0, 5).join(' ') : s;
+                });
+                return { type: 'sentences', items: sentItems.slice(0, 6), diagramType: null };
+            }
+
+            // Pattern 9: Comma-separated
+            var commaItems = body.split(/[,;]/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 2; });
+            if (commaItems.length >= 2) {
+                return { type: 'comma', items: commaItems.slice(0, 8), diagramType: null };
+            }
+
+            return { type: 'none', items: [], diagramType: null };
+        },
+
+        _extractLineItems: function (body) {
+            var lines = body.split(/\n/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 2; });
+            if (lines.length >= 2) {
+                return lines.map(function (line) {
+                    return line.replace(/^[\d]+[.)\-]\s*/, '').replace(/^[-*\u2022]\s*/, '').trim();
+                }).slice(0, 8);
+            }
+            var sents = body.split(/[.!?]+/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 5; });
+            if (sents.length >= 2) return sents.slice(0, 6);
+            return [];
+        },
+
+        _chooseDiagramType: function (items, preferred) {
+            var n = items.length;
+            if (preferred && preferred !== 'none' && this._typeWorks(preferred, n)) return preferred;
+            if (n === 2) return 'comparison';
+            if (n <= 4) return 'hub_spoke';
+            if (n <= 6) return 'flowchart';
+            return 'timeline';
+        },
+
+        _typeWorks: function (type, n) {
+            if (type === 'comparison') return n >= 2;
+            if (type === 'hub_spoke') return n >= 3 && n <= 8;
+            if (type === 'flowchart') return n >= 2;
+            if (type === 'timeline') return n >= 3;
+            if (type === 'cycle') return n >= 3 && n <= 6;
+            if (type === 'funnel') return n >= 3 && n <= 6;
+            if (type === 'arc' || type === 'coherence_arc') return n >= 3;
+            return false;
+        },
+
+        _buildDiagramData: function (items, type, slide, diagramStyle, pattern) {
+            var ds = diagramStyle || {};
+            var headline = (slide.headline || '').trim();
+            var nodeStyle = ds.node_style || 'filled_dark';
+            var connStyle = ds.connection_style || 'dashed';
+            var self = this;
+
+            var nodes = items.map(function (label, i) {
+                // Smart icon selection: find matching icon for the label text
+                var icon = self._findIcon(label);
+                return { label: label, icon: icon, position: 'auto', style: nodeStyle };
+            });
+
+            var centerLabel = headline.length > 0 && headline.length < 30 ? headline : items[0];
+
+            return {
+                center: ds.has_center_node !== false ? { label: centerLabel, style: nodeStyle } : null,
+                nodes: nodes,
+                node_count: nodes.length,
+                connection_style: connStyle,
+                start_label: items[0],
+                end_label: items[items.length - 1],
+                center_text: centerLabel,
+                axis: ds.has_axis ? { label_top: '', label_bottom: '', style: 'dashed' } : null
+            };
+        }
+    };
+
+    // ═════════════════════════════════════════════════════════════════
     // EXPORTS
     // ═════════════════════════════════════════════════════════════════
 
+    window.ContentDiagramMapper = ContentDiagramMapper;
     window.VisualEngine = VisualEngine;
     window.DiagramEngine = DiagramEngine;
     window.ComponentRenderer = ComponentRenderer;

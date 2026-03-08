@@ -100,18 +100,15 @@ Return this exact structure:
   },
   "visual_mode": "<exactly one of: diagram | illustration | icon | none>",
   "diagram_type": "<only when visual_mode is diagram: hub_spoke | flowchart | arc | cycle | comparison | timeline | coherence_arc | funnel | none>",
-  "diagram_data": {
-    "NOTE": "Only include when visual_mode is diagram. Describe the STRUCTURE, not content. Use generic placeholder labels.",
-    "center": {"label": "Center", "style": "<filled_dark or filled_accent or outline>"},
-    "nodes": [
-      {"label": "Node 1", "icon": "<lucide icon name>", "position": "<top or bottom or left or right or on_curve>"}
-    ],
-    "node_count": "<total number of nodes visible in the diagram>",
-    "axis": {"label_top": "Top", "label_bottom": "Bottom", "style": "<dashed or solid or none>"},
-    "start_label": "Start",
-    "end_label": "End",
-    "center_text": "Center",
-    "connection_style": "<dashed or solid or none>"
+  "diagram_data": null,
+  "diagram_style": {
+    "NOTE": "Only include when visual_mode is diagram. Describes the VISUAL STYLE of diagrams, not content.",
+    "node_style": "<filled_dark or filled_accent or outline or glass>",
+    "connection_style": "<dashed or solid or none>",
+    "has_axis": "<true or false — whether diagram has a visible axis/divider line>",
+    "has_center_node": "<true or false — whether diagram has a prominent center node>",
+    "node_shape": "<circle or rounded_rect or hexagon>",
+    "node_count": "<approximate number of nodes visible>"
   },
   "text_highlights": [
     {"phrase": "<exact word or phrase that has different color or style>", "color": "<hex color>", "style": "<italic or bold or bold_italic or normal>"}
@@ -182,7 +179,7 @@ CRITICAL RULES:
 
 2. text_highlights — Scan the heading and body text carefully. If ANY word or phrase uses a DIFFERENT color than surrounding text, or is italic when others are not, list it. Examples: "here." in green, "entire" in green italic, "miss it." in purple italic. If no highlights exist, return empty array [].
 
-3. diagram_data — Only populate when visual_mode=diagram. Count the nodes and describe the STRUCTURE (layout pattern, connection style, node positions). Do NOT copy the actual text labels from the diagram — use generic placeholders. For hub-spoke: count satellite nodes and identify their positions/icons. For arc: count stages along the curve. For flowchart: count boxes. Set node_count to the total. If visual_mode is not diagram, set diagram_data to null.
+3. diagram_style — Only populate when visual_mode=diagram. Describe the VISUAL AESTHETIC of the diagram: node fill style (dark, accent, outline, glass), connection style (dashed, solid), whether there's a center node, and the node shape. Do NOT extract any text labels or content from the diagram. Set diagram_data to null always — content will be populated from slide text at render time.
 
 4. component_blocks — Detect card groups, stat displays, icon grids. Count the items and note their layout pattern. Use generic placeholder labels, NOT the actual text from the image. Capture: icon name (closest Lucide icon), accent color, and style. Lucide icon names use lowercase-kebab-case: mail, bot, calendar, code, file-text, dollar-sign, message-square, monitor, etc.
 
@@ -541,53 +538,25 @@ def _build_color_roles(raw_schema: Dict, cp: Dict) -> Dict:
 
 
 
-def _build_diagram_data(raw_schema: Dict) -> Optional[Dict]:
-    """Build structured diagram data from Gemini extraction."""
-    dd = raw_schema.get("diagram_data")
-    if not dd or dd == "null" or (isinstance(dd, dict) and dd.get("NOTE")):
-        # If Gemini returned the template NOTE or null, build minimal
-        return {"center": None, "nodes": [], "axis": None, "start_label": None,
-                "end_label": None, "center_text": None, "connection_style": "dashed"}
-
-    center = dd.get("center")
-    if center and isinstance(center, dict):
-        center = {
-            "label": center.get("label", ""),
-            "style": center.get("style", "filled_dark")
-        }
-    else:
-        center = None
-
-    nodes = []
-    raw_nodes = dd.get("nodes", [])
-    if isinstance(raw_nodes, list):
-        for n in raw_nodes:
-            if isinstance(n, dict):
-                nodes.append({
-                    "label": n.get("label", ""),
-                    "icon": n.get("icon", "circle"),
-                    "position": n.get("position", "on_curve"),
-                })
-
-    axis = dd.get("axis")
-    if axis and isinstance(axis, dict):
-        axis = {
-            "label_top": axis.get("label_top", ""),
-            "label_bottom": axis.get("label_bottom", ""),
-            "style": axis.get("style", "none"),
-        }
-    else:
-        axis = None
+def _build_diagram_style(raw_schema: Dict) -> Optional[Dict]:
+    """Build diagram visual style (no content). Content comes from slide text at render time."""
+    ds = raw_schema.get("diagram_style", {})
+    if not ds or not isinstance(ds, dict):
+        ds = {}
 
     return {
-        "center": center,
-        "nodes": nodes,
-        "axis": axis,
-        "start_label": dd.get("start_label"),
-        "end_label": dd.get("end_label"),
-        "center_text": dd.get("center_text"),
-        "connection_style": dd.get("connection_style", "dashed"),
+        "node_style": ds.get("node_style", "filled_dark"),
+        "connection_style": ds.get("connection_style", "dashed"),
+        "has_axis": bool(ds.get("has_axis", False)),
+        "has_center_node": bool(ds.get("has_center_node", True)),
+        "node_shape": ds.get("node_shape", "circle"),
+        "node_count": int(ds.get("node_count", 6)) if ds.get("node_count") else 6,
     }
+
+
+def _build_diagram_data(raw_schema: Dict) -> Optional[Dict]:
+    """Legacy: returns None. Diagram content is now generated from slide text."""
+    return None
 
 
 def _build_text_highlights(raw_highlights) -> list:
@@ -746,7 +715,8 @@ def build_complete_schema(raw_schema: Dict) -> Dict:
         "visual_mode": _validate_visual_mode(raw_schema.get("visual_mode", "none")),
         "diagram_type": raw_schema.get("diagram_type", "none") if _validate_visual_mode(raw_schema.get("visual_mode", "none")) == "diagram" else "none",
         # ── Diagram structured data ───────────────────────────────
-        "diagram_data": _build_diagram_data(raw_schema) if _validate_visual_mode(raw_schema.get("visual_mode", "none")) == "diagram" else None,
+        "diagram_data": None,  # Content-driven: populated from slide text at render time
+        "diagram_style": _build_diagram_style(raw_schema) if _validate_visual_mode(raw_schema.get("visual_mode", "none")) == "diagram" else None,
         # ── Text highlights (inline accent colors) ────────────────
         "text_highlights": _build_text_highlights(raw_schema.get("text_highlights", [])),
         # ── Component blocks (cards, stats, icon grids) ───────────
