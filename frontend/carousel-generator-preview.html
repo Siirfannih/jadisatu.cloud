@@ -1984,6 +1984,18 @@
             renderMainPreview();
             // Apply per-slide style from template folder
             applySlideStyle(currentSlideIndex);
+            // Restore per-slide visual mode override
+            var _vmo = slidesData[currentSlideIndex] && slidesData[currentSlideIndex]._visualModeOverride;
+            if (_vmo) {
+                var _sch = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
+                _sch = Object.assign({}, _sch);
+                _sch.visual_mode = _vmo;
+                if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch);
+                // Sync inspector buttons
+                document.querySelectorAll('.visual-mode-btn').forEach(function(b) {
+                    b.classList.toggle('active', b.getAttribute('data-mode') === _vmo);
+                });
+            }
             // Hide tweak/reject panels and update feedback on slide change
             if (typeof window._hideTweakAndReject === 'function') window._hideTweakAndReject();
             if (typeof window._updateFeedbackUI === 'function') window._updateFeedbackUI();
@@ -3714,7 +3726,19 @@
                             visualImg.style.height = '200px';
                         }
                     } else if (mode === 'icon') {
-                        if (iconWrap) iconWrap.classList.remove('hidden');
+                        if (iconWrap) {
+                            iconWrap.classList.remove('hidden');
+                            // Ensure icon is visible with proper styling
+                            var _cp = (schema && schema.color_palette) || {};
+                            var _iconBg = (_cp.primary || '#8b5cf6') + '15';
+                            var _iconBorder = (_cp.primary || '#8b5cf6') + '40';
+                            iconWrap.style.background = _iconBg;
+                            iconWrap.style.borderColor = _iconBorder;
+                            // Set icon color to accent
+                            var _iconSvg = iconWrap.querySelector('svg, i');
+                            if (_iconSvg) _iconSvg.style.color = _cp.primary || '#8b5cf6';
+                        }
+                        if (visualArea) visualArea.style.display = '';
                     } else { // none
                         if (visualArea) visualArea.style.display = 'none';
                     }
@@ -4752,10 +4776,17 @@
                 btn.addEventListener('click', function () {
                     var mode = this.getAttribute('data-mode');
                     _canvasEditor.setVisualMode(mode);
+
+                    // Store override per slide
+                    if (slidesData[currentSlideIndex]) {
+                        slidesData[currentSlideIndex]._visualModeOverride = mode;
+                    }
+
                     // Apply to current schema and re-render
                     var schema = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
+                    schema = Object.assign({}, schema); // clone so we don't mutate original
                     schema.visual_mode = mode;
-                    applyVisualMode(schema);
+                    window.applyVisualMode(schema);
                     // Update button states
                     document.querySelectorAll('.visual-mode-btn').forEach(function (b) {
                         b.classList.toggle('active', b.getAttribute('data-mode') === mode);
