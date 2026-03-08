@@ -798,11 +798,11 @@
                                             style="position:absolute; top:0; left:0; transform-origin: top left; transition: transform 0.2s;">
                                             <div id="carousel-live-canvas"
                                                 class="carousel-preview-card-themed layout-center relative rounded-lg shadow-2xl overflow-hidden"
-                                                style="width: 1080px; height: 1080px; background: linear-gradient(145deg, var(--preview-primary) 0%, #0f0f11 50%); border: 2px solid rgba(255,255,255,0.08); font-family: var(--preview-font), 'Inter', sans-serif;"
+                                                style="width: 1080px; height: 1080px; background: var(--color-bg, #0f0f11); border: 2px solid rgba(255,255,255,0.08); font-family: var(--preview-font), 'Inter', sans-serif;"
                                                 data-color-editable="canvas-bg" data-color-prop="background">
                                                 <!-- Background blurs (clickable for color) -->
-                                                <div class="carousel-preview-bg-primary absolute inset-0 blur-[120px] rounded-full mix-blend-screen" data-color-editable="bg-primary" data-color-prop="background" style="pointer-events:auto; z-index:1;"></div>
-                                                <div class="carousel-preview-bg-secondary absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full" data-color-editable="bg-secondary" data-color-prop="background" style="pointer-events:auto; z-index:1;"></div>
+                                                <div id="canvas-blur-primary" class="carousel-preview-bg-primary absolute inset-0 blur-[120px] rounded-full mix-blend-screen" data-color-editable="bg-primary" data-color-prop="background" style="pointer-events:auto; z-index:1;"></div>
+                                                <div id="canvas-blur-secondary" class="carousel-preview-bg-secondary absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full" data-color-editable="bg-secondary" data-color-prop="background" style="pointer-events:auto; z-index:1;"></div>
 
                                                 <!-- Layout Number Badge (Layout C only) -->
                                                 <div id="carousel-preview-number-badge" class="slide-number-badge carousel-preview-accent hidden">1</div>
@@ -2266,6 +2266,9 @@
                                 console.log('Pipeline:', data.pipeline || 'unknown');
                                 console.log('Images processed:', data.images_processed || 1);
                                 console.log('template_schema:', data.template_schema);
+                                console.log('color_roles:', data.template_schema ? data.template_schema.color_roles : 'n/a');
+                                console.log('visual_mode:', data.template_schema ? data.template_schema.visual_mode : 'n/a');
+                                console.log('diagram_type:', data.template_schema ? data.template_schema.diagram_type : 'n/a');
                                 console.log('extracted_style:', data.extracted_style);
                                 console.log('asset_plan:', data.asset_plan);
                                 if (data.error) console.error('Error:', data.error, data.detail || '');
@@ -3089,6 +3092,97 @@
                 if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
             }
 
+            // ─── Visual Mode Renderer ──────────────────────────────────────────
+            function applyVisualMode(schema) {
+                var mode = (schema && schema.visual_mode) || 'icon';
+                var iconWrap = document.getElementById('carousel-preview-icon-wrap');
+                var visualImg = document.getElementById('carousel-preview-visual-img');
+                var visualArea = document.getElementById('carousel-preview-visual-area');
+
+                // Reset all visual elements
+                if (iconWrap) iconWrap.classList.add('hidden');
+                if (visualImg) visualImg.classList.add('hidden');
+                if (visualArea) visualArea.style.display = '';
+                var oldDiagram = document.getElementById('carousel-diagram-container');
+                if (oldDiagram) oldDiagram.remove();
+
+                console.log('[VisualMode] mode=' + mode + ' diagram_type=' + (schema.diagram_type || 'n/a'));
+
+                if (mode === 'diagram') {
+                    var cr = (schema.color_roles || {});
+                    var stroke = cr.line || '#ffffff';
+                    var muted = cr.muted_line || '#9ca3af';
+                    if (visualArea) {
+                        var el = document.createElement('div');
+                        el.id = 'carousel-diagram-container';
+                        el.className = 'flex items-center justify-center';
+                        el.style.minHeight = '160px';
+                        el.innerHTML = buildDiagramSVG(schema.diagram_type || 'flowchart', stroke, muted);
+                        visualArea.appendChild(el);
+                    }
+                } else if (mode === 'illustration') {
+                    if (visualImg) {
+                        visualImg.classList.remove('hidden');
+                        visualImg.style.width = '200px';
+                        visualImg.style.height = '200px';
+                    }
+                } else if (mode === 'icon') {
+                    if (iconWrap) iconWrap.classList.remove('hidden');
+                } else { // none — typography only
+                    if (visualArea) visualArea.style.display = 'none';
+                }
+
+                if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+            }
+
+            function buildDiagramSVG(diagType, stroke, muted) {
+                if (diagType === 'arc' || diagType === 'coherence_arc') {
+                    return '<svg width="200" height="120" viewBox="0 0 200 120">'
+                        + '<path d="M10,110 Q100,10 190,110" fill="none" stroke="' + stroke + '" stroke-width="2"/>'
+                        + '<path d="M30,110 Q100,30 170,110" fill="none" stroke="' + muted + '" stroke-width="1.5" stroke-dasharray="4,4"/>'
+                        + '<circle cx="10" cy="110" r="4" fill="' + stroke + '"/>'
+                        + '<circle cx="100" cy="20" r="4" fill="' + stroke + '"/>'
+                        + '<circle cx="190" cy="110" r="4" fill="' + stroke + '"/>'
+                        + '</svg>';
+                }
+                if (diagType === 'cycle') {
+                    return '<svg width="140" height="140" viewBox="0 0 140 140">'
+                        + '<circle cx="70" cy="70" r="55" fill="none" stroke="' + stroke + '" stroke-width="2"/>'
+                        + '<circle cx="70" cy="15" r="5" fill="' + stroke + '"/>'
+                        + '<circle cx="118" cy="97" r="5" fill="' + muted + '"/>'
+                        + '<circle cx="22" cy="97" r="5" fill="' + muted + '"/>'
+                        + '<polygon points="75,12 85,8 80,18" fill="' + stroke + '"/>'
+                        + '</svg>';
+                }
+                if (diagType === 'comparison') {
+                    return '<div style="display:flex;gap:16px;align-items:center;">'
+                        + '<div style="width:80px;height:56px;border:2px solid ' + stroke + ';border-radius:8px;display:flex;align-items:center;justify-content:center;">'
+                        + '<span style="font-size:10px;color:' + stroke + ';font-weight:600;">A</span></div>'
+                        + '<span style="font-size:14px;color:' + muted + ';font-weight:700;">vs</span>'
+                        + '<div style="width:80px;height:56px;border:2px solid ' + muted + ';border-radius:8px;display:flex;align-items:center;justify-content:center;">'
+                        + '<span style="font-size:10px;color:' + muted + ';font-weight:600;">B</span></div></div>';
+                }
+                if (diagType === 'timeline') {
+                    return '<svg width="240" height="40" viewBox="0 0 240 40">'
+                        + '<line x1="10" y1="20" x2="230" y2="20" stroke="' + muted + '" stroke-width="2"/>'
+                        + '<circle cx="30" cy="20" r="6" fill="' + stroke + '"/>'
+                        + '<circle cx="90" cy="20" r="6" fill="' + stroke + '"/>'
+                        + '<circle cx="150" cy="20" r="6" fill="' + muted + '"/>'
+                        + '<circle cx="210" cy="20" r="4" fill="' + muted + '" stroke="' + stroke + '" stroke-width="1.5"/>'
+                        + '</svg>';
+                }
+                // Default: flowchart / hierarchy — connected nodes
+                return '<div style="display:flex;gap:10px;align-items:center;">'
+                    + '<div style="width:56px;height:38px;border:2px solid ' + stroke + ';border-radius:6px;display:flex;align-items:center;justify-content:center;">'
+                    + '<span style="font-size:9px;color:' + stroke + ';">Start</span></div>'
+                    + '<svg width="28" height="12" viewBox="0 0 28 12"><line x1="0" y1="6" x2="20" y2="6" stroke="' + stroke + '" stroke-width="1.5"/><polygon points="20,2 28,6 20,10" fill="' + stroke + '"/></svg>'
+                    + '<div style="width:56px;height:38px;border:2px solid ' + stroke + ';border-radius:6px;display:flex;align-items:center;justify-content:center;">'
+                    + '<span style="font-size:9px;color:' + stroke + ';">Step</span></div>'
+                    + '<svg width="28" height="12" viewBox="0 0 28 12"><line x1="0" y1="6" x2="20" y2="6" stroke="' + muted + '" stroke-width="1.5"/><polygon points="20,2 28,6 20,10" fill="' + muted + '"/></svg>'
+                    + '<div style="width:56px;height:38px;border:2px dashed ' + muted + ';border-radius:6px;display:flex;align-items:center;justify-content:center;">'
+                    + '<span style="font-size:9px;color:' + muted + ';">End</span></div></div>';
+            }
+
             // Schema-driven apply adapter — applies template_schema or falls back to legacy css_variables
             function applyTemplateToCanvas(templateData) {
                 if (!templateData) return;
@@ -3138,6 +3232,19 @@
                         canvas.style.setProperty('--font-heading', (typo.heading_font || 'Inter') + ', sans-serif');
                         canvas.style.setProperty('--font-body',   (typo.body_font    || 'Inter') + ', sans-serif');
 
+                        // 2b. Apply color_roles for diagram/line rendering
+                        var cr = schema.color_roles || {};
+                        canvas.style.setProperty('--color-line',           cr.line       || cp.primary    || '#8b5cf6');
+                        canvas.style.setProperty('--color-muted-line',     cr.muted_line || cp.text_muted || '#9ca3af');
+                        canvas.style.setProperty('--color-diagram-stroke', cr.line       || cp.primary    || '#8b5cf6');
+
+                        // 2c. Control blur elements — hide for diagram/none (they wash out dark designs)
+                        var blurP = document.getElementById('canvas-blur-primary');
+                        var blurS = document.getElementById('canvas-blur-secondary');
+                        var showBlur = schema.visual_mode !== 'diagram' && schema.visual_mode !== 'none';
+                        if (blurP) blurP.style.display = showBlur ? '' : 'none';
+                        if (blurS) blurS.style.display = showBlur ? '' : 'none';
+
                         // 3. Apply layout spacing
                         canvas.style.setProperty('--canvas-padding',    padding  + 'px');
                         canvas.style.setProperty('--canvas-gap',        gap      + 'px');
@@ -3172,6 +3279,9 @@
                     if (canvas && schema.template_family) {
                         renderFamilyComponents(schema.template_family, schema, canvas);
                     }
+
+                    // 8. Apply visual mode rendering (diagram/illustration/icon/none)
+                    applyVisualMode(schema);
 
                     // Sync control panel sliders
                     var paddingSlider = document.getElementById('ctrl-padding');
@@ -3276,8 +3386,12 @@
                 if (existing) existing.remove();
 
                 var cp      = (schema && schema.color_palette) || {};
+                var cr      = (schema && schema.color_roles)   || {};
+                var vMode   = (schema && schema.visual_mode)   || 'icon';
                 var bgColor = cp.background  || '#0f0f11';
-                var primary = cp.primary     || '#8b5cf6';
+                // Use color_roles for line strokes when available
+                var lineColor  = cr.line       || cp.primary    || '#8b5cf6';
+                var mutedLine  = cr.muted_line || cp.text_muted || '#9ca3af';
                 var accent  = cp.accent      || '#f59e0b';
                 var muted   = cp.text_muted  || '#9ca3af';
                 var text    = cp.text_primary || '#ffffff';
@@ -3286,31 +3400,33 @@
                 overlay.id  = 'carousel-component-overlay';
 
                 if (family === 'dark_editorial_diagram') {
-                    // Components: diagram-arc, node-points, dashed-divider, annotation-labels
+                    // Use color_roles.line for strokes (not generic primary)
+                    // Only render diagram overlays when visual_mode is diagram
+                    var showDiagramOverlay = (vMode === 'diagram');
                     overlay.innerHTML = [
-                        // diagram-arc: SVG concentric arcs in top-right corner
-                        '<svg style="position:absolute;top:-30px;right:-30px;opacity:0.25;" width="220" height="220" viewBox="0 0 220 220">',
-                            '<path d="M220,0 A220,220 0 0,0 0,220" fill="none" stroke="' + primary + '" stroke-width="1.5" stroke-dasharray="5,10"/>',
-                            '<path d="M160,0 A160,160 0 0,0 0,160" fill="none" stroke="' + accent  + '" stroke-width="1"   stroke-dasharray="3,7"/>',
-                            '<path d="M100,0 A100,100 0 0,0 0,100" fill="none" stroke="' + primary + '" stroke-width="0.5" stroke-dasharray="2,6" opacity="0.5"/>',
+                        // diagram-arc: SVG concentric arcs — uses extracted line colors
+                        '<svg style="position:absolute;top:-30px;right:-30px;opacity:' + (showDiagramOverlay ? '0.35' : '0.15') + ';" width="220" height="220" viewBox="0 0 220 220">',
+                            '<path d="M220,0 A220,220 0 0,0 0,220" fill="none" stroke="' + lineColor + '" stroke-width="1.5" stroke-dasharray="5,10"/>',
+                            '<path d="M160,0 A160,160 0 0,0 0,160" fill="none" stroke="' + mutedLine + '" stroke-width="1"   stroke-dasharray="3,7"/>',
+                            '<path d="M100,0 A100,100 0 0,0 0,100" fill="none" stroke="' + lineColor + '" stroke-width="0.5" stroke-dasharray="2,6" opacity="0.5"/>',
                         '</svg>',
-                        // node-points: connected dot chain bottom-left
-                        '<div style="position:absolute;bottom:70px;left:36px;display:flex;flex-direction:column;gap:18px;opacity:0.45;">',
+                        // node-points: connected dot chain — uses line colors
+                        '<div style="position:absolute;bottom:70px;left:36px;display:flex;flex-direction:column;gap:18px;opacity:0.55;">',
                             '<div style="display:flex;align-items:center;gap:6px;">',
-                                '<div style="width:7px;height:7px;border-radius:50%;background:' + primary + ';box-shadow:0 0 6px ' + primary + '88;"></div>',
-                                '<div style="width:36px;height:1px;background:linear-gradient(to right,' + primary + ',' + accent + ');"></div>',
-                                '<div style="width:5px;height:5px;border-radius:50%;background:' + accent  + ';box-shadow:0 0 4px ' + accent  + '88;"></div>',
+                                '<div style="width:7px;height:7px;border-radius:50%;background:' + lineColor + ';"></div>',
+                                '<div style="width:36px;height:1px;background:linear-gradient(to right,' + lineColor + ',' + mutedLine + ');"></div>',
+                                '<div style="width:5px;height:5px;border-radius:50%;background:' + mutedLine + ';"></div>',
                             '</div>',
                             '<div style="display:flex;align-items:center;gap:6px;margin-left:8px;">',
-                                '<div style="width:5px;height:5px;border-radius:50%;background:' + muted  + ';opacity:0.6;"></div>',
-                                '<div style="width:20px;height:1px;background:' + muted + ';opacity:0.4;"></div>',
-                                '<div style="width:5px;height:5px;border-radius:50%;background:' + primary + ';opacity:0.6;"></div>',
+                                '<div style="width:5px;height:5px;border-radius:50%;background:' + mutedLine + ';opacity:0.6;"></div>',
+                                '<div style="width:20px;height:1px;background:' + mutedLine + ';opacity:0.4;"></div>',
+                                '<div style="width:5px;height:5px;border-radius:50%;background:' + lineColor + ';opacity:0.6;"></div>',
                             '</div>',
                         '</div>',
-                        // dashed-divider: horizontal dashed line
-                        '<div style="position:absolute;bottom:110px;left:36px;right:36px;border-top:1px dashed ' + muted + ';opacity:0.2;"></div>',
+                        // dashed-divider
+                        '<div style="position:absolute;bottom:110px;left:36px;right:36px;border-top:1px dashed ' + mutedLine + ';opacity:0.25;"></div>',
                         // annotation-labels
-                        '<div style="position:absolute;top:28px;left:36px;font-size:7px;font-weight:700;letter-spacing:0.18em;color:' + primary + ';opacity:0.55;text-transform:uppercase;font-family:monospace;">DESIGN SCHEMA</div>',
+                        '<div style="position:absolute;top:28px;left:36px;font-size:7px;font-weight:700;letter-spacing:0.18em;color:' + lineColor + ';opacity:0.6;text-transform:uppercase;font-family:monospace;">DESIGN SCHEMA</div>',
                         '<div style="position:absolute;top:28px;right:36px;display:flex;align-items:center;gap:4px;">',
                             '<div style="width:4px;height:4px;border-radius:50%;background:' + accent + ';animation:pulse 2s infinite;"></div>',
                             '<span style="font-size:7px;color:' + muted + ';opacity:0.5;font-family:monospace;">LIVE</span>',

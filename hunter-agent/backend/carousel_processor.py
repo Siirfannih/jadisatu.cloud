@@ -60,6 +60,17 @@ Return this exact structure:
     "text_muted": "<hex of muted/caption text>",
     "surface": "<hex of card/panel surface color>"
   },
+  "color_roles": {
+    "background": "<exact hex of canvas background — must match what you see>",
+    "surface": "<hex of card/panel surface>",
+    "text_primary": "<hex of main heading/text color>",
+    "text_secondary": "<hex of body/subtitle text>",
+    "accent": "<hex of highlight/CTA color>",
+    "line": "<hex of lines, borders, dividers, diagram strokes visible in design>",
+    "muted_line": "<hex of subtle background lines, grids, secondary strokes>"
+  },
+  "visual_mode": "<exactly one of: diagram | illustration | icon | none>",
+  "diagram_type": "<only when visual_mode is diagram: flowchart | arc | cycle | comparison | timeline | coherence_arc | none>",
   "typography": {
     "heading_font": "<font name, e.g. Inter, Playfair Display, Roboto>",
     "body_font": "<font name>",
@@ -92,7 +103,19 @@ Template Family Classification Guide:
 - warm_photo_editorial: Warm palette (browns, oranges, creams, earth tones), photo areas, gradient overlays, serif fonts, hand-drawn doodles/decorations, organic feel
 - minimal_educational: Light or neutral background (white, light grey, beige), clean layout, numbered steps, bullet lists, icon-based structure, lots of whitespace
 
-IMPORTANT: Extract REAL hex colors from the image. Do not use generic placeholder values."""
+IMPORTANT: Extract REAL hex colors from the image. Do not use generic placeholder values.
+
+CRITICAL color rules:
+- For dark designs: background MUST be the TRUE dark color you see (e.g. #050505, #0a0a0f, #1a1a2e), NOT approximated grays like #333 or #666
+- line = color of actual visible lines, borders, dividers, or diagram strokes in the image
+- muted_line = very subtle secondary line color for grids or background strokes
+- If no lines are visible, set line to the primary color and muted_line to text_muted
+
+Visual mode classification:
+- diagram: design contains charts, node graphs, flow diagrams, arc curves, connected elements, data visualization
+- illustration: design has a large hero visual, scene, photo, or decorative artwork
+- icon: design uses small supporting symbols/icons only
+- none: design is purely typography and spacing with no visual elements"""
 
 
 # ─── Gemini Vision Extractor ──────────────────────────────────────────────────
@@ -158,7 +181,14 @@ class CarouselDesignExtractor:
             print(
                 f"✅ Design schema extracted: {schema['template_family']} | "
                 f"bg={schema['color_palette']['background']} | "
-                f"primary={schema['color_palette']['primary']}"
+                f"primary={schema['color_palette']['primary']} | "
+                f"visual_mode={schema['visual_mode']} | "
+                f"diagram_type={schema['diagram_type']}"
+            )
+            cr = schema.get("color_roles", {})
+            print(
+                f"  color_roles: bg={cr.get('background')} line={cr.get('line')} "
+                f"muted_line={cr.get('muted_line')}"
             )
             return {"success": True, "schema": schema}
 
@@ -257,6 +287,31 @@ class TemplateFamilyClassifier:
             return False
 
 
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+VALID_VISUAL_MODES = ("diagram", "illustration", "icon", "none")
+VALID_DIAGRAM_TYPES = ("flowchart", "arc", "cycle", "comparison", "timeline", "coherence_arc", "none")
+
+
+def _validate_visual_mode(mode: str) -> str:
+    return mode if mode in VALID_VISUAL_MODES else "none"
+
+
+def _build_color_roles(raw_schema: Dict, cp: Dict) -> Dict:
+    """Build semantic color roles from Gemini extraction, falling back to color_palette."""
+    cr = raw_schema.get("color_roles", {})
+    roles = {
+        "background": cr.get("background", cp.get("background", "#0f0f11")),
+        "surface": cr.get("surface", cp.get("surface", cp.get("background", "#18181b"))),
+        "text_primary": cr.get("text_primary", cp.get("text_primary", "#ffffff")),
+        "text_secondary": cr.get("text_secondary", cp.get("text_secondary", "#d1d5db")),
+        "accent": cr.get("accent", cp.get("accent", "#f59e0b")),
+        "line": cr.get("line", cp.get("primary", "#8b5cf6")),
+        "muted_line": cr.get("muted_line", cp.get("text_muted", "#9ca3af")),
+    }
+    return roles
+
+
 # ─── Schema Builder ───────────────────────────────────────────────────────────
 def build_complete_schema(raw_schema: Dict) -> Dict:
     """
@@ -333,4 +388,9 @@ def build_complete_schema(raw_schema: Dict) -> Dict:
         "visual_components": merged_comps,
         "style_traits": raw_schema.get("style_traits", []),
         "content_genre": raw_schema.get("content_genre", "educational"),
+        # ── Semantic color roles (for accurate rendering) ─────────
+        "color_roles": _build_color_roles(raw_schema, cp),
+        # ── Visual mode classification ────────────────────────────
+        "visual_mode": _validate_visual_mode(raw_schema.get("visual_mode", "none")),
+        "diagram_type": raw_schema.get("diagram_type", "none") if _validate_visual_mode(raw_schema.get("visual_mode", "none")) == "diagram" else "none",
     }

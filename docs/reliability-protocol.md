@@ -3,12 +3,16 @@
 ## How Smart Extractor Works
 
 ```
-User pastes URL → Frontend JS sends POST to /api/carousel/extract-template
+User uploads screenshot → Frontend JS sends POST to /api/carousel/extract-template
     → Nginx proxies to localhost:8000
     → FastAPI receives request in api.py
-    → CarouselDesignExtractor calls Gemini API to analyze the URL content
-    → Returns template_schema JSON
-    → Frontend renders carousel preview from schema
+    → CarouselDesignExtractor calls Gemini 2.5 Flash Vision API
+    → Gemini extracts: color_palette, color_roles, visual_mode, diagram_type, layout, typography
+    → build_complete_schema normalizes + validates + adds defaults
+    → Returns template_schema JSON with semantic color roles
+    → Frontend applies colors (solid bg, no gradient for dark/diagram)
+    → Frontend renders visual mode (diagram SVG / illustration / icon / none)
+    → Family-specific overlays use color_roles.line for strokes
 ```
 
 ## Critical Endpoints
@@ -16,7 +20,7 @@ User pastes URL → Frontend JS sends POST to /api/carousel/extract-template
 | Endpoint | Method | Purpose | Expected Response |
 |----------|--------|---------|-------------------|
 | `/api/health` | GET | Service health check | `{"status": "ok", "service": "hunter-agent"}` |
-| `/api/carousel/extract-template` | POST | Extract design from URL | `{"success": true, "template_schema": {...}}` |
+| `/api/carousel/extract-template` | POST | Extract design from screenshot | `{"success": true, "template_schema": {color_palette, color_roles, visual_mode, ...}}` |
 | `/api/carousel/map-to-slides` | POST | Map content to slides | `{"success": true, "slides": [...]}` |
 | `/api/carousel/template-families` | GET | List available templates | `{"families": [...]}` |
 
@@ -39,6 +43,25 @@ User pastes URL → Frontend JS sends POST to /api/carousel/extract-template
 | SyntaxError in database.py | Broken line continuations | Check for `\` followed by spaces instead of newlines |
 | 502 Bad Gateway | Nginx can't reach backend | Check PM2 status, verify port 8000 is listening |
 | Empty template_schema | Gemini API key missing/invalid | Check `.env` file, verify `GEMINI_API_KEY` |
+| Colors look washed out | Canvas gradient override or blur elements | Check visual_mode in console; blur should be hidden for diagram/none |
+| Wrong visual (icon instead of diagram) | visual_mode not extracted correctly | Check `pm2 logs hunter-agent` for visual_mode value |
+| Missing color_roles | Old template or Gemini didn't extract | Falls back to color_palette values automatically |
+
+## Debug: Checking color_roles and visual_mode
+
+In browser DevTools console, look for:
+```
+[Smart Extractor] Gemini Vision Pipeline Response
+  color_roles: {background: "#050505", line: "#F2F2F2", ...}
+  visual_mode: "diagram"
+  diagram_type: "coherence_arc"
+```
+
+In PM2 logs (`pm2 logs hunter-agent --lines 10`):
+```
+✅ Design schema extracted: dark_editorial_diagram | visual_mode=diagram | diagram_type=arc
+  color_roles: bg=#050505 line=#F2F2F2 muted_line=#8A8A8A
+```
 
 ## Manual Test Steps
 
