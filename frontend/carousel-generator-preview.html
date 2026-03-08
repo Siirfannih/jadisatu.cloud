@@ -2368,20 +2368,21 @@
 
             document.getElementById('carousel-content-meta').textContent = 'Content ID: ' + esc(item.id) + ' | "' + esc((item.title || '').substring(0, 40)) + (item.title && item.title.length > 40 ? '…' : '') + '"';
 
-            // Build slides FIRST, then populate sidebar from slidesData
-            var aiSlides = await fetchAISlides(item);
-            if (aiSlides && aiSlides.length > 0) {
-                slidesData = aiSlides.slice(0, platformRules.maxSlides);
-                console.log('[Slides] Built ' + slidesData.length + ' slides from AI');
+            // Build slides: Full Script FIRST (primary), then AI, then value_text fallback
+            var _fsSlides = buildSlidesFromFullScript(item);
+            if (_fsSlides && _fsSlides.length >= 2) {
+                slidesData = _fsSlides.slice(0, platformRules.maxSlides);
+                console.log('[Slides] Built ' + slidesData.length + ' slides from Full Script (primary)');
             } else {
-                // Try Full Script first (structured sections), then value_text fallback
-                var _fsSlides = buildSlidesFromFullScript(item);
-                if (_fsSlides && _fsSlides.length > 0) {
-                    slidesData = _fsSlides.slice(0, platformRules.maxSlides);
-                    console.log('[Slides] Built ' + slidesData.length + ' slides from Full Script');
+                // Full Script empty/unparseable — try AI slides
+                var aiSlides = await fetchAISlides(item);
+                if (aiSlides && aiSlides.length > 0) {
+                    slidesData = aiSlides.slice(0, platformRules.maxSlides);
+                    console.log('[Slides] Built ' + slidesData.length + ' slides from AI');
                 } else {
+                    // Last resort — parse value_text
                     slidesData = buildSlidesFromItem(item).slice(0, platformRules.maxSlides);
-                    console.log('[Slides] Built ' + slidesData.length + ' slides from value_text');
+                    console.log('[Slides] Built ' + slidesData.length + ' slides from value_text (fallback)');
                 }
             }
             // Populate sidebar from slidesData (Full Script is the source of truth)
