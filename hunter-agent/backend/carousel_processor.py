@@ -124,7 +124,7 @@ class CarouselDesignExtractor:
 
                 img_bytes = base64.b64decode(data)
                 parts.append(
-                    genai.types.Part.from_bytes(data=img_bytes, mime_type=mime)
+                    {"mime_type": mime, "data": img_bytes}
                 )
 
             response = self.model.generate_content(parts)
