@@ -3,7 +3,15 @@ FastAPI Server for Hunter Agent Dashboard
 Provides REST API endpoints for the frontend
 """
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException, Query
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel

@@ -6,6 +6,8 @@ Coordinates scraping, analysis, and storage
 import time
 from datetime import datetime
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from reddit_scraper import RedditScraper
 from linkedin_scraper import LinkedInScraper
 from gemini_analyzer import GeminiAnalyzer

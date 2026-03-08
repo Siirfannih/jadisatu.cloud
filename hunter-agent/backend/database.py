@@ -8,6 +8,8 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import json
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 class Database:
     def __init__(self):
