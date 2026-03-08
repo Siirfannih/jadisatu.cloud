@@ -2130,18 +2130,20 @@
             renderMainPreview();
             // Apply per-slide style from template folder
             applySlideStyle(currentSlideIndex);
-            // Restore per-slide visual mode override
+            // ALWAYS re-render visual mode per slide (diagram content changes per slide)
             var _vmo = slidesData[currentSlideIndex] && slidesData[currentSlideIndex]._visualModeOverride;
+            var _sch = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
+            _sch = Object.assign({}, _sch);
             if (_vmo) {
-                var _sch = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
-                _sch = Object.assign({}, _sch);
                 _sch.visual_mode = _vmo;
-                if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch);
-                // Sync inspector buttons
-                document.querySelectorAll('.visual-mode-btn').forEach(function(b) {
-                    b.classList.toggle('active', b.getAttribute('data-mode') === _vmo);
-                });
             }
+            // Always re-render to update ContentDiagramMapper with new slide content
+            if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch);
+            // Sync inspector buttons
+            var _activeMode = _vmo || _sch.visual_mode || 'diagram';
+            document.querySelectorAll('.visual-mode-btn').forEach(function(b) {
+                b.classList.toggle('active', b.getAttribute('data-mode') === _activeMode);
+            });
             // Hide tweak/reject panels and update feedback on slide change
             if (typeof window._hideTweakAndReject === 'function') window._hideTweakAndReject();
             if (typeof window._updateFeedbackUI === 'function') window._updateFeedbackUI();
@@ -3901,10 +3903,15 @@
                         if (visualArea) visualArea.style.display = 'none';
                     }
 
-                    // Body text visibility: hide when diagram is showing (content already in diagram nodes)
+                    // Text visibility: hide when diagram is showing (content already in diagram nodes)
+                    var _headlineEl = document.getElementById('carousel-preview-headline');
                     var _bodyTextEl = document.getElementById('carousel-preview-body');
-                    if (_bodyTextEl) {
-                        _bodyTextEl.style.display = (mode === 'diagram') ? 'none' : '';
+                    if (mode === 'diagram') {
+                        if (_headlineEl) _headlineEl.style.display = 'none';
+                        if (_bodyTextEl) _bodyTextEl.style.display = 'none';
+                    } else {
+                        if (_headlineEl) _headlineEl.style.display = '';
+                        if (_bodyTextEl) _bodyTextEl.style.display = '';
                     }
 
                     // Component blocks (icon cards, feature cards, etc.)
@@ -3986,9 +3993,16 @@
                     } else {
                         if (visualArea) visualArea.style.display = 'none';
                     }
-                    // Body text: hide in diagram mode (fallback path)
+                    // Text: hide in diagram mode (fallback path)
+                    var _headFb = document.getElementById('carousel-preview-headline');
                     var _bodyFb = document.getElementById('carousel-preview-body');
-                    if (_bodyFb) _bodyFb.style.display = (mode === 'diagram') ? 'none' : '';
+                    if (mode === 'diagram') {
+                        if (_headFb) _headFb.style.display = 'none';
+                        if (_bodyFb) _bodyFb.style.display = 'none';
+                    } else {
+                        if (_headFb) _headFb.style.display = '';
+                        if (_bodyFb) _bodyFb.style.display = '';
+                    }
                 }
 
                 if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
