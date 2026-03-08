@@ -1,5 +1,5 @@
 """
-FastAPI Server for Hunter Agent Dashboard
+FastAPI Server for Hunter Agent Dashboard + Carousel AI Processor
 Provides REST API endpoints for the frontend
 """
 
@@ -208,6 +208,141 @@ def trigger_scrape():
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ─── Carousel AI Endpoints ────────────────────────────────────────────────────
+
+class ExtractTemplateRequest(BaseModel):
+    images: List[str]  # List of base64-encoded image strings (max 3)
+
+class MapSlidesRequest(BaseModel):
+    value_text: Optional[str] = ""
+    full_script: Optional[str] = ""
+    hook: Optional[str] = ""
+
+@app.post("/api/carousel/extract-template")
+async def extract_template(req: ExtractTemplateRequest):
+    """
+    Analyze screenshot(s) with Gemini Vision and return a structured Design Schema JSON.
+
+    Pipeline:
+    1. Receive base64 image(s)
+    2. Send to Gemini Vision with design extraction prompt
+    3. Parse response into Design Schema JSON
+    4. Classify template_family
+    5. Return complete schema to frontend renderer
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    if not req.images:
+        raise HTTPException(status_code=400, detail="No images provided")
+
+    try:
+        from carousel_processor import CarouselDesignExtractor
+
+        extractor = CarouselDesignExtractor(api_key=gemini_key)
+        result = extractor.extract_design_schema(req.images)
+
+        if not result.get("success"):
+            return {
+                "success": False,
+                "error": result.get("error", "Extraction failed"),
+                "template_schema": None,
+                "pipeline": "gemini-vision-v1",
+                "images_processed": len(req.images),
+            }
+
+        schema = result["schema"]
+        return {
+            "success": True,
+            "template_schema": schema,
+            "pipeline": "gemini-vision-v1",
+            "images_processed": len(req.images),
+            # Keep these fields for frontend backward compat
+            "extracted_style": {
+                "template_family": schema.get("template_family"),
+                "color_palette": schema.get("color_palette"),
+                "typography": schema.get("typography"),
+                "style_traits": schema.get("style_traits", []),
+            },
+            "asset_plan": {
+                "visual_components": schema.get("visual_components", []),
+                "layout_type": schema.get("layout_structure", {}).get("type"),
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/carousel/map-to-slides")
+async def map_to_slides(req: MapSlidesRequest):
+    """
+    Map creative content text into structured carousel slides using Gemini.
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    import google.generativeai as genai
+
+    genai.configure(api_key=gemini_key)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    value_text = req.value_text or ""
+    hook = req.hook or ""
+    full_script = req.full_script or ""
+
+    prompt = f"""You are a carousel content strategist. Convert the following content into structured carousel slides.
+
+Hook: {hook}
+Value Points: {value_text}
+Full Script: {full_script}
+
+Return JSON with this structure:
+{{
+  "slides": [
+    {{
+      "slide_number": 1,
+      "type": "hook",
+      "headline": "Short punchy headline (max 8 words)",
+      "body": "Supporting text (max 20 words)",
+      "cta": ""
+    }},
+    {{
+      "slide_number": 2,
+      "type": "value",
+      "headline": "...",
+      "body": "...",
+      "cta": ""
+    }}
+  ]
+}}
+
+Create 5-8 slides. Last slide should be CTA. Return ONLY valid JSON."""
+
+    try:
+        response = model.generate_content(prompt)
+        raw = response.text.strip()
+        if raw.startswith("```json"):
+            raw = raw[7:]
+        elif raw.startswith("```"):
+            raw = raw[3:]
+        if raw.endswith("```"):
+            raw = raw[:-3]
+        data = json.loads(raw.strip())
+        return {"success": True, "slides": data.get("slides", [])}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/carousel/template-families")
+def get_template_families():
+    """Returns available template families and their component sets."""
+    from carousel_processor import TEMPLATE_FAMILIES
+    return {"families": TEMPLATE_FAMILIES}
+
 
 if __name__ == "__main__":
     import uvicorn

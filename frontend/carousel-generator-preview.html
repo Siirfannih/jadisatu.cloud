@@ -116,9 +116,17 @@
         }
 
         /* Brand Config applied to Live Canvas — variabel di-set oleh JS applyBrandColors() */
+        /* Semantic color mapping:
+           --preview-bg        → canvas background
+           --preview-primary   → heading text + primary accents
+           --preview-secondary → body text + secondary UI
+           --preview-accent    → highlights, decorations, CTAs
+        */
         #carousel-live-canvas {
+            --preview-bg: #0f0f11;
             --preview-primary: #8b5cf6;
             --preview-secondary: #6366f1;
+            --preview-accent: #f59e0b;
             --preview-font: 'Inter', sans-serif;
         }
 
@@ -133,11 +141,20 @@
         }
 
         .carousel-preview-accent {
-            color: var(--preview-primary);
+            color: var(--preview-accent);
         }
 
         #carousel-live-canvas .carousel-preview-accent {
-            color: var(--preview-primary);
+            color: var(--preview-accent);
+        }
+
+        /* Component overlay — injected by renderFamilyComponents() */
+        #carousel-component-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5;
+            overflow: hidden;
         }
 
         .carousel-preview-card-themed {
@@ -1068,6 +1085,8 @@
         };
 
         var CAROUSEL_PROCESSOR_URL = (SUPABASE_URL || '').replace(/\/$/, '') + '/functions/v1/carousel-processor';
+        // Python AI Backend on VPS — handles Gemini Vision extraction
+        var CAROUSEL_AI_BACKEND_URL = 'http://76.13.190.196:8000';
 
         function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
@@ -1659,14 +1678,27 @@
         function applyBrandColors(brand) {
             var card = document.getElementById('carousel-live-canvas');
             if (!card) return;
-            var primary = (brand.primary_color || '#8b5cf6').trim();
+
+            // ── Semantic color mapping (fixed) ──────────────────────────────
+            // background_color → canvas background
+            // primary_color    → heading text + primary accents
+            // secondary_color  → body text + secondary UI
+            // accent_color     → highlights + decorations + CTAs
+            var bgColor   = (brand.background_color || '#0f0f11').trim();
+            var primary   = (brand.primary_color   || '#8b5cf6').trim();
             var secondary = (brand.secondary_color || '#6366f1').trim();
-            var font = (brand.font_heading || 'Inter').trim();
-            card.style.setProperty('--preview-primary', primary);
+            var accent    = (brand.accent_color    || '#f59e0b').trim();
+            var font      = (brand.font_heading    || 'Inter').trim();
+
+            card.style.setProperty('--preview-bg',        bgColor);
+            card.style.setProperty('--preview-primary',   primary);
             card.style.setProperty('--preview-secondary', secondary);
-            card.style.setProperty('--preview-font', font + ', sans-serif');
-            card.style.borderColor = primary + '99';
-            card.style.background = 'linear-gradient(145deg, ' + primary + '22 0%, #0f0f11 50%)';
+            card.style.setProperty('--preview-accent',    accent);
+            card.style.setProperty('--preview-font',      font + ', sans-serif');
+
+            // Canvas background = schema background color (not primary)
+            card.style.background  = bgColor;
+            card.style.borderColor = primary + '66';
 
             var sizeStr = brand.canvas_size || '1080x1080';
             var parts = sizeStr.split('x');
@@ -1702,10 +1734,13 @@
             // Try Supabase first (async)
             var supaBrand = await fetchBrandFromSupabase();
             var merged = {
-                primary_color: (supaBrand && supaBrand.primary_color) || localBrand.primary_color || '#8b5cf6',
-                secondary_color: (supaBrand && supaBrand.secondary_color) || localBrand.secondary_color || '#6366f1',
-                font_heading: (supaBrand && supaBrand.font_heading) || localBrand.font_heading || 'Inter',
-                canvas_size: (supaBrand && supaBrand.canvas_size) || localBrand.canvas_size || '1080x1080'
+                // New 4-color semantic format
+                background_color: (supaBrand && supaBrand.background_color) || localBrand.background_color || '#0f0f11',
+                primary_color:    (supaBrand && supaBrand.primary_color)    || localBrand.primary_color    || '#8b5cf6',
+                secondary_color:  (supaBrand && supaBrand.secondary_color)  || localBrand.secondary_color  || '#6366f1',
+                accent_color:     (supaBrand && supaBrand.accent_color)     || localBrand.accent_color     || '#f59e0b',
+                font_heading:     (supaBrand && supaBrand.font_heading)     || localBrand.font_heading     || 'Inter',
+                canvas_size:      (supaBrand && supaBrand.canvas_size)      || localBrand.canvas_size      || '1080x1080'
             };
             applyBrandColors(merged);
         }
@@ -2205,74 +2240,78 @@
                             try {
                                 var payload = { images: images };
 
-                                // Step 3: Agent 1 — Genre Analyst
-                                seSetStep(3, 'Agent 1: Menganalisis genre…', 'Genre Analyst');
+                                // Step 3: Gemini Vision — Genre + Design Analyst
+                                seSetStep(3, 'Menganalisis desain dengan Gemini Vision…', 'Gemini Vision');
 
-                                var res = await fetch(CAROUSEL_PROCESSOR_URL, {
+                                // ── Call Python AI Backend (Gemini Vision) ──────────────────
+                                var res = await fetch(CAROUSEL_AI_BACKEND_URL + '/api/carousel/extract-template', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ action: 'extract_multi_template', payload: payload })
+                                    body: JSON.stringify({ images: payload.images })
                                 });
 
-                                // Step 4: Agent 2 — Style Token Extractor (happens on server)
-                                seSetStep(4, 'Agent 2: Mengekstrak design tokens…', 'Style Token Extractor');
+                                // Step 4: Extract design tokens from schema
+                                seSetStep(4, 'Mengekstrak design tokens…', 'Token Extractor');
                                 await new Promise(function (r) { setTimeout(r, 200); });
 
-                                // Step 5: Agent 3 — Template Mapper
-                                seSetStep(5, 'Agent 3: Memetakan template schema…', 'Template Mapper');
+                                // Step 5: Template Family Classifier
+                                seSetStep(5, 'Mengklasifikasikan template family…', 'Family Classifier');
                                 await new Promise(function (r) { setTimeout(r, 200); });
 
                                 var data = await res.json();
 
                                 // Debug log
-                                console.group('%c[Smart Extractor] 5-Layer Pipeline Response', 'color: #a78bfa; font-weight: bold');
+                                console.group('%c[Smart Extractor] Gemini Vision Pipeline Response', 'color: #a78bfa; font-weight: bold');
                                 console.log('Status:', res.status, res.ok ? 'OK' : 'ERROR');
                                 console.log('Pipeline:', data.pipeline || 'unknown');
                                 console.log('Images processed:', data.images_processed || 1);
                                 console.log('template_schema:', data.template_schema);
                                 console.log('extracted_style:', data.extracted_style);
                                 console.log('asset_plan:', data.asset_plan);
-                                console.log('html_template:', data.html_template ? data.html_template.substring(0, 200) + '…' : '(empty)');
-                                if (data.error) {
-                                    console.error('Error:', data.error, 'Agent:', data.agent, data.agent_name || '', data.detail || '');
-                                    if (data._debug_raw) console.log('_debug_raw:', data._debug_raw);
-                                }
+                                if (data.error) console.error('Error:', data.error, data.detail || '');
                                 console.groupEnd();
 
-                                if (!res.ok) {
-                                    var agentInfo = data.agent_name ? ' (' + data.agent_name + ')' : (data.agent ? ' (Agent ' + data.agent + ')' : '');
-                                    seShowError((data.error || 'Gagal ekstrak template') + agentInfo);
+                                if (!res.ok || !data.success) {
+                                    seShowError(data.error || data.detail || 'Gagal ekstrak template dari AI backend');
                                     return;
                                 }
 
-                                // Step 6: Agent 5 — Frontend Template Generator + QA
-                                seSetStep(6, 'Agent 5: QA validated. Menerapkan schema…', 'Smart QA');
+                                // Step 6: Build Design Schema + QA
+                                seSetStep(6, 'Membangun Design Schema JSON…', 'Schema Builder');
                                 await new Promise(function (r) { setTimeout(r, 300); });
 
                                 var schema = data.template_schema || {};
-                                var cp = schema.color_palette || {};
-                                var typo = schema.typography || {};
-                                var comp = schema.composition || {};
+                                var cp     = schema.color_palette    || {};
+                                var typo   = schema.typography        || {};
+                                // Support both layout_structure (new) and composition (legacy)
+                                var layout = schema.layout_structure  || schema.composition || {};
 
-                                // Map schema to brand config
+                                // ── CORRECT semantic brand mapping ─────────────────────────
+                                // background → canvas background
+                                // primary    → heading text + accents
+                                // secondary  → body text
+                                // accent     → highlights + decorations
                                 var brand = {
-                                    primary_color: cp.background || '#1a1a2e',
-                                    secondary_color: cp.primary || '#8b5cf6',
-                                    font_heading: typo.heading_font || 'Inter',
+                                    background_color: cp.background  || '#0f0f11',
+                                    primary_color:    cp.primary     || '#8b5cf6',
+                                    secondary_color:  cp.secondary   || '#6366f1',
+                                    accent_color:     cp.accent      || '#f59e0b',
+                                    font_heading:     typo.heading_font || 'Inter',
                                     canvas_size: '1080x1080'
                                 };
 
-                                console.group('%c[Smart Extractor] Schema → Brand Mapping', 'color: #34d399; font-weight: bold');
+                                console.group('%c[Smart Extractor] Design Schema → Brand Mapping', 'color: #34d399; font-weight: bold');
                                 console.log('template_family:', schema.template_family);
                                 console.log('content_genre:', schema.content_genre);
-                                console.log('color_palette:', cp);
+                                console.log('color_palette (raw):', cp);
                                 console.log('typography:', typo);
-                                console.log('composition:', comp);
-                                console.log('→ Mapped brand:', brand);
+                                console.log('layout_structure:', layout);
+                                console.log('visual_components:', schema.visual_components);
+                                console.log('→ Mapped brand (fixed):', brand);
                                 console.groupEnd();
 
                                 // Step 7: Apply schema to canvas
-                                seSetStep(7, 'Menerapkan schema ke canvas…', 'Canvas Adapter');
+                                seSetStep(7, 'Menerapkan schema ke canvas…', 'Canvas Renderer');
 
                                 var app = getAppSettings();
                                 brand.canvas_size = (app.brand_config && app.brand_config.canvas_size) || '1080x1080';
@@ -2282,7 +2321,12 @@
                                     try {
                                         await supabaseClient.from('brand_config').upsert({
                                             user_id: currentUserId,
-                                            colors: { primary: brand.primary_color, secondary: brand.secondary_color },
+                                            colors: {
+                                                background: brand.background_color,
+                                                primary: brand.primary_color,
+                                                secondary: brand.secondary_color,
+                                                accent: brand.accent_color
+                                            },
                                             fonts: { heading: brand.font_heading },
                                             canvas_size: brand.canvas_size,
                                             setup_method: 'upload',
@@ -2293,19 +2337,27 @@
                                 }
 
                                 // Build template data with full schema
+                                var padding = layout.padding || layout.container_padding || 64;
+                                var gap     = layout.gap     || layout.element_gap      || 24;
+                                var align   = layout.alignment || layout.content_alignment || 'center';
+                                var txtAlign = layout.text_alignment || 'center';
+                                var layoutType = layout.type || layout.canvas_layout || 'center';
+
                                 var templateToSave = {
                                     name: (schema.template_family || 'AI Template').replace(/_/g, ' ') + ' — ' + new Date().toLocaleDateString('id-ID'),
-                                    layout: comp.canvas_layout || 'center',
+                                    layout: layoutType,
                                     canvas_size: brand.canvas_size,
                                     template_schema: schema,
                                     css_variables: {
-                                        '--preview-primary': cp.background || '#1a1a2e',
-                                        '--preview-secondary': cp.primary || '#8b5cf6',
-                                        '--preview-font': typo.heading_font || 'Inter',
-                                        '--canvas-padding': (comp.container_padding || 64) + 'px',
-                                        '--canvas-gap': (comp.element_gap || 24) + 'px',
-                                        '--canvas-align': comp.content_alignment || 'center',
-                                        '--canvas-text-align': (comp.text_alignment || 'text-center').replace('text-', '')
+                                        '--preview-bg':        brand.background_color,
+                                        '--preview-primary':   brand.primary_color,
+                                        '--preview-secondary': brand.secondary_color,
+                                        '--preview-accent':    brand.accent_color,
+                                        '--preview-font':      brand.font_heading,
+                                        '--canvas-padding':    padding + 'px',
+                                        '--canvas-gap':        gap + 'px',
+                                        '--canvas-align':      align,
+                                        '--canvas-text-align': txtAlign
                                     },
                                     html_content: data.html_template || '',
                                     source: 'smart-extractor',
@@ -2374,11 +2426,14 @@
             if (closeConfigBtn && configModal) closeConfigBtn.addEventListener('click', function () { configModal.classList.add('hidden'); });
             if (saveConfigBtn && configModal) {
                 saveConfigBtn.addEventListener('click', async function () {
+                    // Manual brand config uses primary as accent (bg stays dark by default)
                     var brand = {
-                        primary_color: document.getElementById('carousel-config-primary').value.trim() || '#8b5cf6',
-                        secondary_color: document.getElementById('carousel-config-secondary').value.trim() || '#6366f1',
-                        font_heading: document.getElementById('carousel-config-font').value.trim() || 'Inter',
-                        canvas_size: document.getElementById('carousel-config-canvas').value || '1080x1080'
+                        background_color: '#0f0f11',
+                        primary_color:    document.getElementById('carousel-config-primary').value.trim()   || '#8b5cf6',
+                        secondary_color:  document.getElementById('carousel-config-secondary').value.trim() || '#6366f1',
+                        accent_color:     document.getElementById('carousel-config-primary').value.trim()   || '#8b5cf6',
+                        font_heading:     document.getElementById('carousel-config-font').value.trim()      || 'Inter',
+                        canvas_size:      document.getElementById('carousel-config-canvas').value           || '1080x1080'
                     };
                     // Save to localStorage
                     if (window.AppSettingsService) window.AppSettingsService.save({ brand_config: brand });
@@ -2387,7 +2442,12 @@
                         try {
                             await supabaseClient.from('brand_config').upsert({
                                 user_id: currentUserId,
-                                colors: { primary: brand.primary_color, secondary: brand.secondary_color },
+                                colors: {
+                                    background: brand.background_color,
+                                    primary:    brand.primary_color,
+                                    secondary:  brand.secondary_color,
+                                    accent:     brand.accent_color
+                                },
                                 fonts: { heading: brand.font_heading },
                                 canvas_size: brand.canvas_size,
                                 setup_method: 'manual',
@@ -2397,7 +2457,7 @@
                             _cachedSupabaseBrand = null;
                         } catch (e) { console.warn('brand_config upsert failed:', e); }
                     }
-                    // Apply immediately to preview (use the local values, no need to refetch)
+                    // Apply immediately to preview
                     applyBrandColors(brand);
                     // Sync canvas size selector
                     var canvasSizeSel = document.getElementById('carousel-canvas-size-selector');
@@ -2890,35 +2950,43 @@
                     var createdAt = tpl.created_at ? new Date(tpl.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
                     var source = data.source === 'smart-extractor' ? 'AI' : 'Manual';
 
-                    // Extract colors — prefer schema, fallback to css_variables
-                    var bgColor, primaryColor, secondaryColor, textColor, layout, family, genre;
+                    // Extract colors with CORRECT semantic mapping
+                    var bgColor, primaryColor, secondaryColor, accentColor, textColor, layout, family, genre;
                     if (schema && schema.color_palette) {
                         var cp = schema.color_palette;
-                        bgColor = cp.background || '#1a1a2e';
-                        primaryColor = cp.primary || '#8b5cf6';
-                        secondaryColor = cp.secondary || '#6366f1';
-                        textColor = cp.text_primary || '#ffffff';
-                        layout = (schema.composition || {}).canvas_layout || data.layout || 'center';
+                        // background → canvas bg | primary → accent | secondary → body
+                        bgColor       = cp.background   || '#0f0f11';
+                        primaryColor  = cp.primary      || '#8b5cf6';
+                        secondaryColor= cp.secondary    || '#6366f1';
+                        accentColor   = cp.accent       || '#f59e0b';
+                        textColor     = cp.text_primary || '#ffffff';
+                        // Support both layout_structure (new) and composition (legacy)
+                        var ls = schema.layout_structure || schema.composition || {};
+                        layout = ls.type || ls.canvas_layout || data.layout || 'center';
                         family = (schema.template_family || '').replace(/_/g, ' ');
-                        genre = schema.content_genre || '';
+                        genre  = schema.content_genre || '';
                     } else {
-                        bgColor = cssVars['--preview-primary'] || '#1a1a2e';
-                        primaryColor = cssVars['--preview-secondary'] || '#8b5cf6';
-                        secondaryColor = primaryColor;
-                        textColor = '#ffffff';
-                        layout = data.layout || 'center';
-                        family = '';
-                        genre = '';
+                        // Legacy css_variables mapping (corrected)
+                        bgColor        = cssVars['--preview-bg']        || '#0f0f11';
+                        primaryColor   = cssVars['--preview-primary']   || '#8b5cf6';
+                        secondaryColor = cssVars['--preview-secondary'] || '#6366f1';
+                        accentColor    = cssVars['--preview-accent']    || '#f59e0b';
+                        textColor      = '#ffffff';
+                        layout  = data.layout || 'center';
+                        family  = '';
+                        genre   = '';
                     }
 
                     // Build a structural mini-preview that represents the actual design
                     var previewHtml = '';
-                    if (schema && schema.composition) {
-                        var comp = schema.composition;
-                        var layoutType = comp.layout_type || 'center_stack';
+                    // Support both layout_structure (new) and composition (legacy)
+                    var layoutSchema = (schema && (schema.layout_structure || schema.composition)) ? (schema.layout_structure || schema.composition) : null;
+                    if (layoutSchema) {
+                        var comp = layoutSchema;
+                        var layoutType = comp.type || comp.layout_type || 'center_stack';
                         var flexDir = 'column';
-                        var alignItems = comp.content_alignment || 'center';
-                        var txtAlign = (comp.text_alignment || 'text-center').replace('text-', '');
+                        var alignItems = comp.alignment || comp.content_alignment || 'center';
+                        var txtAlign = (comp.text_alignment || 'center').replace('text-', '');
                         if (layoutType.includes('split_horizontal')) flexDir = 'row';
 
                         // Mini structural preview
@@ -2945,21 +3013,32 @@
                                 footerBar +
                             '</div>';
                     } else {
-                        // Legacy gradient preview
-                        previewHtml = '<div style="background: linear-gradient(145deg, ' + primaryColor + '33 0%, #0f0f11 60%); width:100%; height:100%; display:flex; align-items:center; justify-content:center;"><div style="font-size:10px; font-weight:700; color:' + primaryColor + '; text-transform:uppercase; letter-spacing:0.1em;">' + esc(layout) + '</div></div>';
+                        // Fallback: show real background + primary accent colors
+                        previewHtml =
+                            '<div style="background:' + bgColor + '; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:14px;">' +
+                                '<div style="width:60%; height:6px; background:' + primaryColor + '; border-radius:3px; opacity:0.9;"></div>' +
+                                '<div style="width:80%; height:3px; background:' + textColor  + '; border-radius:2px; opacity:0.25;"></div>' +
+                                '<div style="width:50%; height:3px; background:' + textColor  + '; border-radius:2px; opacity:0.15;"></div>' +
+                                '<div style="width:24px; height:24px; border-radius:6px; background:' + accentColor + '33; border:1px solid ' + accentColor + '66; margin-top:4px;"></div>' +
+                            '</div>';
                     }
+
+                    // Family badge color
+                    var familyBadgeStyle = family
+                        ? 'background:' + primaryColor + '22; color:' + primaryColor + '; border:1px solid ' + primaryColor + '44; font-size:7px; padding:2px 6px; border-radius:4px; margin:2px 8px 0; display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:calc(100% - 16px); text-transform:uppercase; letter-spacing:0.08em; font-weight:700;'
+                        : '';
 
                     var card = document.createElement('div');
                     card.className = 'template-card';
                     card.innerHTML =
                         '<div class="tpl-preview">' + previewHtml + '</div>' +
                         '<div class="tpl-colors">' +
-                            '<div class="tpl-swatch" style="background:' + bgColor + '"></div>' +
-                            '<div class="tpl-swatch" style="background:' + primaryColor + '"></div>' +
-                            '<div class="tpl-swatch" style="background:' + secondaryColor + '"></div>' +
-                            '<div class="tpl-swatch" style="background:' + textColor + '"></div>' +
+                            '<div class="tpl-swatch" title="Background" style="background:' + bgColor       + '"></div>' +
+                            '<div class="tpl-swatch" title="Primary"    style="background:' + primaryColor  + '"></div>' +
+                            '<div class="tpl-swatch" title="Secondary"  style="background:' + secondaryColor+ '"></div>' +
+                            '<div class="tpl-swatch" title="Accent"     style="background:' + accentColor   + '"></div>' +
                         '</div>' +
-                        (family ? '<div style="font-size:8px; color:#9ca3af; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(family) + '</div>' : '') +
+                        (family ? '<div style="' + familyBadgeStyle + '">' + esc(family) + '</div>' : '') +
                         '<div class="tpl-name">' + esc(name) + '</div>' +
                         '<div class="tpl-date">' + createdAt + (genre ? ' · ' + esc(genre) : '') + '</div>' +
                         '<div class="tpl-apply-btn">Apply</div>' +
@@ -3008,113 +3087,116 @@
             function applyTemplateToCanvas(templateData) {
                 if (!templateData) return;
 
-                var schema = templateData.template_schema || null;
-                var cssVars = templateData.css_variables || {};
-                var canvas = document.getElementById('carousel-live-canvas');
+                var schema  = templateData.template_schema || null;
+                var cssVars = templateData.css_variables   || {};
+                var canvas  = document.getElementById('carousel-live-canvas');
 
                 if (schema && schema.color_palette) {
-                    // ===== SCHEMA-DRIVEN PATH (new 5-layer pipeline) =====
-                    var cp = schema.color_palette;
-                    var typo = schema.typography || {};
-                    var comp = schema.composition || {};
-                    var decos = schema.decorations || {};
+                    // ===== SCHEMA-DRIVEN PATH =====
+                    var cp    = schema.color_palette;
+                    var typo  = schema.typography     || {};
+                    var decos = schema.decorations    || {};
+                    // Support both layout_structure (new) and composition (legacy)
+                    var layout = schema.layout_structure || schema.composition || {};
 
-                    // 1. Apply brand colors from schema palette
+                    // Normalize field names (new schema uses shorter names)
+                    var padding    = layout.padding    || layout.container_padding || 64;
+                    var gap        = layout.gap        || layout.element_gap       || 24;
+                    var align      = layout.alignment  || layout.content_alignment || 'center';
+                    var txtAlign   = (layout.text_alignment || 'center').replace('text-', '');
+                    var layoutType = layout.type       || layout.canvas_layout     || 'center';
+
+                    // 1. Build brand with CORRECT semantic color mapping:
+                    //    background → canvas bg  |  primary → heading/accents
+                    //    secondary → body text    |  accent  → highlights
                     var brand = {
-                        primary_color: cp.background || '#1a1a2e',
-                        secondary_color: cp.primary || '#8b5cf6',
-                        font_heading: typo.heading_font || 'Inter',
-                        canvas_size: templateData.canvas_size || '1080x1080'
+                        background_color: cp.background  || '#0f0f11',
+                        primary_color:    cp.primary     || '#8b5cf6',
+                        secondary_color:  cp.secondary   || '#6366f1',
+                        accent_color:     cp.accent      || '#f59e0b',
+                        font_heading:     typo.heading_font || 'Inter',
+                        canvas_size:      templateData.canvas_size || '1080x1080'
                     };
                     applyBrandColors(brand);
 
-                    // 2. Apply full color palette as CSS variables on canvas
+                    // 2. Apply full semantic color palette as CSS variables
                     if (canvas) {
-                        canvas.style.setProperty('--color-bg', cp.background || '#1a1a2e');
-                        canvas.style.setProperty('--color-surface', cp.surface || cp.background || '#18181b');
-                        canvas.style.setProperty('--color-primary', cp.primary || '#8b5cf6');
-                        canvas.style.setProperty('--color-secondary', cp.secondary || '#6366f1');
-                        canvas.style.setProperty('--color-text', cp.text_primary || '#ffffff');
+                        canvas.style.setProperty('--color-bg',             cp.background   || '#0f0f11');
+                        canvas.style.setProperty('--color-surface',        cp.surface      || cp.background || '#18181b');
+                        canvas.style.setProperty('--color-primary',        cp.primary      || '#8b5cf6');
+                        canvas.style.setProperty('--color-secondary',      cp.secondary    || '#6366f1');
+                        canvas.style.setProperty('--color-accent',         cp.accent       || '#f59e0b');
+                        canvas.style.setProperty('--color-text',           cp.text_primary || '#ffffff');
                         canvas.style.setProperty('--color-text-secondary', cp.text_secondary || '#d1d5db');
-                        canvas.style.setProperty('--color-text-muted', cp.text_muted || '#9ca3af');
+                        canvas.style.setProperty('--color-text-muted',     cp.text_muted   || '#9ca3af');
                         canvas.style.setProperty('--font-heading', (typo.heading_font || 'Inter') + ', sans-serif');
-                        canvas.style.setProperty('--font-body', (typo.body_font || 'Inter') + ', sans-serif');
+                        canvas.style.setProperty('--font-body',   (typo.body_font    || 'Inter') + ', sans-serif');
 
-                        // 3. Apply composition spacing
-                        var padding = (comp.container_padding || 64) + 'px';
-                        var gap = (comp.element_gap || 24) + 'px';
-                        canvas.style.setProperty('--canvas-padding', padding);
-                        canvas.style.setProperty('--canvas-gap', gap);
-                        canvas.style.setProperty('--canvas-align', comp.content_alignment || 'center');
-                        canvas.style.setProperty('--canvas-text-align', (comp.text_alignment || 'text-center').replace('text-', ''));
+                        // 3. Apply layout spacing
+                        canvas.style.setProperty('--canvas-padding',    padding  + 'px');
+                        canvas.style.setProperty('--canvas-gap',        gap      + 'px');
+                        canvas.style.setProperty('--canvas-align',      align);
+                        canvas.style.setProperty('--canvas-text-align', txtAlign);
 
-                        // 4. Apply background from decorations
-                        if (decos.background_css && decos.background_css !== cp.background) {
-                            canvas.style.background = decos.background_css;
-                        }
-
-                        // 5. Apply heading typography to headline
+                        // 4. Apply heading + body text colors
                         var headlineEl = document.getElementById('carousel-preview-headline');
                         if (headlineEl) {
-                            headlineEl.style.fontWeight = typo.heading_weight || 'bold';
-                            headlineEl.style.color = cp.text_primary || '#ffffff';
+                            headlineEl.style.fontWeight = typo.heading_weight || '700';
+                            headlineEl.style.color      = cp.text_primary || '#ffffff';
                         }
                         var bodyEl = document.getElementById('carousel-preview-body');
                         if (bodyEl) {
-                            bodyEl.style.fontWeight = typo.body_weight || 'normal';
-                            bodyEl.style.color = cp.text_secondary || '#d1d5db';
+                            bodyEl.style.fontWeight = typo.body_weight || '400';
+                            bodyEl.style.color      = cp.text_secondary || '#d1d5db';
                         }
-
-                        // 6. Apply footer text color
                         var footerEl = document.getElementById('carousel-preview-footer');
-                        if (footerEl) {
-                            footerEl.style.color = cp.text_muted || '#9ca3af';
-                        }
+                        if (footerEl) footerEl.style.color = cp.text_muted || '#9ca3af';
                     }
 
-                    // 7. Apply layout preset from schema
-                    if (comp.canvas_layout) {
-                        applyLayout(comp.canvas_layout);
-                    }
+                    // 5. Apply layout preset
+                    if (layoutType) applyLayout(layoutType);
 
-                    // 8. Apply element order
-                    if (comp.element_order && Array.isArray(comp.element_order)) {
-                        var vizFirst = comp.element_order.indexOf('visual') < comp.element_order.indexOf('headline');
+                    // 6. Apply element order
+                    if (layout.element_order && Array.isArray(layout.element_order)) {
+                        var vizFirst = layout.element_order.indexOf('visual') < layout.element_order.indexOf('headline');
                         applyElementOrder(vizFirst);
                     }
 
-                    // Sync control panel values
+                    // 7. Render family-specific components
+                    if (canvas && schema.template_family) {
+                        renderFamilyComponents(schema.template_family, schema, canvas);
+                    }
+
+                    // Sync control panel sliders
                     var paddingSlider = document.getElementById('ctrl-padding');
-                    var gapSlider = document.getElementById('ctrl-gap');
+                    var gapSlider     = document.getElementById('ctrl-gap');
                     if (paddingSlider) {
-                        paddingSlider.value = comp.container_padding || 64;
+                        paddingSlider.value = padding;
                         var pv = document.getElementById('ctrl-padding-val');
-                        if (pv) pv.textContent = (comp.container_padding || 64) + 'px';
+                        if (pv) pv.textContent = padding + 'px';
                     }
                     if (gapSlider) {
-                        gapSlider.value = comp.element_gap || 24;
+                        gapSlider.value = gap;
                         var gv = document.getElementById('ctrl-gap-val');
-                        if (gv) gv.textContent = (comp.element_gap || 24) + 'px';
+                        if (gv) gv.textContent = gap + 'px';
                     }
 
                 } else {
                     // ===== LEGACY PATH (backward compatibility) =====
-                    var primary = cssVars['--preview-primary'] || '#8b5cf6';
-                    var secondary = cssVars['--preview-secondary'] || '#6366f1';
-                    var font = cssVars['--preview-font'] || 'Inter';
-
-                    var brand = {
-                        primary_color: primary,
-                        secondary_color: secondary,
-                        font_heading: font.replace(/, sans-serif/g, ''),
-                        canvas_size: templateData.canvas_size || '1080x1080'
+                    var legacy = {
+                        background_color: cssVars['--preview-bg']        || '#0f0f11',
+                        primary_color:    cssVars['--preview-primary']    || '#8b5cf6',
+                        secondary_color:  cssVars['--preview-secondary']  || '#6366f1',
+                        accent_color:     cssVars['--preview-accent']     || '#f59e0b',
+                        font_heading:     (cssVars['--preview-font'] || 'Inter').replace(/, sans-serif/g, ''),
+                        canvas_size:      templateData.canvas_size        || '1080x1080'
                     };
-                    applyBrandColors(brand);
+                    applyBrandColors(legacy);
 
                     if (canvas) {
-                        if (cssVars['--canvas-padding']) canvas.style.setProperty('--canvas-padding', cssVars['--canvas-padding']);
-                        if (cssVars['--canvas-gap']) canvas.style.setProperty('--canvas-gap', cssVars['--canvas-gap']);
-                        if (cssVars['--canvas-align']) canvas.style.setProperty('--canvas-align', cssVars['--canvas-align']);
+                        if (cssVars['--canvas-padding'])    canvas.style.setProperty('--canvas-padding',    cssVars['--canvas-padding']);
+                        if (cssVars['--canvas-gap'])        canvas.style.setProperty('--canvas-gap',        cssVars['--canvas-gap']);
+                        if (cssVars['--canvas-align'])      canvas.style.setProperty('--canvas-align',      cssVars['--canvas-align']);
                         if (cssVars['--canvas-text-align']) canvas.style.setProperty('--canvas-text-align', cssVars['--canvas-text-align']);
                     }
 
@@ -3122,7 +3204,7 @@
                     if (templateData.element_order) applyElementOrder(templateData.element_order === 'visual_first');
 
                     var paddingSlider = document.getElementById('ctrl-padding');
-                    var gapSlider = document.getElementById('ctrl-gap');
+                    var gapSlider     = document.getElementById('ctrl-gap');
                     if (paddingSlider && cssVars['--canvas-padding']) {
                         paddingSlider.value = parseInt(cssVars['--canvas-padding']) || 64;
                         var pv = document.getElementById('ctrl-padding-val');
@@ -3138,26 +3220,23 @@
                 // Store template reference
                 if (templateData.html_content) {
                     window._lastExtractedTemplate = {
-                        html_template: templateData.html_content,
+                        html_template:   templateData.html_content,
                         template_schema: schema,
-                        applied_at: new Date().toISOString()
+                        applied_at:      new Date().toISOString()
                     };
                 }
 
-                // Save brand config
-                if (window.AppSettingsService) {
-                    var b = schema && schema.color_palette ? {
-                        primary_color: schema.color_palette.background,
-                        secondary_color: schema.color_palette.primary,
-                        font_heading: (schema.typography || {}).heading_font || 'Inter',
-                        canvas_size: templateData.canvas_size || '1080x1080'
-                    } : {
-                        primary_color: cssVars['--preview-primary'] || '#8b5cf6',
-                        secondary_color: cssVars['--preview-secondary'] || '#6366f1',
-                        font_heading: (cssVars['--preview-font'] || 'Inter').replace(/, sans-serif/g, ''),
-                        canvas_size: templateData.canvas_size || '1080x1080'
-                    };
-                    window.AppSettingsService.save({ brand_config: b });
+                // Save brand config with correct semantic mapping
+                if (window.AppSettingsService && schema && schema.color_palette) {
+                    var cp2 = schema.color_palette;
+                    window.AppSettingsService.save({ brand_config: {
+                        background_color: cp2.background  || '#0f0f11',
+                        primary_color:    cp2.primary     || '#8b5cf6',
+                        secondary_color:  cp2.secondary   || '#6366f1',
+                        accent_color:     cp2.accent      || '#f59e0b',
+                        font_heading:     (schema.typography || {}).heading_font || 'Inter',
+                        canvas_size:      templateData.canvas_size || '1080x1080'
+                    }});
                 }
 
                 // Re-render
@@ -3176,6 +3255,111 @@
                     loadTemplateGallery();
                     if (window._carouselToast) window._carouselToast('Template gallery refreshed.');
                 });
+            }
+
+            // ─── Component-Based Renderer ─────────────────────────────────────────
+            // Injects family-specific visual components into the canvas overlay.
+            // Each template family renders its own component set as SVG/HTML decorations.
+            //
+            //  dark_editorial_diagram  → diagram-arc, node-points, dashed-divider, annotation-labels
+            //  warm_photo_editorial    → hero-photo, overlay-gradient, serif-headline, decorative-doodles
+            //  minimal_educational     → numbered-steps, icon-bullets, clean-divider, caption-box
+            function renderFamilyComponents(family, schema, canvas) {
+                // Remove existing overlay to avoid stacking
+                var existing = document.getElementById('carousel-component-overlay');
+                if (existing) existing.remove();
+
+                var cp      = (schema && schema.color_palette) || {};
+                var bgColor = cp.background  || '#0f0f11';
+                var primary = cp.primary     || '#8b5cf6';
+                var accent  = cp.accent      || '#f59e0b';
+                var muted   = cp.text_muted  || '#9ca3af';
+                var text    = cp.text_primary || '#ffffff';
+
+                var overlay = document.createElement('div');
+                overlay.id  = 'carousel-component-overlay';
+
+                if (family === 'dark_editorial_diagram') {
+                    // Components: diagram-arc, node-points, dashed-divider, annotation-labels
+                    overlay.innerHTML = [
+                        // diagram-arc: SVG concentric arcs in top-right corner
+                        '<svg style="position:absolute;top:-30px;right:-30px;opacity:0.25;" width="220" height="220" viewBox="0 0 220 220">',
+                            '<path d="M220,0 A220,220 0 0,0 0,220" fill="none" stroke="' + primary + '" stroke-width="1.5" stroke-dasharray="5,10"/>',
+                            '<path d="M160,0 A160,160 0 0,0 0,160" fill="none" stroke="' + accent  + '" stroke-width="1"   stroke-dasharray="3,7"/>',
+                            '<path d="M100,0 A100,100 0 0,0 0,100" fill="none" stroke="' + primary + '" stroke-width="0.5" stroke-dasharray="2,6" opacity="0.5"/>',
+                        '</svg>',
+                        // node-points: connected dot chain bottom-left
+                        '<div style="position:absolute;bottom:70px;left:36px;display:flex;flex-direction:column;gap:18px;opacity:0.45;">',
+                            '<div style="display:flex;align-items:center;gap:6px;">',
+                                '<div style="width:7px;height:7px;border-radius:50%;background:' + primary + ';box-shadow:0 0 6px ' + primary + '88;"></div>',
+                                '<div style="width:36px;height:1px;background:linear-gradient(to right,' + primary + ',' + accent + ');"></div>',
+                                '<div style="width:5px;height:5px;border-radius:50%;background:' + accent  + ';box-shadow:0 0 4px ' + accent  + '88;"></div>',
+                            '</div>',
+                            '<div style="display:flex;align-items:center;gap:6px;margin-left:8px;">',
+                                '<div style="width:5px;height:5px;border-radius:50%;background:' + muted  + ';opacity:0.6;"></div>',
+                                '<div style="width:20px;height:1px;background:' + muted + ';opacity:0.4;"></div>',
+                                '<div style="width:5px;height:5px;border-radius:50%;background:' + primary + ';opacity:0.6;"></div>',
+                            '</div>',
+                        '</div>',
+                        // dashed-divider: horizontal dashed line
+                        '<div style="position:absolute;bottom:110px;left:36px;right:36px;border-top:1px dashed ' + muted + ';opacity:0.2;"></div>',
+                        // annotation-labels
+                        '<div style="position:absolute;top:28px;left:36px;font-size:7px;font-weight:700;letter-spacing:0.18em;color:' + primary + ';opacity:0.55;text-transform:uppercase;font-family:monospace;">DESIGN SCHEMA</div>',
+                        '<div style="position:absolute;top:28px;right:36px;display:flex;align-items:center;gap:4px;">',
+                            '<div style="width:4px;height:4px;border-radius:50%;background:' + accent + ';animation:pulse 2s infinite;"></div>',
+                            '<span style="font-size:7px;color:' + muted + ';opacity:0.5;font-family:monospace;">LIVE</span>',
+                        '</div>',
+                    ].join('');
+
+                } else if (family === 'warm_photo_editorial') {
+                    // Components: hero-photo, overlay-gradient, serif-headline, decorative-doodles
+                    overlay.innerHTML = [
+                        // overlay-gradient: warm gradient wash at bottom
+                        '<div style="position:absolute;bottom:0;left:0;right:0;height:45%;background:linear-gradient(to top,' + bgColor + 'ee 0%,' + bgColor + '55 60%,transparent 100%);"></div>',
+                        // decorative-doodles: SVG dots + curves in corners
+                        '<svg style="position:absolute;top:18px;right:18px;opacity:0.28;" width="70" height="70" viewBox="0 0 70 70">',
+                            '<circle cx="12"  cy="12"  r="3"   fill="' + accent + '"/>',
+                            '<circle cx="35"  cy="6"   r="4.5" fill="' + primary + '" opacity="0.8"/>',
+                            '<circle cx="58"  cy="18"  r="2.5" fill="' + accent + '"/>',
+                            '<circle cx="6"   cy="46"  r="3.5" fill="' + primary + '"/>',
+                            '<circle cx="62"  cy="42"  r="2"   fill="' + accent + '" opacity="0.7"/>',
+                            '<path d="M18,40 Q30,28 42,38" fill="none" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.6"/>',
+                            '<path d="M8,58 Q20,50 32,55" fill="none" stroke="' + primary + '" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>',
+                        '</svg>',
+                        // corner brackets (editorial style)
+                        '<div style="position:absolute;top:22px;left:22px;width:28px;height:28px;border-top:2px solid ' + accent + ';border-left:2px solid ' + accent + ';opacity:0.65;"></div>',
+                        '<div style="position:absolute;bottom:22px;right:22px;width:28px;height:28px;border-bottom:2px solid ' + accent + ';border-right:2px solid ' + accent + ';opacity:0.65;"></div>',
+                        // serif-headline indicator (font label)
+                        '<div style="position:absolute;bottom:30px;left:36px;font-size:7px;color:' + accent + ';opacity:0.5;letter-spacing:0.1em;text-transform:uppercase;font-style:italic;">Editorial</div>',
+                    ].join('');
+
+                } else if (family === 'minimal_educational') {
+                    // Components: numbered-steps, icon-bullets, clean-divider, caption-box
+                    overlay.innerHTML = [
+                        // numbered-steps: step indicator pill bar at top
+                        '<div style="position:absolute;top:22px;left:50%;transform:translateX(-50%);display:flex;gap:5px;opacity:0.55;">',
+                            '<div style="width:22px;height:4px;border-radius:2px;background:' + primary + ';"></div>',
+                            '<div style="width:10px;height:4px;border-radius:2px;background:' + primary + ';opacity:0.35;"></div>',
+                            '<div style="width:10px;height:4px;border-radius:2px;background:' + primary + ';opacity:0.35;"></div>',
+                        '</div>',
+                        // caption-box: left vertical accent bar
+                        '<div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:50px;background:linear-gradient(to bottom,' + accent + ',' + primary + ');border-radius:0 2px 2px 0;opacity:0.7;"></div>',
+                        // clean-divider: thin bottom bar with gradient
+                        '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(to right,' + primary + ',' + accent + ',' + primary + ');opacity:0.6;"></div>',
+                        // icon-bullets: small decorative dots top-right
+                        '<div style="position:absolute;top:22px;right:28px;display:grid;grid-template-columns:1fr 1fr;gap:4px;opacity:0.35;">',
+                            '<div style="width:5px;height:5px;border-radius:1px;background:' + primary + ';"></div>',
+                            '<div style="width:5px;height:5px;border-radius:1px;background:' + accent  + ';"></div>',
+                            '<div style="width:5px;height:5px;border-radius:1px;background:' + accent  + ';"></div>',
+                            '<div style="width:5px;height:5px;border-radius:1px;background:' + primary + ';"></div>',
+                        '</div>',
+                    ].join('');
+                }
+
+                if (overlay.innerHTML) {
+                    canvas.style.position = 'relative';
+                    canvas.insertBefore(overlay, canvas.firstChild);
+                }
             }
 
             loadGeneratorItem().then(function () {
