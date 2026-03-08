@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JadiSatu OS — Creative Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        bg: '#0f0f11', surface: '#18181b',
+                        work: { DEFAULT: '#3b82f6', light: '#60a5fa' },
+                        learn: { DEFAULT: '#f59e0b', light: '#fbbf24' },
+                        business: { DEFAULT: '#10b981', light: '#34d399' },
+                        personal: { DEFAULT: '#8b5cf6', light: '#a78bfa' },
+                        accent: '#ec4899', danger: '#ef4444', success: '#22c55e', warning: '#eab308',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f0f11;
+            color: #fafafa;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .glass {
+            background: rgba(24, 24, 27, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-strong {
+            background: rgba(15, 15, 17, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 3px;
+        }
+
+        #workspace-sidebar {
+            transition: width 0.25s ease;
+        }
+
+        #workspace-sidebar.sidebar-collapsed {
+            width: 5rem !important;
+            min-width: 5rem;
+        }
+
+        #workspace-sidebar.sidebar-collapsed .sidebar-nav-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-section-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-header-detail {
+            display: none;
+        }
+
+        #workspace-sidebar.sidebar-collapsed .nav-item {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        #workspace-sidebar.sidebar-collapsed .nav-item .ml-auto {
+            display: none;
+        }
+
+        .gradient-personal {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .platform-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Focus mode: sembunyikan kolom lain, hanya Ready to Shoot */
+        body.creative-focus-mode .creative-hide-in-focus {
+            display: none !important;
+        }
+
+        body.creative-focus-mode .creative-kanban-col:not(.creative-col-ready) {
+            display: none !important;
+        }
+
+        body.creative-focus-mode .creative-focus-only {
+            display: flex !important;
+        }
+
+        body.creative-focus-mode .creative-kanban-grid {
+            grid-template-columns: 1fr !important;
+        }
+
+        .creative-drag-over {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: rgba(139, 92, 246, 0.4);
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .creative-drop-zone {
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .creative-card {
+            transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+            will-change: transform;
+        }
+
+        .creative-card:active {
+            cursor: grabbing;
+        }
+
+        .creative-card-dragging {
+            opacity: 0.85;
+            transform: scale(0.98);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .creative-card-just-dropped {
+            animation: creativeCardDropped 0.3s ease;
+        }
+
+        @keyframes creativeCardDropped {
+            0% {
+                transform: scale(0.96);
+                opacity: 0.9;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .creative-calendar-compact-grid .creative-cal-cell {
+            min-height: 22px;
+            font-size: 10px;
+            padding: 2px;
+            border-radius: 4px;
+        }
+
+        .creative-calendar-compact-grid .creative-cal-cell.has-items {
+            background: rgba(139, 92, 246, 0.15);
+        }
+    </style>
+</head>
+
+<body class="h-screen flex overflow-hidden creative-mode">
+
+    <aside id="workspace-sidebar"
+        class="w-64 glass-strong flex flex-col shrink-0 z-20 border-r border-white/5 transition-[width] duration-300">
+        <div class="p-6 border-b border-white/5 sidebar-header-detail">
+            <div class="flex items-center gap-3 mb-4">
+                <div id="sidebar-user-avatar"
+                    class="w-10 h-10 rounded-xl gradient-personal flex items-center justify-center text-white font-bold text-lg shrink-0">
+                    —</div>
+                <div class="min-w-0">
+                    <div id="sidebar-user-name" class="font-semibold text-white truncate">User</div>
+                    <div id="sidebar-user-subtitle" class="text-xs text-gray-400">JadiSatu OS</div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between text-[10px] uppercase tracking-wider text-gray-500 mb-1"><span>Life
+                        Balance</span><span id="sidebar-life-balance-pct" class="text-white">0</span></div>
+                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden flex">
+                    <div id="sidebar-bar-work" class="h-full bg-work transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-learn" class="h-full bg-learn transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-business" class="h-full bg-business transition-all" style="width: 0%"></div>
+                </div>
+                <div class="flex gap-3 text-[10px]">
+                    <span class="flex items-center gap-1 text-work-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-work"></div>Work
+                    </span>
+                    <span class="flex items-center gap-1 text-learn-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-learn"></div>Learn
+                    </span>
+                    <span class="flex items-center gap-1 text-business-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-business"></div>Business
+                    </span>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1">
+            <div
+                class="px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Dashboard</div>
+            <a href="dashboard.html#home"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i><span
+                    class="sidebar-nav-label">Overview</span></a>
+            <a href="focus-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Today's
+                    Focus</span></a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Domains</div>
+            <a href="dashboard.html#work"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div class="w-2 h-2 rounded-full bg-work shrink-0"></div><span class="sidebar-nav-label">Work &
+                    Career</span>
+            </a>
+            <a href="dashboard.html#learn"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div class="w-2 h-2 rounded-full bg-learn shrink-0"></div><span
+                    class="sidebar-nav-label">Learning</span>
+            </a>
+            <a href="dashboard.html#business"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div class="w-2 h-2 rounded-full bg-business shrink-0"></div><span
+                    class="sidebar-nav-label">Business</span>
+            </a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Workspace</div>
+            <a href="projects-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="folder-kanban" class="w-4 h-4 shrink-0"></i><span
+                    class="sidebar-nav-label">Projects</span></a>
+            <a href="kanban-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="columns" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Kanban
+                    Board</span></a>
+            <a href="notes-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="notebook-pen" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Notes &
+                    Ideas</span></a>
+            <a href="creative-hub-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 text-white text-sm font-medium hover:bg-white/10"><i
+                    data-lucide="sparkles" class="w-4 h-4 shrink-0 text-personal"></i><span
+                    class="sidebar-nav-label">Creative Hub</span><span id="creative-hub-nav-count"
+                    class="ml-auto bg-personal/20 text-personal-light text-[10px] px-2 py-0.5 rounded-full">0</span></a>
+            <a href="crm-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="users" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">CRM</span></a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                System</div>
+            <a href="ai-agent-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="bot" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">AI Agents</span></a>
+            <a href="progress-history-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="line-chart" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Progress &
+                    History</span></a>
+            <a href="settings-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="settings" class="w-4 h-4 shrink-0"></i><span
+                    class="sidebar-nav-label">Pengaturan</span></a>
+        </nav>
+        <div class="p-4 border-t border-white/5 space-y-2">
+            <button type="button" id="sidebar-toggle-btn"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i
+                    data-lucide="panel-left-close" data-sidebar-toggle-icon class="w-3.5 h-3.5 shrink-0"></i><span
+                    data-sidebar-toggle-label class="sidebar-nav-label">Sembunyikan</span></button>
+            <a href="dashboard.html#home"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i
+                    data-lucide="command" class="w-3.5 h-3.5 shrink-0"></i><span class="sidebar-nav-label">Command
+                    Menu</span></a>
+            <a href="login.html"
+                onclick="event.preventDefault(); if(window.supabaseClient) window.supabaseClient.auth.signOut().then(function(){ window.location.href='login.html'; }); else window.location.href='login.html';"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs text-red-400 hover:text-red-300 transition-all"><i
+                    data-lucide="log-out" class="w-3.5 h-3.5 shrink-0"></i><span
+                    class="sidebar-nav-label">Logout</span></a>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <!-- Topbar: Mode Focus / Creative (sesuai desain) -->
+        <header
+            class="shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/5 bg-black/20 backdrop-blur-sm">
+            <div class="flex items-center gap-4">
+                <h1 class="text-lg font-bold text-white">Creative Hub</h1>
+                <span id="creative-mode-desc" class="text-xs text-gray-500">Creative — semua ide terlihat</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button type="button" id="creative-add-idea-btn"
+                    class="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent text-sm font-medium transition-colors">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Tambah Ide
+                </button>
+                <div class="flex items-center rounded-full border border-white/10 p-0.5 bg-black/30">
+                    <button type="button" id="creative-btn-focus"
+                        class="creative-mode-btn px-3 py-1.5 rounded-full text-xs font-semibold text-gray-400 hover:text-white transition-all flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span> Focus
+                    </button>
+                    <button type="button" id="creative-btn-creative"
+                        class="creative-mode-btn active px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-personal/80 hover:bg-personal transition-all flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-white"></span> Creative
+                    </button>
+                </div>
+            </div>
+        </header>
+        <div class="flex-1 overflow-y-auto custom-scroll p-6 max-w-7xl mx-auto w-full space-y-6">
+            <!-- Platform filter -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 creative-hide-in-focus">
+                <div>
+                    <p class="text-sm text-gray-500">Ide → Script → Shoot → Publish</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mr-1">Platform:</span>
+                    <button type="button" data-platform="all"
+                        class="creative-platform-btn platform-btn active px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white bg-white/10">All</button>
+                    <button type="button" data-platform="tiktok"
+                        class="creative-platform-btn platform-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-gray-400 hover:text-white hover:bg-white/5">TikTok</button>
+                    <button type="button" data-platform="linkedin"
+                        class="creative-platform-btn platform-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-gray-400 hover:text-white hover:bg-white/5">LinkedIn</button>
+                    <button type="button" data-platform="instagram"
+                        class="creative-platform-btn platform-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-gray-400 hover:text-white hover:bg-white/5">Instagram</button>
+                    <button type="button" data-platform="threads"
+                        class="creative-platform-btn platform-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-gray-400 hover:text-white hover:bg-white/5">Threads</button>
+                </div>
+            </div>
+
+            <!-- Next Action / Focus block (tampil di Focus mode) -->
+            <div id="creative-next-action"
+                class="creative-focus-only hidden rounded-2xl p-5 border border-personal/30 bg-personal/10 flex-col gap-4">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <div class="text-[10px] font-bold text-personal-light uppercase tracking-wider mb-1">Next Action
+                            — Shoot / Tulis Hari Ini</div>
+                        <h2 id="creative-next-action-title" class="text-lg font-bold text-white"></h2>
+                        <div id="creative-next-action-chips" class="flex gap-2 mt-2 flex-wrap"></div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" id="creative-next-action-open"
+                            class="px-4 py-2 rounded-lg border border-white/10 text-white hover:bg-white/10 text-sm font-medium">Buka
+                            Script</button>
+                        <button type="button" id="creative-next-action-recorded"
+                            class="px-4 py-2 rounded-lg bg-work hover:bg-work-light text-white text-sm font-medium">Tandai
+                            Sudah Direkam</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats + Idea Dump (kiri) | Compact Agenda (kanan) — layout penuh, tanpa kosong -->
+            <div class="flex flex-col lg:flex-row gap-4 creative-hide-in-focus items-stretch lg:items-stretch">
+                <div class="flex-1 min-w-0 flex flex-col gap-4">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="glass rounded-xl p-3">
+                            <div id="creative-stat-total" class="text-xl font-bold text-white">0</div>
+                            <div class="text-[10px] text-gray-500">Total Konten</div>
+                        </div>
+                        <div class="glass rounded-xl p-3">
+                            <div id="creative-stat-ready" class="text-xl font-bold text-work-light">0</div>
+                            <div class="text-[10px] text-gray-500">Ready to Shoot</div>
+                        </div>
+                        <div class="glass rounded-xl p-3">
+                            <div id="creative-stat-published" class="text-xl font-bold text-success">0</div>
+                            <div class="text-[10px] text-gray-500">Published</div>
+                        </div>
+                        <div class="glass rounded-xl p-3">
+                            <div id="creative-stat-scripting" class="text-xl font-bold text-learn-light">0</div>
+                            <div class="text-[10px] text-gray-500">Sedang Scripting</div>
+                        </div>
+                    </div>
+                    <!-- Idea Dump: langsung di bawah stats, isi area kosong -->
+                    <div class="glass rounded-xl p-3 flex flex-wrap items-center gap-2">
+                        <span class="text-sm">💡</span>
+                        <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Idea Dump</span>
+                        <input type="text" id="creative-idea-input" placeholder="Ketik ide konten... Enter untuk simpan"
+                            class="flex-1 min-w-[140px] bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 outline-none focus:border-personal/50 text-sm">
+                        <div class="flex gap-1.5 flex-wrap">
+                            <button type="button" data-p="tiktok"
+                                class="creative-pill px-2 py-0.5 rounded-full text-[9px] font-semibold border border-white/10 text-gray-400 hover:bg-white/5">TikTok</button>
+                            <button type="button" data-p="linkedin"
+                                class="creative-pill px-2 py-0.5 rounded-full text-[9px] font-semibold border border-white/10 text-gray-400 hover:bg-white/5">LinkedIn</button>
+                            <button type="button" data-p="instagram"
+                                class="creative-pill px-2 py-0.5 rounded-full text-[9px] font-semibold border border-white/10 text-gray-400 hover:bg-white/5">Instagram</button>
+                            <button type="button" data-p="threads"
+                                class="creative-pill px-2 py-0.5 rounded-full text-[9px] font-semibold border border-white/10 text-gray-400 hover:bg-white/5">Threads</button>
+                        </div>
+                        <button type="button" id="creative-capture-btn"
+                            class="w-8 h-8 rounded-full bg-personal hover:bg-personal-light text-white flex items-center justify-center font-bold text-sm leading-none shrink-0">+</button>
+                    </div>
+                </div>
+                <!-- Compact My Agenda (kanan, satu kolom) -->
+                <div class="glass rounded-xl p-4 w-full lg:w-[220px] lg:min-w-[220px] shrink-0 creative-agenda-compact">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+                            <i data-lucide="calendar-days" class="w-4 h-4 text-work-light"></i> My Agenda
+                        </h3>
+                        <button type="button" id="creative-agenda-expand-btn"
+                            class="text-[10px] font-medium text-personal-light hover:text-personal border border-personal/30 hover:border-personal/50 rounded-lg px-2 py-1 transition-colors">Lihat
+                            Agenda</button>
+                    </div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <button type="button" id="creative-calendar-prev"
+                            class="p-0.5 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"><i
+                                data-lucide="chevron-left" class="w-3.5 h-3.5"></i></button>
+                        <span id="creative-calendar-month-label" class="text-xs text-white font-medium">—</span>
+                        <button type="button" id="creative-calendar-next"
+                            class="p-0.5 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"><i
+                                data-lucide="chevron-right" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                    <div class="grid grid-cols-7 gap-0.5 text-center mb-1.5">
+                        <span class="text-[9px] font-semibold text-gray-500">M</span><span
+                            class="text-[9px] font-semibold text-gray-500">S</span><span
+                            class="text-[9px] font-semibold text-gray-500">S</span><span
+                            class="text-[9px] font-semibold text-gray-500">R</span><span
+                            class="text-[9px] font-semibold text-gray-500">K</span><span
+                            class="text-[9px] font-semibold text-gray-500">J</span><span
+                            class="text-[9px] font-semibold text-gray-500">S</span>
+                    </div>
+                    <div id="creative-calendar-grid" class="grid grid-cols-7 gap-0.5 creative-calendar-compact-grid">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pipeline Kanban (drag & drop) -->
+            <div>
+                <div class="flex items-center justify-between mb-3 creative-hide-in-focus">
+                    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Content Pipeline</div>
+                    <span id="creative-pipeline-total" class="text-xs text-gray-500">0 total</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 creative-kanban-grid" id="creative-kanban-container">
+                    <div class="flex flex-col gap-2 creative-kanban-col creative-kanban-col-idea" data-status="idea">
+                        <div class="flex items-center justify-between px-1">
+                            <div class="flex items-center gap-2 text-personal-light text-sm font-semibold">
+                                <div class="w-2 h-2 rounded-full bg-personal"></div>Ideation
+                            </div>
+                            <span id="creative-col-idea"
+                                class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400">0</span>
+                        </div>
+                        <div id="creative-col-idea-cards" class="creative-drop-zone space-y-2 min-h-[80px]"></div>
+                    </div>
+                    <div class="flex flex-col gap-2 creative-kanban-col creative-kanban-col-scripting"
+                        data-status="scripting">
+                        <div class="flex items-center justify-between px-1">
+                            <div class="flex items-center gap-2 text-learn-light text-sm font-semibold">
+                                <div class="w-2 h-2 rounded-full bg-learn"></div>Scripting
+                            </div>
+                            <span id="creative-col-scripting"
+                                class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400">0</span>
+                        </div>
+                        <div id="creative-col-scripting-cards" class="creative-drop-zone space-y-2 min-h-[80px]"></div>
+                    </div>
+                    <div class="flex flex-col gap-2 creative-kanban-col creative-col-ready creative-kanban-col-ready"
+                        data-status="ready">
+                        <div class="flex items-center justify-between px-1">
+                            <div class="flex items-center gap-2 text-work-light text-sm font-semibold">
+                                <div class="w-2 h-2 rounded-full bg-work"></div>Ready to Shoot
+                            </div>
+                            <span id="creative-col-ready"
+                                class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400">0</span>
+                        </div>
+                        <div id="creative-col-ready-cards" class="creative-drop-zone space-y-2 min-h-[80px]"></div>
+                    </div>
+                    <div class="flex flex-col gap-2 creative-kanban-col creative-kanban-col-published"
+                        data-status="published">
+                        <div class="flex items-center justify-between px-1">
+                            <div class="flex items-center gap-2 text-success text-sm font-semibold">
+                                <div class="w-2 h-2 rounded-full bg-success"></div>Published
+                            </div>
+                            <span id="creative-col-published"
+                                class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400">0</span>
+                        </div>
+                        <div id="creative-col-published-cards" class="creative-drop-zone space-y-2 min-h-[80px]"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Agenda diperbesar (full calendar) -->
+    <div id="creative-agenda-modal"
+        class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-strong rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-white/10">
+            <div class="p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-white flex items-center gap-2"><i data-lucide="calendar-days"
+                            class="w-5 h-5 text-work-light"></i> My Agenda</h3>
+                    <button type="button" id="creative-agenda-modal-close"
+                        class="p-2 rounded-lg hover:bg-white/10 text-gray-400"><i data-lucide="x"
+                            class="w-5 h-5"></i></button>
+                </div>
+                <div class="flex items-center justify-between mb-3">
+                    <button type="button" id="creative-calendar-prev-expanded"
+                        class="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white"><i
+                            data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                    <span id="creative-calendar-month-label-expanded" class="text-sm font-medium text-white">—</span>
+                    <button type="button" id="creative-calendar-next-expanded"
+                        class="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white"><i
+                            data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center mb-2">
+                    <div class="text-[10px] font-semibold text-gray-500">Min</div>
+                    <div class="text-[10px] font-semibold text-gray-500">Sen</div>
+                    <div class="text-[10px] font-semibold text-gray-500">Sel</div>
+                    <div class="text-[10px] font-semibold text-gray-500">Rab</div>
+                    <div class="text-[10px] font-semibold text-gray-500">Kam</div>
+                    <div class="text-[10px] font-semibold text-gray-500">Jum</div>
+                    <div class="text-[10px] font-semibold text-gray-500">Sab</div>
+                </div>
+                <div id="creative-calendar-grid-expanded" class="grid grid-cols-7 gap-1 sm:gap-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Script Editor -->
+    <div id="creative-modal"
+        class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-strong rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
+            <div class="p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <input type="text" id="creative-modal-title" placeholder="Judul konten"
+                        class="flex-1 bg-transparent border-b border-white/10 pb-2 text-lg font-semibold text-white outline-none focus:border-personal/50">
+                    <button type="button" id="creative-modal-close"
+                        class="p-2 rounded-lg hover:bg-white/10 text-gray-400"><i data-lucide="x"
+                            class="w-5 h-5"></i></button>
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <span class="text-[10px] text-gray-500 uppercase">Platform:</span>
+                    <button type="button" data-p="tiktok"
+                        class="creative-modal-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400">TikTok</button>
+                    <button type="button" data-p="linkedin"
+                        class="creative-modal-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400">LinkedIn</button>
+                    <button type="button" data-p="instagram"
+                        class="creative-modal-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400">Instagram</button>
+                    <button type="button" data-p="threads"
+                        class="creative-modal-pill px-2.5 py-1 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400">Threads</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="text-[10px] font-semibold text-rose-400 uppercase tracking-wider block mb-1">The
+                            Hook</label>
+                        <textarea id="creative-modal-hook" rows="3"
+                            class="w-full rounded-lg bg-black/30 border border-white/10 p-3 text-sm text-white placeholder-gray-500 resize-none outline-none focus:border-personal/50"
+                            placeholder="Pancingan 3 detik..."></textarea>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-semibold text-cyan-400 uppercase tracking-wider block mb-1">The
+                            Value</label>
+                        <textarea id="creative-modal-value" rows="3"
+                            class="w-full rounded-lg bg-black/30 border border-white/10 p-3 text-sm text-white placeholder-gray-500 resize-none outline-none focus:border-personal/50"
+                            placeholder="Poin edukasi..."></textarea>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-semibold text-amber-400 uppercase tracking-wider block mb-1">The
+                            CTA</label>
+                        <textarea id="creative-modal-cta" rows="3"
+                            class="w-full rounded-lg bg-black/30 border border-white/10 p-3 text-sm text-white placeholder-gray-500 resize-none outline-none focus:border-personal/50"
+                            placeholder="Ajakan bertindak..."></textarea>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Full
+                        Script</label>
+                    <textarea id="creative-modal-script" rows="6"
+                        class="w-full rounded-lg bg-black/30 border border-white/10 p-3 text-sm text-white placeholder-gray-500 resize-none outline-none focus:border-personal/50"
+                        placeholder="Generate atau tulis manual..."></textarea>
+                </div>
+                <div class="date-picker-trigger-wrap">
+                    <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">Tanggal
+                        posting (content planning)</label>
+                    <div class="date-picker-trigger flex items-center gap-2 rounded-lg bg-black/30 border border-white/10 px-3 py-2 cursor-pointer hover:border-personal/40 focus-within:border-personal/50"
+                        tabindex="0" role="button">
+                        <input type="date" id="creative-modal-scheduled-date"
+                            class="flex-1 min-w-0 bg-transparent text-sm text-white outline-none [color-scheme:dark] cursor-pointer">
+                        <i data-lucide="calendar" class="w-4 h-4 text-gray-400 shrink-0 pointer-events-none"></i>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex gap-2 flex-wrap">
+                        <button type="button" data-status="idea"
+                            class="creative-status-btn px-3 py-1.5 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400">Idea</button>
+                        <button type="button" data-status="scripting"
+                            class="creative-status-btn px-3 py-1.5 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400">Scripting</button>
+                        <button type="button" data-status="ready"
+                            class="creative-status-btn px-3 py-1.5 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400">Ready</button>
+                        <button type="button" data-status="published"
+                            class="creative-status-btn px-3 py-1.5 rounded-full text-[10px] font-semibold border border-white/10 text-gray-400">Published</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" id="creative-modal-save"
+                            class="px-4 py-2 rounded-lg border border-white/10 text-white hover:bg-white/10 text-sm font-medium">Simpan</button>
+                        <button type="button" id="creative-modal-generate"
+                            class="px-4 py-2 rounded-lg bg-personal hover:bg-personal-light text-white text-sm font-medium">Generate
+                            Structure</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="creative-toast"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-white text-sm z-[100] hidden">
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/data-service.js"></script>
+    <script src="js/creative-hub-service.js"></script>
+    <script src="js/creative-content-service.js"></script>
+    <script src="js/sidebar-workspace.js"></script>
+    <script src="js/juru-bubble.js?v=juru-gemini"></script>
+    <script>
+            (function () {
+                var SUPABASE_URL = 'https://dwpkokavxjvtrltntjtn.supabase.co';
+                var SUPABASE_ANON_KEY = 'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1';
+                var supabaseClient, currentUser, userProfileService;
+
+                var service = new CreativeHubService();
+                var creativeContentSvc = null;
+                window.creativeHubService = service;
+
+                function createSupabaseCreativeService(supabaseSvc, userId) {
+                    return {
+                        getItems: function (opts) { return supabaseSvc.getItems(userId, opts || {}); },
+                        getItem: function (id) { return supabaseSvc.getItem(userId, id); },
+                        getCounts: function (platformFilter) { return supabaseSvc.getCounts(userId, platformFilter); },
+                        getNextAction: function (platformFilter) { return supabaseSvc.getNextAction(userId, platformFilter); },
+                        addIdea: function (title, platforms) { return supabaseSvc.addIdea(userId, title, platforms); },
+                        updateItem: function (id, updates) { return supabaseSvc.updateItem(userId, id, updates); },
+                        deleteItem: function (id) { return supabaseSvc.deleteItem(userId, id); }
+                    };
+                }
+                function useSupabaseService(client, userId) {
+                    service = new CreativeHubService(client, userId);
+                    creativeContentSvc = new CreativeContentService(client);
+                    window.creativeHubService = service;
+                }
+                var currentPlatform = 'all';
+                var currentEditId = null;
+                var selectedPlatforms = [];
+                var modalPlatforms = [];
+                var modalStatus = 'idea';
+                var creativeMode = 'creative';
+
+                function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+                function platformBadgeClass(p) {
+                    var map = { tiktok: 'bg-white/10 text-gray-300 border-white/10', linkedin: 'bg-blue-500/20 text-blue-300 border-blue-500/30', instagram: 'bg-pink-500/20 text-pink-300 border-pink-500/30', threads: 'bg-gray-500/20 text-gray-300 border-gray-500/30' };
+                    return map[p] || map.tiktok;
+                }
+
+                async function advanceContent(id) {
+                    var item = await Promise.resolve(service.getItem(id));
+                    if (!item) return;
+                    var nextMap = { idea: 'scripting', scripting: 'ready', ready: 'published' };
+                    var nextStatus = nextMap[item.status];
+                    if (!nextStatus) return;
+                    await Promise.resolve(service.updateItem(id, { status: nextStatus }));
+                    await renderAll();
+                    toast('Status diubah ke ' + nextStatus);
+                }
+
+                async function deleteContent(id) {
+                    if (!confirm('Hapus konten ini?')) return;
+                    await Promise.resolve(service.deleteItem(id));
+                    await renderAll();
+                    toast('Konten dihapus.');
+                }
+
+                function renderCard(item, status) {
+                    var plats = (item.platform || []).map(function (p) { return '<span class="text-[9px] px-1.5 py-0.5 rounded ' + platformBadgeClass(p) + ' border">' + esc(p) + '</span>'; }).join('');
+                    var dateStr = item.scheduled_date ? new Date(item.scheduled_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : (item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '');
+                    var nextMap = { idea: { label: 'Mulai Scripting', icon: 'pencil' }, scripting: { label: 'Tandai Ready', icon: 'check' }, ready: { label: 'Publish', icon: 'send' } };
+                    var advanceBtn = '';
+                    if (status !== 'published' && nextMap[status]) {
+                        advanceBtn = '<button type="button" onclick="event.stopPropagation(); window._creativeAdvance(\'' + esc(item.id) + '\')" class="bg-accent/20 text-accent hover:bg-accent/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"><i data-lucide="' + nextMap[status].icon + '" class="w-3 h-3"></i>' + nextMap[status].label + '</button>';
+                    }
+                    var editBtn = '<button type="button" onclick="event.stopPropagation(); window._creativeOpenModal(\'' + esc(item.id) + '\')" class="bg-white/5 text-gray-400 hover:bg-white/10 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1"><i data-lucide="pencil" class="w-3 h-3"></i>Edit</button>';
+                    var delBtn = '<button type="button" onclick="event.stopPropagation(); window._creativeDelete(\'' + esc(item.id) + '\')" class="text-red-400 hover:text-red-300 px-2 py-1.5 text-xs flex items-center gap-1"><i data-lucide="trash-2" class="w-3 h-3"></i>Hapus</button>';
+                    var carouselBtn = (status === 'ready') ? '<button type="button" onclick="event.stopPropagation(); window._creativeGenerateCarousel(\'' + esc(item.id) + '\')" class="creative-generate-carousel-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 text-white border-0" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);"><i data-lucide="sparkles" class="w-3 h-3"></i>Generate Carousel ✨</button>' : '';
+                    var extra = '';
+                    if (status === 'ready' && !carouselBtn) extra = '<button type="button" class="text-[9px] px-2 py-0.5 rounded bg-work/20 text-work-light border border-work/30">Shoot</button>';
+                    if (status === 'published' && item.published_url) extra = '<a href="' + esc(item.published_url) + '" target="_blank" rel="noopener" class="text-[9px] text-success">Link</a>';
+                    return '<div class="creative-card glass rounded-xl p-3 cursor-grab hover:border-personal/30 border border-white/5 transition-all group" data-id="' + esc(item.id) + '" draggable="true">' +
+                        '<div class="text-sm font-medium text-white mb-1 line-clamp-2">' + esc(item.title) + '</div>' +
+                        '<div class="flex gap-1 flex-wrap mb-2">' + plats + '</div>' +
+                        '<div class="flex items-center justify-between text-[10px] text-gray-500 mb-2">' +
+                        '<span>' + dateStr + '</span>' +
+                        (extra ? '<span>' + extra + '</span>' : '<button type="button" class="creative-ai-draft text-[9px] px-2 py-0.5 rounded bg-personal/20 text-personal-light border border-personal/30">AI Draft</button>') +
+                        '</div>' +
+                        '<div class="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">' + carouselBtn + advanceBtn + editBtn + delBtn + '</div></div>';
+                }
+
+                async function renderAll() {
+                    var list = [];
+                    var counts = { total: 0, idea: 0, scripting: 0, ready: 0, published: 0 };
+                    try {
+                        var opts = currentPlatform === 'all' ? {} : { platform: currentPlatform };
+                        list = await Promise.resolve(service.getItems(opts));
+                        if (!Array.isArray(list)) list = [];
+                        var rawCounts = await Promise.resolve(service.getCounts(currentPlatform === 'all' ? null : currentPlatform));
+                        if (rawCounts && typeof rawCounts === 'object') counts = rawCounts;
+                    } catch (e) {
+                        console.error('[Creative Hub] renderAll load error:', e);
+                    }
+
+                    console.log('[Creative Hub] renderAll: userId=', currentUser ? currentUser.id : null, 'list.length=', list.length);
+
+                    var statTotal = document.getElementById('creative-stat-total');
+                    if (statTotal) statTotal.textContent = counts.total;
+                    var s = function (id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+                    s('creative-stat-ready', counts.ready);
+                    s('creative-stat-published', counts.published);
+                    s('creative-stat-scripting', counts.scripting);
+                    s('creative-pipeline-total', counts.total + ' total');
+                    s('creative-col-idea', counts.idea);
+                    s('creative-col-scripting', counts.scripting);
+                    s('creative-col-ready', counts.ready);
+                    s('creative-col-published', counts.published);
+
+                    var byStatus = { idea: [], scripting: [], ready: [], published: [] };
+                    (list || []).forEach(function (item) {
+                        var s = String(item.status || 'idea').toLowerCase().trim();
+                        if (byStatus[s]) byStatus[s].push(item);
+                        else byStatus.idea.push(item);
+                    });
+
+                    ['idea', 'scripting', 'ready', 'published'].forEach(function (status) {
+                        var container = document.getElementById('creative-col-' + status + '-cards');
+                        if (!container) return;
+                        var items = byStatus[status] || [];
+                        var html = items.map(function (item) { return renderCard(item, status); }).join('');
+                        html += '<div class="creative-add-card mt-2">';
+                        html += '<button type="button" class="creative-add-card-btn w-full text-left py-2 px-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-personal-light transition-colors flex items-center gap-2" data-status="' + esc(status) + '"><i data-lucide="plus" class="w-4 h-4"></i> Add a card</button>';
+                        html += '<div class="creative-add-card-form hidden mt-2 space-y-2">';
+                        html += '<input type="text" class="creative-quick-title w-full px-3 py-2 rounded-lg bg-black/30 border border-personal/50 text-white text-sm placeholder-gray-500 outline-none focus:border-personal" placeholder="Enter a title or paste a link" data-status="' + esc(status) + '">';
+                        html += '<div class="flex items-center gap-2"><button type="button" class="creative-quick-add-btn px-3 py-1.5 rounded-lg bg-personal hover:bg-personal-light text-white text-sm font-medium" data-status="' + esc(status) + '">Add card</button>';
+                        html += '<button type="button" class="creative-quick-cancel p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Batal"><i data-lucide="x" class="w-4 h-4"></i></button></div></div></div>';
+                        container.innerHTML = html;
+                    });
+
+                    var next = null;
+                    try {
+                        next = await Promise.resolve(service.getNextAction(currentPlatform === 'all' ? null : currentPlatform));
+                    } catch (e) { console.warn('getNextAction:', e); }
+                    var banner = document.getElementById('creative-next-action');
+                    if (banner && creativeMode === 'focus') {
+                        banner.classList.remove('hidden');
+                        if (next) {
+                            var t = document.getElementById('creative-next-action-title');
+                            if (t) t.textContent = next.title;
+                            var ch = document.getElementById('creative-next-action-chips');
+                            if (ch) ch.innerHTML = (next.platform || []).map(function (p) { return '<span class="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10">' + esc(p) + '</span>'; }).join('');
+                            var o = document.getElementById('creative-next-action-open');
+                            if (o) o.onclick = function () { openModal(next.id); };
+                            var r = document.getElementById('creative-next-action-recorded');
+                            if (r) r.onclick = function () { (async function () { await Promise.resolve(service.updateItem(next.id, { status: 'published' })); await renderAll(); toast('Ditandai published.'); })(); };
+                        } else {
+                            var t0 = document.getElementById('creative-next-action-title');
+                            if (t0) t0.textContent = 'Tidak ada konten Ready to Shoot';
+                            var ch0 = document.getElementById('creative-next-action-chips');
+                            if (ch0) ch0.innerHTML = '';
+                        }
+                    } else if (banner && next) {
+                        banner.classList.remove('hidden');
+                        var t2 = document.getElementById('creative-next-action-title');
+                        if (t2) t2.textContent = next.title;
+                        var ch2 = document.getElementById('creative-next-action-chips');
+                        if (ch2) ch2.innerHTML = (next.platform || []).map(function (p) { return '<span class="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10">' + esc(p) + '</span>'; }).join('');
+                        var o2 = document.getElementById('creative-next-action-open');
+                        if (o2) o2.onclick = function () { openModal(next.id); };
+                        var r2 = document.getElementById('creative-next-action-recorded');
+                        if (r2) r2.onclick = function () { (async function () { await Promise.resolve(service.updateItem(next.id, { status: 'published' })); await renderAll(); toast('Ditandai published.'); })(); };
+                    } else if (banner) {
+                        banner.classList.add('hidden');
+                    }
+
+                    var navCount = document.getElementById('creative-hub-nav-count');
+                    if (navCount) navCount.textContent = counts.total;
+
+                    document.querySelectorAll('.creative-card').forEach(function (el) {
+                        el.addEventListener('click', function (e) {
+                            if (window._creativeDragging) return;
+                            if (!e.target.closest('button') && !e.target.closest('a')) openModal(el.dataset.id);
+                        });
+                    });
+                    document.querySelectorAll('.creative-ai-draft').forEach(function (btn) {
+                        btn.addEventListener('click', function (e) { e.stopPropagation(); var card = e.target.closest('.creative-card'); if (card) openModal(card.dataset.id); });
+                    });
+
+                    initDragDrop();
+                    await renderCalendar();
+                    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+                }
+
+                window._creativeDragging = false;
+                function initDragDrop() {
+                    var draggedId = null;
+                    document.querySelectorAll('.creative-card').forEach(function (card) {
+                        card.setAttribute('draggable', 'true');
+                        card.ondragstart = function (e) {
+                            window._creativeDragging = true;
+                            draggedId = e.target.dataset.id;
+                            e.dataTransfer.setData('text/plain', e.target.dataset.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.target.classList.add('creative-card-dragging');
+                        };
+                        card.ondragend = function (e) {
+                            e.target.classList.remove('creative-card-dragging');
+                            draggedId = null;
+                            setTimeout(function () { window._creativeDragging = false; }, 100);
+                        };
+                    });
+                    document.querySelectorAll('.creative-drop-zone').forEach(function (zone) {
+                        var col = zone.closest('.creative-kanban-col');
+                        var newStatus = col ? col.dataset.status : null;
+                        zone.ondragover = function (e) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            zone.classList.add('creative-drag-over');
+                        };
+                        zone.ondragleave = function () { zone.classList.remove('creative-drag-over'); };
+                        zone.ondrop = function (e) {
+                            e.preventDefault();
+                            zone.classList.remove('creative-drag-over');
+                            var id = e.dataTransfer.getData('text/plain') || draggedId;
+                            if (!id || !newStatus) return;
+                            var cardEl = document.querySelector('.creative-card[data-id="' + id + '"]');
+                            if (cardEl && cardEl.parentNode !== zone) {
+                                cardEl.classList.remove('creative-card-dragging');
+                                cardEl.classList.add('creative-card-just-dropped');
+                                zone.appendChild(cardEl);
+                                setTimeout(function () { cardEl.classList.remove('creative-card-just-dropped'); }, 320);
+                            }
+                            (function doSave() {
+                                (async function () {
+                                    await Promise.resolve(service.updateItem(id, { status: newStatus }));
+                                    await renderAll();
+                                    toast('Dipindah ke ' + newStatus + '.');
+                                })();
+                            })();
+                        };
+                    });
+                }
+
+                async function openModal(id) {
+                    currentEditId = id;
+                    var item = id ? await Promise.resolve(service.getItem(id)) : null;
+                    if (!item) {
+                        item = { title: '', hook_text: '', value_text: '', cta_text: '', full_script: '', status: 'idea', platform: [], scheduled_date: null };
+                    }
+                    modalStatus = item.status || 'idea';
+                    document.getElementById('creative-modal-title').value = item.title || '';
+                    document.getElementById('creative-modal-hook').value = item.hook_text || '';
+                    document.getElementById('creative-modal-value').value = item.value_text || '';
+                    document.getElementById('creative-modal-cta').value = item.cta_text || '';
+                    document.getElementById('creative-modal-script').value = item.full_script || '';
+                    document.getElementById('creative-modal-scheduled-date').value = item.scheduled_date ? item.scheduled_date.split('T')[0] : '';
+                    modalPlatforms = (item.platform || []).slice();
+                    document.querySelectorAll('.creative-modal-pill').forEach(function (b) {
+                        var p = b.dataset.p;
+                        b.classList.toggle('bg-personal/20', modalPlatforms.indexOf(p) !== -1);
+                        b.classList.toggle('text-personal-light', modalPlatforms.indexOf(p) !== -1);
+                        b.classList.toggle('border-personal/30', modalPlatforms.indexOf(p) !== -1);
+                    });
+                    document.querySelectorAll('.creative-status-btn').forEach(function (b) {
+                        var on = (modalStatus === b.dataset.status);
+                        b.classList.toggle('bg-personal/20', on);
+                        b.classList.toggle('text-personal-light', on);
+                    });
+                    document.getElementById('creative-modal').classList.remove('hidden');
+                    document.body.style.overflow = 'hidden';
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+
+                function closeModal() {
+                    document.getElementById('creative-modal').classList.add('hidden');
+                    document.body.style.overflow = '';
+                    currentEditId = null;
+                }
+
+                function goToCarouselGenerator(itemId) {
+                    try { sessionStorage.setItem('active_generator_id', itemId); } catch (e) { }
+                    window.location.href = 'carousel-generator-preview.html';
+                }
+                window._creativeAdvance = advanceContent;
+                window._creativeDelete = deleteContent;
+                window._creativeOpenModal = openModal;
+                window._creativeGenerateCarousel = goToCarouselGenerator;
+
+                async function saveModal() {
+                    var titleEl = document.getElementById('creative-modal-title');
+                    var title = (titleEl && titleEl.value) ? titleEl.value.trim() : '';
+                    if (!title) title = 'Tanpa judul';
+                    var hook = (document.getElementById('creative-modal-hook') && document.getElementById('creative-modal-hook').value) || '';
+                    var value = (document.getElementById('creative-modal-value') && document.getElementById('creative-modal-value').value) || '';
+                    var cta = (document.getElementById('creative-modal-cta') && document.getElementById('creative-modal-cta').value) || '';
+                    var script = (document.getElementById('creative-modal-script') && document.getElementById('creative-modal-script').value) || '';
+                    var scheduledDateEl = document.getElementById('creative-modal-scheduled-date');
+                    var scheduledDate = scheduledDateEl && scheduledDateEl.value ? scheduledDateEl.value.trim() : null;
+
+                    try {
+                        if (currentEditId) {
+                            await Promise.resolve(service.updateItem(currentEditId, { title: title, hook_text: hook, value_text: value, cta_text: cta, full_script: script, status: modalStatus, platform: modalPlatforms, scheduled_date: scheduledDate }));
+                            toast('Perubahan disimpan.');
+                        } else {
+                            var newItem = await Promise.resolve(service.addIdea(title, modalPlatforms));
+                            if (newItem && newItem.id) await Promise.resolve(service.updateItem(newItem.id, { hook_text: hook, value_text: value, cta_text: cta, full_script: script, status: modalStatus, scheduled_date: scheduledDate }));
+                            toast('Konten ditambah.');
+                        }
+                        closeModal();
+                        await renderAll();
+                    } catch (err) {
+                        console.error('[Creative Hub] saveModal error:', err);
+                        toast('Gagal menyimpan. Cek koneksi atau coba lagi.');
+                    }
+                }
+
+                function generateStructure() {
+                    var hook = document.getElementById('creative-modal-hook').value.trim();
+                    var value = document.getElementById('creative-modal-value').value.trim();
+                    var cta = document.getElementById('creative-modal-cta').value.trim();
+                    var ta = document.getElementById('creative-modal-script');
+                    if (!hook && !value) { toast('Isi Hook atau Value dulu.'); return; }
+                    var points = value.split('\n').filter(function (l) { return l.trim(); }).map(function (l) { return l.replace(/^\d+\.\s*/, ''); });
+                    var labels = ['Pertama', 'Kedua', 'Ketiga', 'Keempat', 'Kelima'];
+                    var body = points.length ? points.map(function (p, i) { return (labels[i] || 'Selanjutnya') + ', ' + (p.charAt(0).toLowerCase() + p.slice(1)) + '.'; }).join('\n\n') : 'Tambahkan poin di Value.';
+                    var full = hook + '\n\n' + body + '\n\n' + (cta || 'Follow untuk konten lainnya!');
+                    ta.value = full;
+                    toast('Script digenerate.');
+                }
+
+                function toast(msg) {
+                    var el = document.getElementById('creative-toast');
+                    if (!el) return;
+                    el.textContent = msg;
+                    el.classList.remove('hidden');
+                    clearTimeout(window._creativeToastT);
+                    window._creativeToastT = setTimeout(function () { el.classList.add('hidden'); }, 2500);
+                }
+
+                // Platform filter
+                document.querySelectorAll('.creative-platform-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        currentPlatform = btn.dataset.platform || 'all';
+                        document.querySelectorAll('.creative-platform-btn').forEach(function (b) { b.classList.remove('active'); });
+                        btn.classList.add('active');
+                        renderAll().catch(function (e) { console.error('renderAll after platform filter:', e); });
+                    });
+                });
+
+                // Idea capture
+                selectedPlatforms = [];
+                document.querySelectorAll('.creative-pill').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var p = btn.dataset.p;
+                        var i = selectedPlatforms.indexOf(p);
+                        if (i === -1) selectedPlatforms.push(p); else selectedPlatforms.splice(i, 1);
+                        btn.classList.toggle('bg-personal/20', selectedPlatforms.indexOf(p) !== -1);
+                        btn.classList.toggle('text-personal-light', selectedPlatforms.indexOf(p) !== -1);
+                    });
+                });
+                var addIdeaBtn = document.getElementById('creative-add-idea-btn');
+                if (addIdeaBtn) {
+                    addIdeaBtn.addEventListener('click', function () {
+                        var input = document.getElementById('creative-idea-input');
+                        if (input) {
+                            input.focus();
+                            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    });
+                }
+                var captureBtn = document.getElementById('creative-capture-btn');
+                if (captureBtn) captureBtn.addEventListener('click', function () {
+                    (async function () {
+                        var input = document.getElementById('creative-idea-input');
+                        if (!input) return;
+                        var text = (input.value || '').trim();
+                        if (!text) { input.focus(); return; }
+                        try {
+                            await Promise.resolve(service.addIdea(text, selectedPlatforms));
+                            input.value = '';
+                            selectedPlatforms = [];
+                            document.querySelectorAll('.creative-pill').forEach(function (b) { b.classList.remove('bg-personal/20', 'text-personal-light'); });
+                            await renderAll();
+                            toast('Ide tersimpan di Ideation.');
+                        } catch (err) {
+                            console.error('[Creative Hub] addIdea error:', err);
+                            toast('Gagal menyimpan ide. Cek koneksi atau coba lagi.');
+                        }
+                    })();
+                });
+                var ideaInput = document.getElementById('creative-idea-input');
+                if (ideaInput) ideaInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); var b = document.getElementById('creative-capture-btn'); if (b) b.click(); }
+                });
+
+                // Modal pills & status
+                document.querySelectorAll('.creative-modal-pill').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var p = btn.dataset.p;
+                        var i = modalPlatforms.indexOf(p);
+                        if (i === -1) modalPlatforms.push(p); else modalPlatforms.splice(i, 1);
+                        btn.classList.toggle('bg-personal/20', modalPlatforms.indexOf(p) !== -1);
+                        btn.classList.toggle('text-personal-light', modalPlatforms.indexOf(p) !== -1);
+                        btn.classList.toggle('border-personal/30', modalPlatforms.indexOf(p) !== -1);
+                    });
+                });
+                document.querySelectorAll('.creative-status-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        modalStatus = btn.dataset.status || 'idea';
+                        document.querySelectorAll('.creative-status-btn').forEach(function (b) { b.classList.remove('bg-personal/20', 'text-personal-light'); });
+                        btn.classList.add('bg-personal/20', 'text-personal-light');
+                    });
+                });
+                var modalClose = document.getElementById('creative-modal-close');
+                if (modalClose) modalClose.addEventListener('click', closeModal);
+                var creativeModal = document.getElementById('creative-modal');
+                if (creativeModal) creativeModal.addEventListener('click', function (e) { if (e.target === e.currentTarget) closeModal(); });
+                document.addEventListener('click', function (e) {
+                    var wrap = e.target.closest('.date-picker-trigger');
+                    if (!wrap) return;
+                    var inp = wrap.querySelector('input[type=date]');
+                    if (inp && (e.target === wrap || wrap.contains(e.target))) { try { if (inp.showPicker) inp.showPicker(); else inp.click(); } catch (err) { inp.click(); } }
+                });
+
+                // Trello-style Add card in each pipeline column
+                function openCreativeQuickAdd(status) {
+                    document.querySelectorAll('.creative-add-card-form').forEach(function (f) { f.classList.add('hidden'); });
+                    document.querySelectorAll('.creative-add-card-btn').forEach(function (b) { b.style.display = ''; });
+                    var input = document.querySelector('.creative-quick-title[data-status="' + status + '"]');
+                    if (input) {
+                        input.closest('.creative-add-card').querySelector('.creative-add-card-btn').style.display = 'none';
+                        input.closest('.creative-add-card-form').classList.remove('hidden');
+                        input.value = '';
+                        input.focus();
+                    }
+                }
+                function closeCreativeQuickAdd(status) {
+                    var input = document.querySelector('.creative-quick-title[data-status="' + status + '"]');
+                    if (input) {
+                        input.closest('.creative-add-card-form').classList.add('hidden');
+                        input.closest('.creative-add-card').querySelector('.creative-add-card-btn').style.display = '';
+                        input.value = '';
+                    }
+                }
+                async function submitCreativeQuickAdd(status) {
+                    var input = document.querySelector('.creative-quick-title[data-status="' + status + '"]');
+                    if (!input || !service) return;
+                    var title = (input.value || '').trim();
+                    if (!title) { input.focus(); return; }
+                    try {
+                        var item = await Promise.resolve(service.addIdea(title, []));
+                        if (status !== 'idea' && item && item.id) await Promise.resolve(service.updateItem(item.id, { status: status }));
+                        closeCreativeQuickAdd(status);
+                        await renderAll();
+                        toast(status === 'idea' ? 'Ide ditambahkan.' : 'Kartu ditambahkan di ' + status + '.');
+                    } catch (err) {
+                        console.error('[Creative Hub] submitCreativeQuickAdd error:', err);
+                        toast('Gagal menambah kartu. Cek koneksi atau coba lagi.');
+                    }
+                }
+                document.addEventListener('click', function (e) {
+                    var btn = e.target.closest('.creative-add-card-btn');
+                    if (btn) { e.preventDefault(); openCreativeQuickAdd(btn.getAttribute('data-status')); return; }
+                    var cancel = e.target.closest('.creative-quick-cancel');
+                    if (cancel) {
+                        var inp = cancel.closest('.creative-add-card').querySelector('.creative-quick-title');
+                        if (inp) closeCreativeQuickAdd(inp.getAttribute('data-status'));
+                        return;
+                    }
+                    var addBtn = e.target.closest('.creative-quick-add-btn');
+                    if (addBtn) { submitCreativeQuickAdd(addBtn.getAttribute('data-status')); return; }
+                });
+                document.addEventListener('keydown', function (e) {
+                    if (e.key !== 'Enter') return;
+                    var input = e.target.closest('.creative-quick-title');
+                    if (input) { e.preventDefault(); submitCreativeQuickAdd(input.getAttribute('data-status')); }
+                });
+                var modalSave = document.getElementById('creative-modal-save');
+                if (modalSave) modalSave.addEventListener('click', saveModal);
+                var modalGenerate = document.getElementById('creative-modal-generate');
+                if (modalGenerate) modalGenerate.addEventListener('click', generateStructure);
+
+                // Calendar: compact widget + modal diperbesar
+                var _calMonth = new Date().getMonth();
+                var _calYear = new Date().getFullYear();
+                var _monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+                function buildCalendarGridHTML(scheduledByDate, compact) {
+                    var firstDay = new Date(_calYear, _calMonth, 1).getDay();
+                    var daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+                    var today = new Date();
+                    var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+                    var cellMin = compact ? 'min-h-[22px]' : 'min-h-[44px]';
+                    var cellPad = compact ? 'p-0.5' : 'p-1';
+                    var html = '';
+                    for (var p = 0; p < firstDay; p++) {
+                        var prevDate = new Date(_calYear, _calMonth, -(firstDay - p - 1));
+                        html += '<div class="creative-cal-cell ' + cellMin + ' ' + cellPad + ' rounded border border-transparent flex flex-col justify-center"><span class="text-[10px] text-white/10">' + prevDate.getDate() + '</span></div>';
+                    }
+                    for (var d = 1; d <= daysInMonth; d++) {
+                        var dateKey = _calYear + '-' + String(_calMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+                        var isToday = dateKey === todayStr;
+                        var borderClass = isToday ? 'border-white/20 bg-white/5' : 'border-white/5 bg-white/[0.01] hover:bg-white/[0.03]';
+                        var numClass = isToday ? 'text-white font-bold' : 'text-gray-400';
+                        var dayItems = scheduledByDate[dateKey] || [];
+                        var extraClass = dayItems.length > 0 ? ' has-items' : '';
+                        var dayContent = '<span class="text-[10px] ' + numClass + '">' + d + '</span>';
+                        if (!compact && dayItems.length > 0) {
+                            dayContent += '<div class="mt-1 space-y-0.5">';
+                            dayItems.slice(0, 2).forEach(function (it) {
+                                dayContent += '<div class="text-[8px] truncate bg-personal/20 text-personal-light px-1 py-0.5 rounded">' + esc((it.title || '').substring(0, 12)) + '</div>';
+                            });
+                            if (dayItems.length > 2) dayContent += '<div class="text-[7px] text-gray-500">+' + (dayItems.length - 2) + '</div>';
+                            dayContent += '</div>';
+                        }
+                        if (compact && dayItems.length > 0) dayContent += '<span class="block w-1 h-1 rounded-full bg-personal mx-auto mt-0.5"></span>';
+                        html += '<div class="creative-cal-cell ' + cellMin + ' ' + cellPad + ' rounded border ' + borderClass + ' flex flex-col' + extraClass + '">' + dayContent + '</div>';
+                    }
+                    var totalCells = firstDay + daysInMonth;
+                    var remaining = (7 - (totalCells % 7)) % 7;
+                    for (var r = 1; r <= remaining; r++) {
+                        html += '<div class="creative-cal-cell ' + cellMin + ' ' + cellPad + ' rounded border border-transparent flex flex-col justify-center"><span class="text-[10px] text-white/10">' + r + '</span></div>';
+                    }
+                    return html;
+                }
+
+                async function renderCalendar() {
+                    var gridCompact = document.getElementById('creative-calendar-grid');
+                    var labelCompact = document.getElementById('creative-calendar-month-label');
+                    var gridExpanded = document.getElementById('creative-calendar-grid-expanded');
+                    var labelExpanded = document.getElementById('creative-calendar-month-label-expanded');
+                    var modal = document.getElementById('creative-agenda-modal');
+                    if (labelCompact) labelCompact.textContent = _monthNames[_calMonth] + ' ' + _calYear;
+                    if (labelExpanded) labelExpanded.textContent = _monthNames[_calMonth] + ' ' + _calYear;
+                    var allItems = [];
+                    try {
+                        allItems = await Promise.resolve(service.getItems({}));
+                        if (!Array.isArray(allItems)) allItems = [];
+                    } catch (e) { console.warn('renderCalendar getItems:', e); }
+                    var scheduledByDate = {};
+                    allItems.forEach(function (item) {
+                        if (item.scheduled_date) {
+                            var d = item.scheduled_date.split('T')[0];
+                            if (!scheduledByDate[d]) scheduledByDate[d] = [];
+                            scheduledByDate[d].push(item);
+                        }
+                    });
+                    if (gridCompact) gridCompact.innerHTML = buildCalendarGridHTML(scheduledByDate, true);
+                    if (modal && !modal.classList.contains('hidden') && gridExpanded) gridExpanded.innerHTML = buildCalendarGridHTML(scheduledByDate, false);
+                }
+
+                function openAgendaModal() {
+                    var modal = document.getElementById('creative-agenda-modal');
+                    if (!modal) return;
+                    modal.classList.remove('hidden');
+                    renderCalendar().catch(function (e) { console.error('renderCalendar:', e); });
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+                function closeAgendaModal() {
+                    var modal = document.getElementById('creative-agenda-modal');
+                    if (modal) modal.classList.add('hidden');
+                }
+
+                var agendaExpand = document.getElementById('creative-agenda-expand-btn');
+                if (agendaExpand) agendaExpand.addEventListener('click', openAgendaModal);
+                var agendaModalClose = document.getElementById('creative-agenda-modal-close');
+                if (agendaModalClose) agendaModalClose.addEventListener('click', closeAgendaModal);
+                var calPrev = document.getElementById('creative-calendar-prev');
+                if (calPrev) calPrev.addEventListener('click', function () {
+                    _calMonth--; if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+                    renderCalendar().catch(function (e) { console.error('renderCalendar:', e); });
+                });
+                var calNext = document.getElementById('creative-calendar-next');
+                if (calNext) calNext.addEventListener('click', function () {
+                    _calMonth++; if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+                    renderCalendar().catch(function (e) { console.error('renderCalendar:', e); });
+                });
+                var prevExp = document.getElementById('creative-calendar-prev-expanded');
+                var nextExp = document.getElementById('creative-calendar-next-expanded');
+                if (prevExp) prevExp.addEventListener('click', function () { _calMonth--; if (_calMonth < 0) { _calMonth = 11; _calYear--; } renderCalendar().catch(function (e) { console.error('renderCalendar:', e); }); });
+                if (nextExp) nextExp.addEventListener('click', function () { _calMonth++; if (_calMonth > 11) { _calMonth = 0; _calYear++; } renderCalendar().catch(function (e) { console.error('renderCalendar:', e); }); });
+
+                async function setCreativeMode(mode) {
+                    creativeMode = mode;
+                    var body = document.body;
+                    var btnFocus = document.getElementById('creative-btn-focus');
+                    var btnCreative = document.getElementById('creative-btn-creative');
+                    var desc = document.getElementById('creative-mode-desc');
+                    if (mode === 'focus') {
+                        body.classList.add('creative-focus-mode');
+                        body.classList.remove('creative-mode');
+                        if (btnFocus) { btnFocus.classList.add('bg-white/10', 'text-white'); btnFocus.classList.remove('text-gray-400'); }
+                        if (btnCreative) { btnCreative.classList.remove('bg-personal/80', 'text-white'); btnCreative.classList.add('text-gray-400'); btnCreative.classList.remove('active'); }
+                        if (desc) desc.textContent = 'Focus — zero distraction, hanya Ready to Shoot';
+                        var next = await Promise.resolve(service.getNextAction(currentPlatform === 'all' ? null : currentPlatform));
+                        var banner = document.getElementById('creative-next-action');
+                        if (banner) {
+                            banner.classList.remove('hidden');
+                            if (next) {
+                                document.getElementById('creative-next-action-title').textContent = next.title;
+                                var chips = (next.platform || []).map(function (p) { return '<span class="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10">' + esc(p) + '</span>'; }).join('');
+                                document.getElementById('creative-next-action-chips').innerHTML = chips;
+                                document.getElementById('creative-next-action-open').onclick = function () { openModal(next.id); };
+                                document.getElementById('creative-next-action-recorded').onclick = function () { (async function () { await Promise.resolve(service.updateItem(next.id, { status: 'published' })); await renderAll(); setCreativeMode('focus'); toast('Ditandai published.'); })(); };
+                            } else {
+                                document.getElementById('creative-next-action-title').textContent = 'Tidak ada konten Ready to Shoot';
+                                document.getElementById('creative-next-action-chips').innerHTML = '';
+                            }
+                        }
+                        toast('Mode Focus — fokus ke satu konten.');
+                    } else {
+                        body.classList.remove('creative-focus-mode');
+                        body.classList.add('creative-mode');
+                        if (btnCreative) { btnCreative.classList.add('bg-personal/80', 'text-white', 'active'); btnCreative.classList.remove('text-gray-400'); }
+                        if (btnFocus) { btnFocus.classList.remove('bg-white/10', 'text-white'); btnFocus.classList.add('text-gray-400'); }
+                        if (desc) desc.textContent = 'Creative — semua ide terlihat';
+                        toast('Mode Creative — seluruh pipeline terbuka.');
+                    }
+                }
+                var btnFocus = document.getElementById('creative-btn-focus');
+                if (btnFocus) btnFocus.addEventListener('click', function () { setCreativeMode('focus'); });
+                var btnCreative = document.getElementById('creative-btn-creative');
+                if (btnCreative) btnCreative.addEventListener('click', function () { setCreativeMode('creative'); });
+
+                renderCalendar();
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+
+                // Auth + profil user (satu database dengan dashboard: Supabase + user_profiles)
+                (async function initAuth() {
+                    try {
+                        if (typeof window.supabase === 'undefined') return;
+                        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                        window.supabaseClient = supabaseClient;
+
+                        // Retry session fetch hingga 3x (handle race condition saat pertama login)
+                        var session = null;
+                        for (var attempt = 1; attempt <= 3; attempt++) {
+                            try {
+                                var { data: { session: s }, error } = await supabaseClient.auth.getSession();
+                                if (!error && s) { session = s; break; }
+                                if (attempt < 3) await new Promise(function (r) { setTimeout(r, 800); });
+                            } catch (e) { if (attempt === 3) break; await new Promise(function (r) { setTimeout(r, 800); }); }
+                        }
+                        if (!session) { window.location.replace('login.html'); return; }
+                        currentUser = session.user;
+                        window.currentUser = currentUser;
+                        console.log('[Creative Hub] initAuth: user', currentUser.id);
+                        useSupabaseService(supabaseClient, currentUser.id);
+                        userProfileService = new UserProfileService(supabaseClient);
+                        window.userProfileService = userProfileService;
+
+                        var profile = null;
+                        try {
+                            profile = await userProfileService.getProfile(currentUser.id);
+                        } catch (e) { console.warn('[Creative Hub] getProfile:', e); }
+                        // Gunakan static helper untuk konsistensi fallback di semua halaman
+                        var displayName = (typeof UserProfileService !== 'undefined' && UserProfileService.deriveDisplayName)
+                            ? UserProfileService.deriveDisplayName(profile, currentUser)
+                            : ((profile && profile.display_name && profile.display_name.trim()) || (currentUser.email && currentUser.email.split('@')[0]) || 'User');
+                        var nameEl = document.getElementById('sidebar-user-name');
+                        var avatarEl = document.getElementById('sidebar-user-avatar');
+                        if (nameEl) nameEl.textContent = displayName;
+                        if (avatarEl) avatarEl.textContent = (displayName.substring(0, 2) || '—').toUpperCase();
+                    } catch (e) {
+                        console.error('[Creative Hub] initAuth error:', e);
+                        if (window.toast) window.toast('Gagal memuat sesi. Coba refresh.');
+                    }
+                    try {
+                        await renderAll();
+                    } catch (e) {
+                        console.error('[Creative Hub] renderAll error:', e);
+                    }
+                })();
+            })();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JadiSatu OS — Notes View</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    },
+                    colors: {
+                        bg: '#0f0f11',
+                        work: { DEFAULT: '#3b82f6', light: '#60a5fa' },
+                        learn: { DEFAULT: '#f59e0b', light: '#fbbf24' },
+                        business: { DEFAULT: '#10b981', light: '#34d399' },
+                        personal: { DEFAULT: '#8b5cf6', light: '#a78bfa' },
+                        accent: { DEFAULT: '#ec4899', light: '#f472b6' },
+                        danger: '#ef4444',
+                        success: '#22c55e',
+                        warning: '#eab308',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f0f11;
+            color: #fafafa;
+            -webkit-font-smoothing: antialiased;
+        }
+        .glass {
+            background: rgba(24, 24, 27, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-strong {
+            background: rgba(24, 24, 27, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        .hover-lift { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hover-lift:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+        /* Editor: font & readability, kurangi cognitive load */
+        .note-editor-body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-size: 1.0625rem;
+            line-height: 1.7;
+            color: #e4e4e7;
+            letter-spacing: 0.01em;
+            max-width: 65ch;
+        }
+        .note-editor-body::placeholder { color: #71717a; }
+        .note-editor-title { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        #workspace-sidebar { transition: width 0.25s ease; }
+        #workspace-sidebar.sidebar-collapsed { width: 5rem !important; min-width: 5rem; }
+        #workspace-sidebar.sidebar-collapsed .sidebar-nav-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-section-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-header-detail { display: none; }
+        #workspace-sidebar.sidebar-collapsed .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+        #workspace-sidebar.sidebar-collapsed .nav-item .ml-auto { display: none; }
+        .gradient-personal { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+    <aside id="workspace-sidebar" class="w-64 glass-strong flex flex-col shrink-0 z-20 border-r border-white/5 transition-[width] duration-300">
+        <div class="p-6 border-b border-white/5 sidebar-header-detail">
+            <div class="flex items-center gap-3 mb-4">
+                <div id="sidebar-user-avatar" class="w-10 h-10 rounded-xl gradient-personal flex items-center justify-center text-white font-bold text-lg shrink-0">—</div>
+                <div class="min-w-0">
+                    <div id="sidebar-user-name" class="font-semibold text-white truncate">User</div>
+                    <div id="sidebar-user-subtitle" class="text-xs text-gray-400">JadiSatu OS</div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between text-[10px] uppercase tracking-wider text-gray-500 mb-1"><span>Life Balance</span><span id="sidebar-life-balance-pct" class="text-white">0</span></div>
+                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden flex">
+                    <div id="sidebar-bar-work" class="h-full bg-work transition-all" style="width: 0%"></div><div id="sidebar-bar-learn" class="h-full bg-learn transition-all" style="width: 0%"></div><div id="sidebar-bar-business" class="h-full bg-business transition-all" style="width: 0%"></div>
+                </div>
+                <div class="flex gap-3 text-[10px]">
+                    <span class="flex items-center gap-1 text-work-light"><div class="w-1.5 h-1.5 rounded-full bg-work"></div>Work</span>
+                    <span class="flex items-center gap-1 text-learn-light"><div class="w-1.5 h-1.5 rounded-full bg-learn"></div>Learn</span>
+                    <span class="flex items-center gap-1 text-business-light"><div class="w-1.5 h-1.5 rounded-full bg-business"></div>Business</span>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1">
+            <div class="px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Dashboard</div>
+            <a href="dashboard.html#home" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Overview</span></a>
+            <a href="focus-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Today's Focus</span><span class="ml-auto bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded-full">3</span></a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Domains</div>
+            <a href="dashboard.html#work" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group"><div class="w-2 h-2 rounded-full bg-work group-hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-shadow shrink-0"></div><span class="sidebar-nav-label">Work & Career</span><span id="sidebar-domain-work" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span></a>
+            <a href="dashboard.html#learn" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group"><div class="w-2 h-2 rounded-full bg-learn group-hover:shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-shadow shrink-0"></div><span class="sidebar-nav-label">Learning</span><span id="sidebar-domain-learn" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span></a>
+            <a href="dashboard.html#business" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group"><div class="w-2 h-2 rounded-full bg-business group-hover:shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-shadow shrink-0"></div><span class="sidebar-nav-label">Business</span><span id="sidebar-domain-business" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span></a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Workspace</div>
+            <a href="projects-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="folder-kanban" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Projects</span></a>
+            <a href="kanban-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="columns" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Kanban Board</span></a>
+            <a href="notes-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 text-white text-sm font-medium hover:bg-white/10"><i data-lucide="notebook-pen" class="w-4 h-4 shrink-0 text-accent"></i><span class="sidebar-nav-label">Notes & Ideas</span></a>
+            <a href="creative-hub-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="sparkles" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Creative Hub</span></a>
+            <a href="crm-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="users" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">CRM</span><span id="sidebar-crm-badge" class="ml-auto bg-business/20 text-business-light text-[10px] px-2 py-0.5 rounded-full hidden"></span></a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">System</div>
+            <a href="ai-agent-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="bot" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">AI Agents</span><span id="sidebar-agent-badge" class="ml-auto flex items-center gap-1 hidden"></span></a>
+            <a href="progress-history-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="line-chart" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Progress & History</span></a>
+            <a href="settings-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="settings" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Pengaturan</span></a>
+        </nav>
+        <div class="p-4 border-t border-white/5 space-y-2">
+            <button type="button" id="sidebar-toggle-btn" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i data-lucide="panel-left-close" data-sidebar-toggle-icon class="w-3.5 h-3.5 shrink-0"></i><span data-sidebar-toggle-label class="sidebar-nav-label">Sembunyikan</span></button>
+            <a href="dashboard.html#home" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i data-lucide="command" class="w-3.5 h-3.5 shrink-0"></i><span class="sidebar-nav-label">Command Menu</span><span class="ml-auto text-[10px] opacity-50">⌘K</span></a>
+            <a href="login.html" onclick="event.preventDefault(); if(window.supabaseClient) window.supabaseClient.auth.signOut().then(function(){ window.location.href='login.html'; }); else window.location.href='login.html';" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs text-red-400 hover:text-red-300 transition-all"><i data-lucide="log-out" class="w-3.5 h-3.5 shrink-0"></i><span class="sidebar-nav-label">Logout</span></a>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 relative">
+        <div id="view-notes" class="h-full flex flex-col max-w-6xl mx-auto animate-slide-up p-6 w-full">
+            <!-- Header & Filter -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 shrink-0 gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Notes & Ideas</h2>
+                    <p class="text-sm text-gray-500">Capture everything. Curate later.</p>
+                </div>
+                <div class="flex items-center gap-3 overflow-x-auto custom-scroll pb-1 sm:pb-0">
+                    <!-- Domain Filter -->
+                    <div class="flex items-center gap-1 p-1 rounded-lg bg-black/30 border border-white/5 whitespace-nowrap">
+                        <button onclick="filterNotes('all', this)" class="filter-btn px-3 py-1.5 rounded-md bg-white/10 text-white text-xs font-medium transition-all">All</button>
+                        <button onclick="filterNotes('work', this)" class="filter-btn px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Work</button>
+                        <button onclick="filterNotes('learn', this)" class="filter-btn px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Learn</button>
+                        <button onclick="filterNotes('business', this)" class="filter-btn px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Business</button>
+                    </div>
+
+                    <div class="w-px h-6 bg-white/10 hidden sm:block"></div>
+
+                    <!-- View Toggle -->
+                    <div class="flex bg-black/30 rounded-lg p-1 border border-white/10 shrink-0">
+                        <button class="px-3 py-1.5 rounded-md bg-white/10 text-white text-xs shadow-sm"><i data-lucide="layout-grid" class="w-3.5 h-3.5"></i></button>
+                        <button class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white text-xs transition-colors"><i data-lucide="list" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Input (CREATE) -->
+            <div class="glass rounded-xl p-4 mb-6 border border-white/5 hover:border-white/10 transition-all shrink-0 relative overflow-hidden group">
+                <div class="absolute -inset-x-20 top-0 h-px bg-gradient-to-r from-transparent via-work/30 to-transparent group-hover:via-work/50 transition-all"></div>
+                
+                <form id="note-create-form" onsubmit="event.preventDefault();" class="relative z-10">
+                    <input type="text" id="note-input" placeholder="Type an idea, thought, or insight... Press Enter to save"
+                        class="w-full bg-transparent text-white placeholder-gray-500 outline-none text-lg mb-4" required>
+                    <div class="flex items-center justify-between">
+                        <div class="flex gap-2">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="note_domain" value="work" class="hidden peer" checked>
+                                <span class="px-3 py-1.5 rounded-full border border-transparent peer-checked:bg-work/10 peer-checked:text-work-light peer-checked:border-work/20 text-gray-500 hover:text-gray-300 text-xs transition-all flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-work peer-checked:shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span> Work
+                                </span>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="note_domain" value="learn" class="hidden peer">
+                                <span class="px-3 py-1.5 rounded-full border border-transparent peer-checked:bg-learn/10 peer-checked:text-learn-light peer-checked:border-learn/20 text-gray-500 hover:text-gray-300 text-xs transition-all flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-learn peer-checked:shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span> Learn
+                                </span>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="note_domain" value="business" class="hidden peer">
+                                <span class="px-3 py-1.5 rounded-full border border-transparent peer-checked:bg-business/10 peer-checked:text-business-light peer-checked:border-business/20 text-gray-500 hover:text-gray-300 text-xs transition-all flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-business peer-checked:shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Business
+                                </span>
+                            </label>
+                        </div>
+                        <button type="submit" id="btn-quick-save" class="px-4 py-1.5 bg-work hover:bg-work-light text-white rounded-lg text-xs font-medium transition-all shadow-lg shadow-work/20">
+                            Simpan Cepat
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Notes Grid Container -->
+            <div id="notes-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 flex-1 overflow-y-auto custom-scroll pb-4 items-start content-start">
+                <!-- Kotak "Tulis Catatan Lengkap" (selalu pertama) -->
+                <div class="border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center text-gray-500 hover:border-work/30 hover:bg-work/5 hover:text-white transition-all cursor-pointer min-h-[160px] group" onclick="openNoteEditor(null)">
+                    <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:bg-work/20 group-hover:scale-110 transition-all duration-300">
+                        <i data-lucide="pen-tool" class="w-5 h-5 group-hover:text-work-light transition-colors"></i>
+                    </div>
+                    <span class="font-medium text-sm">Tulis Catatan Lengkap</span>
+                    <span class="text-[10px] mt-1 opacity-50 font-mono">⌘ + N</span>
+                </div>
+                <!-- Kartu catatan di-render oleh JS (id="notes-list-slot") -->
+                <div id="notes-list-slot" class="contents"></div>
+            </div>
+        </div>
+
+        <!-- Expanded Note Editor Modal -->
+        <div id="note-editor-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 sm:p-6 sm:py-10">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300" onclick="closeNoteEditor()"></div>
+            
+            <!-- Modal Content -->
+            <div class="relative w-full max-w-4xl h-full max-h-[90vh] flex flex-col bg-[#18181b] rounded-2xl border border-white/[0.06] shadow-2xl overflow-hidden animate-slide-up transform transition-all">
+                
+                <!-- Modal Header Toolbar -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] shrink-0 bg-[#18181b] z-20">
+                    <div class="flex items-center gap-4">
+                        <div class="relative group">
+                            <select id="editor-domain" class="appearance-none bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg pl-8 pr-8 py-1.5 text-xs text-white font-medium outline-none focus:border-gray-500 cursor-pointer transition-colors">
+                                <option value="work">Domain: Work</option>
+                                <option value="learn">Domain: Learning</option>
+                                <option value="business">Domain: Business</option>
+                                <option value="personal">Domain: Personal</option>
+                            </select>
+                            <i data-lucide="hash" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                            <i data-lucide="chevron-down" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-hover:text-white transition-colors"></i>
+                        </div>
+                        <div class="w-px h-4 bg-white/10"></div>
+                        <span class="text-[10px] text-gray-500 flex items-center gap-1.5" id="editor-save-status">
+                            <span class="w-1.5 h-1.5 rounded-full bg-gray-600"></span> Draft
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <button onclick="deleteNoteFromEditor()" class="p-1.5 text-gray-400 hover:text-danger hover:bg-danger/10 rounded-md transition-all" title="Hapus Catatan">
+                            <i data-lucide="trash" class="w-4 h-4"></i>
+                        </button>
+                        <div class="w-px h-4 bg-white/10 mx-1"></div>
+                        <button onclick="closeNoteEditor()" class="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-all">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="saveNote()" class="px-5 py-1.5 bg-white text-black hover:bg-gray-200 rounded-lg text-xs font-semibold transition-all shadow-lg flex items-center gap-2 ml-2">
+                            Simpan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="flex-1 overflow-y-auto custom-scroll relative bg-[#141416]">
+                    <div class="max-w-3xl mx-auto px-6 sm:px-10 py-8 sm:py-12 flex flex-col gap-5">
+                        <input type="text" id="editor-title" placeholder="Judul Catatan..." 
+                            class="note-editor-title w-full bg-transparent text-white text-2xl sm:text-3xl font-semibold placeholder-gray-500 outline-none focus:placeholder-gray-600 transition-colors tracking-tight">
+                        
+                        <div class="flex items-center gap-2 text-xs text-gray-500 -mt-1 mb-2" id="editor-date-wrap">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5 opacity-70"></i>
+                            <span id="editor-date">Dibuat: —</span>
+                        </div>
+
+                        <textarea id="editor-content" placeholder="Mulai menulis dengan bebas..." 
+                            class="note-editor-body w-full flex-1 bg-transparent outline-none resize-none min-h-[320px] border-0 p-0"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/data-service.js?v=taskfix"></script>
+    <script src="js/sidebar-metrics.js"></script>
+    <script src="js/sidebar-workspace.js"></script>
+    <script src="js/juru-bubble.js?v=juru-gemini"></script>
+    <script>
+        window.allTasks = window.allTasks || [];
+        if (typeof window.syncSidebarMetrics === 'function') window.syncSidebarMetrics();
+
+        const SUPABASE_URL = 'https://dwpkokavxjvtrltntjtn.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1';
+
+        let supabaseClient, noteService, currentUser;
+        let notes = [];
+        let currentNoteId = null;
+        let currentFilter = 'all';
+
+        async function loadNotes() {
+            if (!noteService || !currentUser) return;
+            try {
+                notes = await noteService.getNotes(currentUser.id) || [];
+            } catch (e) {
+                console.error('Error loading notes:', e);
+                notes = [];
+            }
+        }
+
+        function timeAgo(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            const now = new Date();
+            const diffMs = now - d;
+            const diffM = Math.floor(diffMs / 60000);
+            const diffH = Math.floor(diffMs / 3600000);
+            const diffD = Math.floor(diffMs / 86400000);
+            if (diffM < 1) return 'Baru saja';
+            if (diffM < 60) return diffM + 'm lalu';
+            if (diffH < 24) return diffH + 'h lalu';
+            if (diffD === 1) return 'Kemarin';
+            if (diffD < 7) return diffD + ' hari lalu';
+            return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+        }
+
+        function formatEditorDate(iso) {
+            if (!iso) return 'Dibuat: —';
+            const d = new Date(iso);
+            return 'Dibuat: ' + d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function getDomainLabel(domain) {
+            const labels = { work: 'Work', learn: 'Learn', business: 'Business', personal: 'Personal' };
+            return labels[domain] || domain;
+        }
+
+        function getDomainStyles(domain) {
+            const map = {
+                work: { bg: 'bg-work/10', text: 'text-work-light', hoverTitle: 'group-hover:text-work-light', dot: 'bg-work', border: 'hover:border-work/30', glow: 'bg-work/5', glowHover: 'group-hover:bg-work/10' },
+                learn: { bg: 'bg-learn/10', text: 'text-learn-light', hoverTitle: 'group-hover:text-learn-light', dot: 'bg-learn', border: 'hover:border-learn/30', glow: 'bg-learn/5', glowHover: 'group-hover:bg-learn/10' },
+                business: { bg: 'bg-business/10', text: 'text-business-light', hoverTitle: 'group-hover:text-business-light', dot: 'bg-business', border: 'hover:border-business/30', glow: 'bg-business/5', glowHover: 'group-hover:bg-business/10' },
+                personal: { bg: 'bg-personal/10', text: 'text-personal-light', hoverTitle: 'group-hover:text-personal-light', dot: 'bg-personal', border: 'hover:border-personal/30', glow: 'bg-personal/5', glowHover: 'group-hover:bg-personal/10' }
+            };
+            return map[domain] || map.work;
+        }
+
+        function renderNotes() {
+            const slot = document.getElementById('notes-list-slot');
+            if (!slot) return;
+            const filtered = currentFilter === 'all' ? notes : notes.filter(n => n.domain === currentFilter);
+            const fragment = document.createDocumentFragment();
+            filtered.forEach(note => {
+                const s = getDomainStyles(note.domain);
+                const preview = (note.content || '').trim().slice(0, 120);
+                const card = document.createElement('div');
+                card.className = 'note-card glass rounded-xl p-5 hover-lift cursor-pointer group border border-white/5 relative overflow-hidden transition-all duration-300 min-h-[160px] flex flex-col ' + s.border;
+                card.dataset.domain = note.domain;
+                card.dataset.noteId = note.id;
+                card.innerHTML = '<div class="absolute top-0 right-0 w-32 h-32 ' + s.glow + ' rounded-full blur-3xl -mr-10 -mt-10 ' + s.glowHover + ' transition-colors"></div>' +
+                    '<div class="flex items-start justify-between mb-3 relative z-10">' +
+                    '<span class="flex items-center gap-1.5 px-2 py-1 rounded-md ' + s.bg + ' ' + s.text + ' text-[10px] font-medium tracking-wide">' +
+                    '<span class="w-1 h-1 rounded-full ' + s.dot + '"></span> ' + getDomainLabel(note.domain) + '</span>' +
+                    '<button type="button" onclick="event.stopPropagation(); deleteNoteById(\'' + note.id + '\');" class="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-danger hover:bg-danger/10 rounded-md transition-all"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>' +
+                    '</div>' +
+                    '<h3 class="text-white font-semibold mb-2 relative z-10 ' + s.hoverTitle + ' transition-colors">' + (note.title || 'Untitled').replace(/</g, '&lt;') + '</h3>' +
+                    '<p class="text-sm text-gray-400 line-clamp-3 mb-4 flex-1 relative z-10 leading-relaxed">' + (preview ? preview.replace(/</g, '&lt;') : 'Tidak ada isi') + '</p>' +
+                    '<div class="flex items-center justify-between mt-auto pt-3 border-t border-white/5 relative z-10">' +
+                    '<span class="text-[10px] text-gray-500">' + timeAgo(note.updated_at || note.created_at) + '</span>' +
+                    '<i data-lucide="arrow-up-right" class="w-3 h-3 text-gray-600 ' + s.hoverTitle + ' transition-colors"></i>' +
+                    '</div>';
+                card.addEventListener('click', (e) => { if (!e.target.closest('button')) openNoteEditor(note.id); });
+                fragment.appendChild(card);
+            });
+            slot.replaceChildren(fragment);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function openNoteEditor(noteId) {
+            currentNoteId = noteId;
+            const modal = document.getElementById('note-editor-modal');
+            const titleEl = document.getElementById('editor-title');
+            const contentEl = document.getElementById('editor-content');
+            const domainEl = document.getElementById('editor-domain');
+            const dateEl = document.getElementById('editor-date');
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            if (noteId) {
+                const note = notes.find(n => n.id === noteId);
+                if (note) {
+                    titleEl.value = note.title || '';
+                    contentEl.value = note.content || '';
+                    domainEl.value = note.domain || 'work';
+                    dateEl.textContent = formatEditorDate(note.created_at);
+                }
+            } else {
+                titleEl.value = '';
+                contentEl.value = '';
+                domainEl.value = 'work';
+                dateEl.textContent = 'Dibuat: —';
+            }
+
+            setTimeout(() => {
+                titleEl.focus();
+                autoResizeTextarea(contentEl);
+            }, 50);
+        }
+
+        function closeNoteEditor() {
+            const modal = document.getElementById('note-editor-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentNoteId = null;
+            const statusEl = document.getElementById('editor-save-status');
+            statusEl.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-gray-600"></span> Draft';
+            statusEl.classList.remove('text-success');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function saveNote() {
+            const title = document.getElementById('editor-title').value.trim() || 'Untitled';
+            const content = document.getElementById('editor-content').value.trim();
+            const domain = document.getElementById('editor-domain').value || 'work';
+
+            try {
+                if (currentNoteId) {
+                    await noteService.updateNote(currentNoteId, { title, content, domain });
+                } else {
+                    await noteService.createNote(currentUser.id, { title, content, domain });
+                }
+                await loadNotes();
+                renderNotes();
+                const statusEl = document.getElementById('editor-save-status');
+                statusEl.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i> Tersimpan';
+                statusEl.classList.add('text-success');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                setTimeout(closeNoteEditor, 800);
+            } catch (e) {
+                console.error('Error saving note:', e);
+                alert('Gagal menyimpan catatan. Coba lagi.');
+            }
+        }
+
+        async function deleteNoteFromEditor() {
+            if (!confirm('Apakah Anda yakin ingin menghapus catatan ini?')) return;
+            if (currentNoteId) {
+                try {
+                    await noteService.deleteNote(currentNoteId);
+                    await loadNotes();
+                    renderNotes();
+                } catch (e) {
+                    console.error('Error deleting note:', e);
+                    alert('Gagal menghapus catatan.');
+                }
+            }
+            closeNoteEditor();
+        }
+
+        async function deleteNoteById(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus catatan ini?')) return;
+            try {
+                await noteService.deleteNote(id);
+                await loadNotes();
+                renderNotes();
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } catch (e) {
+                console.error('Error deleting note:', e);
+                alert('Gagal menghapus catatan.');
+            }
+        }
+
+        async function saveQuickNote() {
+            const input = document.getElementById('note-input');
+            const title = (input.value || '').trim();
+            if (!title) return;
+            const domain = (document.querySelector('input[name="note_domain"]:checked') || {}).value || 'work';
+            try {
+                await noteService.createNote(currentUser.id, { title, content: '', domain });
+                await loadNotes();
+                renderNotes();
+                input.value = '';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } catch (e) {
+                console.error('Error saving quick note:', e);
+                alert('Gagal menyimpan. Coba lagi.');
+            }
+        }
+
+        function autoResizeTextarea(el) {
+            if (!el) return;
+            el.style.height = 'auto';
+            el.style.height = Math.max(300, el.scrollHeight) + 'px';
+        }
+
+        function filterNotes(domain, clickedButton) {
+            currentFilter = domain;
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('bg-white/10', 'text-white', 'font-medium');
+                btn.classList.add('text-gray-400');
+            });
+            clickedButton.classList.remove('text-gray-400');
+            clickedButton.classList.add('bg-white/10', 'text-white', 'font-medium');
+            renderNotes();
+        }
+
+        // Init: Supabase auth + load notes
+        (async function init() {
+            if (typeof window.supabase === 'undefined') return;
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            window.supabaseClient = supabaseClient;
+
+            // Retry session fetch hingga 3x (handle race condition saat pertama login)
+            var session = null;
+            for (var attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    var _r = await supabaseClient.auth.getSession();
+                    if (!_r.error && _r.data.session) { session = _r.data.session; break; }
+                    if (attempt < 3) await new Promise(function (r) { setTimeout(r, 800); });
+                } catch (e) { if (attempt === 3) break; await new Promise(function (r) { setTimeout(r, 800); }); }
+            }
+            if (!session) { window.location.replace('login.html'); return; }
+            currentUser = session.user;
+            noteService = new NoteService(supabaseClient);
+
+            const nameEl = document.getElementById('sidebar-user-name');
+            const avatarEl = document.getElementById('sidebar-user-avatar');
+            if (nameEl && currentUser.email) {
+                const name = currentUser.email.split('@')[0];
+                nameEl.textContent = name.charAt(0).toUpperCase() + name.slice(1).replace(/[0-9]/g, '') || 'User';
+            }
+            if (avatarEl && currentUser.email) avatarEl.textContent = (currentUser.email.substring(0, 2) || '—').toUpperCase();
+
+            await loadNotes();
+            renderNotes();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            document.getElementById('note-create-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                saveQuickNote();
+            });
+            document.getElementById('editor-content').addEventListener('input', function() { autoResizeTextarea(this); });
+
+            document.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+                    e.preventDefault();
+                    openNoteEditor(null);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

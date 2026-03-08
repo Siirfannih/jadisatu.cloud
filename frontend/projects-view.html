@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JadiSatu OS — Projects</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        bg: '#0f0f11',
+                        surface: '#18181b',
+                        work: { DEFAULT: '#3b82f6', light: '#60a5fa' },
+                        learn: { DEFAULT: '#f59e0b', light: '#fbbf24' },
+                        business: { DEFAULT: '#10b981', light: '#34d399' },
+                        personal: { DEFAULT: '#8b5cf6', light: '#a78bfa' },
+                        accent: { DEFAULT: '#ec4899', light: '#f472b6' },
+                        danger: '#ef4444',
+                        success: '#22c55e',
+                        warning: '#eab308',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f0f11;
+            color: #fafafa;
+            -webkit-font-smoothing: antialiased;
+        }
+        .glass {
+            background: rgba(24, 24, 27, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-strong {
+            background: rgba(15, 15, 17, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        .hover-lift { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hover-lift:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .animate-slide-in-right { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        /* Sidebar collapse */
+        #workspace-sidebar { transition: width 0.25s ease; }
+        #workspace-sidebar.sidebar-collapsed { width: 5rem !important; min-width: 5rem; }
+        #workspace-sidebar.sidebar-collapsed .sidebar-nav-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-section-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-header-detail { display: none; }
+        #workspace-sidebar.sidebar-collapsed .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+        #workspace-sidebar.sidebar-collapsed .nav-item .ml-auto { display: none; }
+        .gradient-personal { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+    <!-- Sidebar sama persis dengan dashboard (profil, Life Balance, nav, collapse) -->
+    <aside id="workspace-sidebar" class="w-64 glass-strong flex flex-col shrink-0 z-20 border-r border-white/5 transition-[width] duration-300">
+        <div class="p-6 border-b border-white/5 sidebar-header-detail">
+            <div class="flex items-center gap-3 mb-4">
+                <div id="sidebar-user-avatar" class="w-10 h-10 rounded-xl gradient-personal flex items-center justify-center text-white font-bold text-lg shrink-0">—</div>
+                <div class="min-w-0">
+                    <div id="sidebar-user-name" class="font-semibold text-white truncate">Loading...</div>
+                    <div id="sidebar-user-subtitle" class="text-xs text-gray-400">User</div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                    <span>Life Balance</span>
+                    <span id="sidebar-life-balance-pct" class="text-white">0</span>
+                </div>
+                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden flex">
+                    <div id="sidebar-bar-work" class="h-full bg-work transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-learn" class="h-full bg-learn transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-business" class="h-full bg-business transition-all" style="width: 0%"></div>
+                </div>
+                <div class="flex gap-3 text-[10px]">
+                    <span class="flex items-center gap-1 text-work-light"><div class="w-1.5 h-1.5 rounded-full bg-work"></div>Work</span>
+                    <span class="flex items-center gap-1 text-learn-light"><div class="w-1.5 h-1.5 rounded-full bg-learn"></div>Learn</span>
+                    <span class="flex items-center gap-1 text-business-light"><div class="w-1.5 h-1.5 rounded-full bg-business"></div>Business</span>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1">
+            <div class="px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Dashboard</div>
+            <a href="dashboard.html#home" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">Overview</span>
+            </a>
+            <a href="focus-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="target" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">Today's Focus</span>
+                <span class="ml-auto bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded-full">3</span>
+            </a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Domains</div>
+            <a href="dashboard.html#work" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div class="w-2 h-2 rounded-full bg-work group-hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-shadow shrink-0"></div>
+                <span class="sidebar-nav-label">Work & Career</span>
+                <span id="sidebar-domain-work" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span>
+            </a>
+            <a href="dashboard.html#learn" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div class="w-2 h-2 rounded-full bg-learn group-hover:shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-shadow shrink-0"></div>
+                <span class="sidebar-nav-label">Learning</span>
+                <span id="sidebar-domain-learn" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span>
+            </a>
+            <a href="dashboard.html#business" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div class="w-2 h-2 rounded-full bg-business group-hover:shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-shadow shrink-0"></div>
+                <span class="sidebar-nav-label">Business</span>
+                <span id="sidebar-domain-business" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span>
+            </a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Workspace</div>
+            <a href="projects-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 text-white text-sm font-medium hover:bg-white/10">
+                <i data-lucide="folder-kanban" class="w-4 h-4 shrink-0 text-accent"></i>
+                <span class="sidebar-nav-label">Projects</span>
+            </a>
+            <a href="kanban-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="columns" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">Kanban Board</span>
+            </a>
+            <a href="notes-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="notebook-pen" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">Notes & Ideas</span>
+            </a>
+            <a href="creative-hub-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="sparkles" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">Creative Hub</span>
+            </a>
+            <a href="crm-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="users" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">CRM</span>
+                <span id="sidebar-crm-badge" class="ml-auto bg-business/20 text-business-light text-[10px] px-2 py-0.5 rounded-full hidden"></span>
+            </a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">System</div>
+            <a href="ai-agent-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="bot" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">AI Agents</span>
+                <span id="sidebar-agent-badge" class="ml-auto flex items-center gap-1 hidden"></span>
+            </a>
+            <a href="progress-history-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="line-chart" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">Progress & History</span>
+            </a>
+            <a href="settings-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="settings" class="w-4 h-4 shrink-0"></i>
+                <span class="sidebar-nav-label">Pengaturan</span>
+            </a>
+        </nav>
+        <div class="p-4 border-t border-white/5 space-y-2">
+            <button type="button" id="sidebar-toggle-btn" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all">
+                <i data-lucide="panel-left-close" data-sidebar-toggle-icon class="w-3.5 h-3.5 shrink-0"></i>
+                <span data-sidebar-toggle-label class="sidebar-nav-label">Sembunyikan</span>
+            </button>
+            <a href="dashboard.html#home" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all">
+                <i data-lucide="command" class="w-3.5 h-3.5 shrink-0"></i>
+                <span class="sidebar-nav-label">Command Menu</span>
+                <span class="ml-auto text-[10px] opacity-50">⌘K</span>
+            </a>
+            <a href="login.html" onclick="event.preventDefault(); if(window.supabaseClient) window.supabaseClient.auth.signOut().then(function(){ window.location.href='login.html'; }); else window.location.href='login.html';" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs text-red-400 hover:text-red-300 transition-all">
+                <i data-lucide="log-out" class="w-3.5 h-3.5 shrink-0"></i>
+                <span class="sidebar-nav-label">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 relative">
+        <div id="view-projects" class="h-full flex flex-col max-w-7xl mx-auto animate-slide-up p-6 w-full custom-scroll overflow-y-auto">
+
+            <!-- Header & Actions -->
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-8 shrink-0 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-tight flex items-center gap-3 mb-1">
+                        <i data-lucide="folder-kanban" class="w-6 h-6 text-white/70"></i>
+                        Projects
+                    </h2>
+                    <p class="text-sm text-gray-500">Track progress by project across all domains.</p>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1 p-1 rounded-lg bg-black/30 border border-white/5">
+                        <button type="button" onclick="filterProjects('all', this)" class="project-filter-btn px-3 py-1.5 rounded-md bg-white/10 text-white text-xs font-medium transition-all">All</button>
+                        <button type="button" onclick="filterProjects('work', this)" class="project-filter-btn px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Work</button>
+                        <button type="button" onclick="filterProjects('learn', this)" class="project-filter-btn px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Learn</button>
+                        <button type="button" onclick="filterProjects('business', this)" class="project-filter-btn px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Business</button>
+                    </div>
+                    <button type="button" onclick="openProjectModal()" class="px-4 py-2 bg-white text-black hover:bg-gray-200 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 shadow-lg">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        New Project
+                    </button>
+                </div>
+            </div>
+
+            <!-- Projects Grid (filled by JS) -->
+            <div id="projects-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+                <p class="text-gray-500 col-span-full">Memuat...</p>
+            </div>
+
+            <!-- Empty state: Create New Project card (shown when no projects) -->
+            <div id="empty-create-card" onclick="openProjectModal()" class="hidden border-2 border-dashed border-white/10 rounded-2xl p-5 flex flex-col items-center justify-center text-gray-500 hover:border-white/30 hover:bg-white/5 hover:text-white transition-all cursor-pointer min-h-[200px] group">
+                <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:bg-white/10 group-hover:scale-110 transition-all duration-300">
+                    <i data-lucide="folder-plus" class="w-5 h-5"></i>
+                </div>
+                <span class="font-medium text-sm">Create New Project</span>
+            </div>
+        </div>
+
+        <!-- Create Project Modal -->
+        <div id="project-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeProjectModal()"></div>
+            <div class="relative w-full max-w-lg glass-strong rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-slide-up">
+                <div class="flex items-center justify-between p-5 border-b border-white/5">
+                    <h3 class="text-lg font-bold text-white">Create New Project</h3>
+                    <button type="button" onclick="closeProjectModal()" class="text-gray-500 hover:text-white transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <form id="project-form" class="p-6 space-y-5">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Project Title</label>
+                        <input type="text" id="project-title" name="title" required placeholder="e.g., Launch V1.0"
+                            class="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-white/30 transition-colors">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1.5">Domain</label>
+                            <div class="relative">
+                                <select id="project-domain" name="domain" required class="w-full appearance-none bg-black/30 border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors cursor-pointer">
+                                    <option value="work">Work</option>
+                                    <option value="learn">Learn</option>
+                                    <option value="business">Business</option>
+                                    <option value="personal">Personal</option>
+                                </select>
+                                <i data-lucide="briefcase" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1.5">Target Deadline (optional)</label>
+                            <div class="date-picker-trigger flex items-center gap-2 rounded-lg bg-black/30 border border-white/10 px-3 py-2.5 cursor-pointer hover:border-white/20 focus-within:border-white/30">
+                                <input type="date" id="project-deadline" name="deadline" class="flex-1 min-w-0 bg-transparent text-sm text-white outline-none [color-scheme:dark] cursor-pointer">
+                                <i data-lucide="calendar" class="w-4 h-4 text-gray-500 shrink-0 pointer-events-none"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Description (Optional)</label>
+                        <textarea id="project-desc" name="description" rows="3" placeholder="What is the main goal of this project?"
+                            class="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-white/30 transition-colors resize-none"></textarea>
+                    </div>
+                    <div class="pt-2 flex justify-end gap-3">
+                        <button type="button" onclick="closeProjectModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors">Cancel</button>
+                        <button type="submit" class="px-6 py-2 bg-white text-black hover:bg-gray-200 rounded-lg text-sm font-bold transition-all shadow-lg">Create & Add Tasks</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Project Detail Drawer (slide from right) -->
+        <div id="project-detail-modal" class="fixed inset-0 z-50 hidden flex justify-end">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeProjectDetail()"></div>
+            <div class="relative w-full max-w-xl h-full bg-[#121214] border-l border-white/10 shadow-2xl flex flex-col animate-slide-in-right">
+                <div class="p-6 border-b border-white/5 bg-[#18181b]/50">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <span id="detail-domain-badge" class="px-2 py-1 rounded bg-business/20 text-business-light text-[10px] uppercase tracking-wider mb-2 inline-block">Business</span>
+                            <h2 id="detail-title" class="text-2xl font-bold text-white">Project</h2>
+                        </div>
+                        <button type="button" onclick="closeProjectDetail()" class="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <p id="detail-desc" class="text-sm text-gray-400 line-clamp-2">Deskripsi proyek.</p>
+                </div>
+                <div class="p-6 pb-2 shrink-0">
+                    <button type="button" id="ai-generate-btn" onclick="simulateAIGeneration()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent-light text-sm font-medium transition-all overflow-hidden relative">
+                        <i data-lucide="sparkles" class="w-4 h-4 shrink-0"></i>
+                        <span id="ai-generate-text">AI Task Breakdown</span>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-y-auto custom-scroll p-6">
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Project Tasks</h3>
+                    <div id="project-task-list" class="space-y-1"></div>
+                </div>
+                <div class="p-4 border-t border-white/5 bg-[#18181b] shrink-0">
+                    <form id="drawer-add-task-form" onsubmit="event.preventDefault(); addDetailedTask(this)" class="flex flex-col gap-3">
+                        <input type="text" name="task-title" required placeholder="Tulis tugas spesifik..." class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30 transition-colors">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <div class="date-picker-trigger flex items-center gap-1.5 rounded-lg bg-black/40 border border-white/10 px-2 py-1.5 cursor-pointer hover:border-white/20 focus-within:border-white/30 flex-1 min-w-0">
+                                <input type="date" name="task-due" class="flex-1 min-w-0 bg-transparent text-xs text-gray-400 outline-none [color-scheme:dark] cursor-pointer">
+                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-gray-500 shrink-0 pointer-events-none"></i>
+                            </div>
+                            <div class="ml-auto flex items-center gap-2">
+                                <button type="submit" class="px-4 py-1.5 bg-white text-black hover:bg-gray-200 rounded-lg text-xs font-semibold transition-colors">Tambahkan</button>
+                                <button type="button" id="save-progress-btn" onclick="saveProjectProgress()" class="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg text-xs font-semibold transition-colors">Simpan</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/data-service.js?v=taskfix"></script>
+    <script src="js/sidebar-metrics.js"></script>
+    <script src="js/sidebar-workspace.js"></script>
+    <script src="js/date-picker-trigger.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://dwpkokavxjvtrltntjtn.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1';
+
+        let supabaseClient, projectService, taskService, currentUser;
+        let allProjects = [];
+        let allTasks = [];
+        let currentDomainFilter = 'all';
+        let currentProjectId = null; /* for drawer task add / AI */
+
+        (async function init() {
+            if (typeof window.supabase === 'undefined') return;
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            window.supabaseClient = supabaseClient;
+
+            // Retry session fetch hingga 3x (handle race condition saat pertama login)
+            var session = null;
+            for (var attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    var _r = await supabaseClient.auth.getSession();
+                    if (!_r.error && _r.data.session) { session = _r.data.session; break; }
+                    if (attempt < 3) await new Promise(function (r) { setTimeout(r, 800); });
+                } catch (e) { if (attempt === 3) break; await new Promise(function (r) { setTimeout(r, 800); }); }
+            }
+            if (!session) { window.location.replace('login.html'); return; }
+            currentUser = session.user;
+            projectService = new ProjectService(supabaseClient);
+            taskService = new TaskService(supabaseClient);
+            var nameEl = document.getElementById('sidebar-user-name');
+            var avatarEl = document.getElementById('sidebar-user-avatar');
+            if (nameEl && currentUser.email) {
+                var name = currentUser.email.split('@')[0];
+                nameEl.textContent = name.charAt(0).toUpperCase() + name.slice(1).replace(/[0-9]/g, '') || 'User';
+            }
+            if (avatarEl && currentUser.email) avatarEl.textContent = (currentUser.email.substring(0, 2) || '—').toUpperCase();
+            document.getElementById('project-form').addEventListener('submit', proceedToDetail);
+            document.getElementById('projects-container').addEventListener('click', function(e) {
+                var card = e.target.closest('.project-card');
+                if (!card) return;
+                if (e.target.closest('.relative') && (e.target.closest('button') || e.target.closest('.dropdown-menu'))) return;
+                if (e.target.closest('.quick-task-trigger') || e.target.closest('.quick-task-form')) return;
+                openProjectDetail(card.dataset.projectId);
+            });
+            await loadProjectsWithCounts();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        })();
+
+        /** Load projects + all tasks, then compute per-project task count and completion % */
+        async function loadProjectsWithCounts() {
+            const container = document.getElementById('projects-container');
+            const emptyCard = document.getElementById('empty-create-card');
+            try {
+                const [projects, tasks] = await Promise.all([
+                    projectService.getProjects(currentUser.id),
+                    taskService.getTasks(currentUser.id, {})
+                ]);
+                allProjects = projects || [];
+                allTasks = tasks || [];
+                window.allTasks = allTasks;
+                if (typeof window.syncSidebarMetrics === 'function') window.syncSidebarMetrics();
+
+                const withCounts = allProjects.map(function(p) {
+                    const projectTasks = allTasks.filter(function(t) { return t.project_id === p.id; });
+                    const total = projectTasks.length;
+                    const completed = projectTasks.filter(function(t) { var s = (t.status || '').toLowerCase(); return s === 'completed' || s === 'done'; }).length;
+                    const progress = total ? Math.round((completed / total) * 100) : 0;
+                    return {
+                        id: p.id,
+                        title: p.title,
+                        description: p.description,
+                        domain: p.domain || 'work',
+                        tasksTotal: total,
+                        tasksCompleted: completed,
+                        progress: progress
+                    };
+                });
+
+                if (withCounts.length === 0) {
+                    container.innerHTML = '<div onclick="openProjectModal()" class="border-2 border-dashed border-white/10 rounded-2xl p-5 flex flex-col items-center justify-center text-gray-500 hover:border-white/30 hover:bg-white/5 hover:text-white transition-all cursor-pointer min-h-[200px] group col-span-full"><div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:bg-white/10 group-hover:scale-110 transition-all duration-300"><i data-lucide="folder-plus" class="w-5 h-5"></i></div><span class="font-medium text-sm">Create New Project</span></div>';
+                    if (emptyCard) emptyCard.classList.add('hidden');
+                } else {
+                    if (emptyCard) emptyCard.classList.add('hidden');
+                    container.innerHTML = withCounts.map(getProjectCardHTML).join('') +
+                        '<div onclick="openProjectModal()" class="border-2 border-dashed border-white/10 rounded-2xl p-5 flex flex-col items-center justify-center text-gray-500 hover:border-white/30 hover:bg-white/5 hover:text-white transition-all cursor-pointer min-h-[200px] group"><div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:bg-white/10 group-hover:scale-110 transition-all duration-300"><i data-lucide="folder-plus" class="w-5 h-5"></i></div><span class="font-medium text-sm">Create New Project</span></div>';
+                    applyDomainFilter();
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                var hash = (typeof location !== 'undefined' && location.hash) ? location.hash.replace(/^#/, '') : '';
+                if (hash && allProjects.some(function(p) { return p.id === hash; })) {
+                    openProjectDetail(hash);
+                }
+            } catch (err) {
+                console.error('Load projects error:', err);
+                container.innerHTML = '<p class="text-gray-500 col-span-full">Gagal memuat. Coba refresh.</p>';
+            }
+        }
+
+        const DOMAIN_LABELS = { work: 'Work', learn: 'Learning', business: 'Business', personal: 'Personal' };
+        /* Tailwind needs full class names - map domain to complete class strings */
+        const DOMAIN_CARD_CLASSES = {
+            work: { border: 'hover:border-work/30', bgBlur: 'bg-work/5', bgBlurHover: 'group-hover:bg-work/10', icon: 'bg-work/20 text-work-light', titleHover: 'group-hover:text-work-light', progressBar: 'bg-work', progressText: 'text-work-light' },
+            learn: { border: 'hover:border-learn/30', bgBlur: 'bg-learn/5', bgBlurHover: 'group-hover:bg-learn/10', icon: 'bg-learn/20 text-learn-light', titleHover: 'group-hover:text-learn-light', progressBar: 'bg-learn', progressText: 'text-learn-light' },
+            business: { border: 'hover:border-business/30', bgBlur: 'bg-business/5', bgBlurHover: 'group-hover:bg-business/10', icon: 'bg-business/20 text-business-light', titleHover: 'group-hover:text-business-light', progressBar: 'bg-business', progressText: 'text-business-light' },
+            personal: { border: 'hover:border-personal/30', bgBlur: 'bg-personal/5', bgBlurHover: 'group-hover:bg-personal/10', icon: 'bg-personal/20 text-personal-light', titleHover: 'group-hover:text-personal-light', progressBar: 'bg-personal', progressText: 'text-personal-light' }
+        };
+
+        function escapeHtml(str) {
+            if (str == null) return '';
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function getProjectCardHTML(p) {
+            var domain = (p.domain || 'work').toLowerCase();
+            var c = DOMAIN_CARD_CLASSES[domain] || DOMAIN_CARD_CLASSES.work;
+            var label = DOMAIN_LABELS[domain] || p.domain || 'Work';
+            var title = escapeHtml(p.title || '');
+            var desc = escapeHtml((p.description || '').slice(0, 120));
+            if ((p.description || '').length > 120) desc += '...';
+            var progress = p.progress || 0;
+            var total = p.tasksTotal || 0;
+            var completed = p.tasksCompleted || 0;
+            var dropdownId = 'dropdown-' + escapeHtml(p.id);
+            return '<div data-domain="' + domain + '" data-project-id="' + escapeHtml(p.id) + '" class="project-card glass rounded-2xl p-5 hover-lift cursor-pointer group border border-white/5 ' + c.border + ' relative overflow-hidden flex flex-col min-h-[200px]">' +
+                '<div class="absolute top-0 right-0 w-32 h-32 ' + c.bgBlur + ' rounded-full blur-3xl -mr-10 -mt-10 ' + c.bgBlurHover + ' transition-colors"></div>' +
+                '<div class="flex items-start justify-between mb-4 relative z-10">' +
+                '<div class="flex items-center gap-3">' +
+                '<div class="w-10 h-10 rounded-xl ' + c.icon + ' flex items-center justify-center"><i data-lucide="rocket" class="w-5 h-5"></i></div>' +
+                '<div><h3 class="text-white font-semibold ' + c.titleHover + ' transition-colors">' + title + '</h3><span class="text-[10px] text-gray-500 uppercase tracking-wider">' + escapeHtml(label) + '</span></div>' +
+                '</div>' +
+                '<div class="relative" onclick="event.stopPropagation();">' +
+                '<button type="button" onclick="toggleDropdown(\'' + dropdownId + '\')" class="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 text-gray-400 hover:text-white rounded-md transition-all"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>' +
+                '<div id="' + dropdownId + '" class="dropdown-menu hidden absolute right-0 mt-1 w-36 bg-[#18181b] border border-white/10 rounded-xl shadow-xl overflow-hidden z-20">' +
+                '<button type="button" onclick="deleteProject(\'' + escapeHtml(p.id) + '\'); toggleDropdown(\'' + dropdownId + '\');" class="w-full text-left px-4 py-2.5 text-xs text-danger hover:bg-danger/10 transition-colors flex items-center gap-2"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete</button>' +
+                '</div></div></div>' +
+                (p.description ? '<p class="text-xs text-gray-400 line-clamp-2 mb-6 flex-1 relative z-10">' + desc + '</p>' : '<p class="text-xs text-gray-400 line-clamp-2 mb-6 flex-1 relative z-10">&nbsp;</p>') +
+                '<div class="relative z-10">' +
+                '<div class="flex justify-between text-xs mb-2"><span class="text-gray-400">Progress</span><span class="' + c.progressText + ' font-medium">' + progress + '%</span></div>' +
+                '<div class="h-2 bg-black/50 rounded-full overflow-hidden mb-3 border border-white/5"><div class="h-full ' + c.progressBar + ' rounded-full" style="width:' + progress + '%"></div></div>' +
+                '<div class="flex items-center justify-between text-[10px] text-gray-500">' +
+                '<span class="flex items-center gap-1.5"><i data-lucide="check-square" class="w-3 h-3"></i> ' + completed + '/' + total + ' Tasks</span>' +
+                '</div></div>' +
+                '<div class="mt-4 pt-3 border-t border-white/5 relative z-10" onclick="event.stopPropagation();">' +
+                '<button type="button" onclick="toggleQuickTask(this)" class="quick-task-trigger text-[10px] text-gray-500 hover:text-white flex items-center gap-1.5 transition-colors"><i data-lucide="plus" class="w-3 h-3"></i> Add quick task</button>' +
+                '<form class="quick-task-form hidden mt-2 flex items-center gap-2" onsubmit="event.preventDefault(); submitQuickTask(this)">' +
+                '<input type="text" required placeholder="Type task name..." class="flex-1 bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-white outline-none focus:border-white/30 transition-colors">' +
+                '<button type="submit" class="bg-white/10 hover:bg-white/20 rounded-md px-2 py-1.5 text-[10px] font-medium text-white transition-colors">Add</button>' +
+                '</form></div></div>';
+        }
+
+        function openProjectModal() {
+            document.getElementById('project-modal').classList.remove('hidden');
+            document.getElementById('project-modal').classList.add('flex');
+            setTimeout(function() { document.getElementById('project-title').focus(); }, 50);
+        }
+
+        function closeProjectModal() {
+            document.getElementById('project-modal').classList.add('hidden');
+            document.getElementById('project-modal').classList.remove('flex');
+            document.getElementById('project-form').reset();
+        }
+
+        /** Create project in Supabase then open detail drawer to add tasks */
+        async function proceedToDetail(e) {
+            e.preventDefault();
+            var form = e.target;
+            var title = (form.querySelector('[name="title"]') || form['title']).value.trim();
+            var description = (form.querySelector('[name="description"]') || form['description']).value.trim() || null;
+            var domain = (form.querySelector('[name="domain"]') || form['domain']).value || 'work';
+            if (!title) return;
+            try {
+                var created = await projectService.createProject(currentUser.id, { title: title, description: description, domain: domain });
+                closeProjectModal();
+                await loadProjectsWithCounts();
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                openProjectDetail(created);
+            } catch (err) {
+                console.error('Create project error:', err);
+                alert('Gagal membuat project: ' + (err.message || ''));
+            }
+        }
+
+        /* Domain badge classes for drawer (full class names for Tailwind) */
+        var DOMAIN_BADGE_CLASSES = { work: 'bg-work/20 text-work-light', learn: 'bg-learn/20 text-learn-light', business: 'bg-business/20 text-business-light', personal: 'bg-personal/20 text-personal-light' };
+
+        function openProjectDetail(projectIdOrProject) {
+            var project = typeof projectIdOrProject === 'object' && projectIdOrProject !== null
+                ? projectIdOrProject
+                : allProjects.find(function(p) { return p.id === projectIdOrProject; });
+            if (!project) {
+                project = { id: projectIdOrProject, title: 'Project', domain: 'work', description: '' };
+            }
+            currentProjectId = project.id;
+            document.getElementById('detail-title').textContent = project.title || 'Project';
+            document.getElementById('detail-desc').textContent = project.description || 'Deskripsi proyek.';
+            var domain = (project.domain || 'work').toLowerCase();
+            var badge = document.getElementById('detail-domain-badge');
+            badge.textContent = DOMAIN_LABELS[domain] || domain;
+            badge.className = 'px-2 py-1 rounded text-[10px] uppercase tracking-wider mb-2 inline-block ' + (DOMAIN_BADGE_CLASSES[domain] || DOMAIN_BADGE_CLASSES.work);
+
+            var list = document.getElementById('project-task-list');
+            list.innerHTML = '';
+            (async function loadDrawerTasks() {
+                try {
+                    var tasks = await taskService.getTasks(currentUser.id, { project_id: project.id });
+                    tasks.forEach(function(t) {
+                        var completed = (t.status || '').toLowerCase() === 'completed' || (t.status || '').toLowerCase() === 'done';
+                        var dateStr = t.due_date ? (new Date(t.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })) : 'No date';
+                        list.insertAdjacentHTML('beforeend',
+                            '<div class="group flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all" data-task-id="' + escapeHtml(t.id) + '">' +
+                            '<button type="button" onclick="toggleTaskInDrawer(this)" class="mt-0.5 w-4 h-4 rounded-md border-2 flex items-center justify-center transition-colors ' + (completed ? 'border-success bg-success/20' : 'border-gray-500 hover:border-gray-400') + '">' +
+                            '<i data-lucide="check" class="w-3 h-3 text-success ' + (completed ? '' : 'hidden') + '"></i></button>' +
+                            '<div class="flex-1 min-w-0"><div class="text-sm text-white task-title transition-all truncate ' + (completed ? 'line-through text-gray-500' : '') + '">' + escapeHtml(t.title || '') + '</div>' +
+                            '<div class="text-[10px] text-gray-500 mt-1 flex items-center gap-2"><i data-lucide="calendar" class="w-3 h-3"></i> ' + escapeHtml(dateStr) + '</div></div>' +
+                            '<button type="button" onclick="removeTaskInDrawer(this)" class="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-danger rounded transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>'
+                        );
+                    });
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                } catch (err) {
+                    console.error('Load drawer tasks error:', err);
+                }
+            })();
+
+            var modal = document.getElementById('project-detail-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeProjectDetail() {
+            document.getElementById('project-detail-modal').classList.add('hidden');
+            document.getElementById('project-detail-modal').classList.remove('flex');
+            currentProjectId = null;
+        }
+
+        function toggleQuickTask(buttonEl) {
+            var form = buttonEl.nextElementSibling;
+            buttonEl.classList.add('hidden');
+            form.classList.remove('hidden');
+            if (form.querySelector('input')) form.querySelector('input').focus();
+        }
+
+        function submitQuickTask(formEl) {
+            var input = formEl.querySelector('input');
+            var card = formEl.closest('.project-card');
+            var projectId = card ? card.dataset.projectId : null;
+            var title = (input && input.value || '').trim();
+            if (!title || !projectId) {
+                if (input) input.value = '';
+                formEl.classList.add('hidden');
+                if (formEl.previousElementSibling) formEl.previousElementSibling.classList.remove('hidden');
+                return;
+            }
+            (async function() {
+                try {
+                    await taskService.createTask(currentUser.id, { title: title, project_id: projectId });
+                    input.value = '';
+                    formEl.classList.add('hidden');
+                    if (formEl.previousElementSibling) formEl.previousElementSibling.classList.remove('hidden');
+                    await loadProjectsWithCounts();
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                } catch (err) {
+                    console.error('Quick add task error:', err);
+                }
+            })();
+        }
+
+        function addDetailedTask(formEl) {
+            if (!formEl) return;
+            var input = formEl.querySelector('input[type="text"]') || formEl.querySelector('[name="task-title"]');
+            var dateInput = formEl.querySelector('input[type="date"]') || formEl.querySelector('[name="task-due"]');
+            var taskName = (input ? input.value : '').trim();
+            var taskDate = (dateInput && dateInput.value) ? dateInput.value : null;
+            if (!taskName) {
+                if (input) input.focus();
+                return;
+            }
+            if (!currentProjectId || !taskService || !currentUser) {
+                alert('Sesi tidak valid. Silakan refresh halaman.');
+                return;
+            }
+            var btn = formEl.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.textContent = '...'; }
+            (async function() {
+                try {
+                    var created = await taskService.createTask(currentUser.id, { title: taskName, due_date: taskDate, project_id: currentProjectId });
+                    var list = document.getElementById('project-task-list');
+                    if (!list) return;
+                    var dateStr = taskDate ? (new Date(taskDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })) : 'No date set';
+                    var taskId = (created && created.id) ? created.id : '';
+                    var html = '<div class="group flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all animate-slide-up" data-task-id="' + escapeHtml(taskId) + '">' +
+                        '<button type="button" onclick="toggleTaskInDrawer(this)" class="mt-0.5 w-4 h-4 rounded-md border-2 border-gray-500 hover:border-gray-400 flex items-center justify-center transition-colors">' +
+                        '<i data-lucide="check" class="w-3 h-3 text-white hidden"></i></button>' +
+                        '<div class="flex-1 min-w-0"><div class="text-sm text-white task-title transition-all truncate">' + escapeHtml(taskName) + '</div>' +
+                        '<div class="text-[10px] text-gray-500 mt-1 flex items-center gap-2"><i data-lucide="calendar" class="w-3 h-3"></i> ' + escapeHtml(dateStr) + '</div></div>' +
+                        '<button type="button" onclick="removeTaskInDrawer(this)" class="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-danger rounded transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>';
+                    list.insertAdjacentHTML('afterbegin', html);
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                    if (input) input.value = '';
+                    if (dateInput) dateInput.value = '';
+                } catch (err) {
+                    console.error('Add task error:', err);
+                    alert('Gagal menambah tugas: ' + (err.message || 'Coba lagi.'));
+                }
+                if (btn) { btn.disabled = false; btn.textContent = 'Tambahkan'; }
+            })();
+        }
+
+        /** Simpan progres: sinkronkan data dari server dan refresh daftar task + grid project */
+        function saveProjectProgress() {
+            if (!currentProjectId || !currentUser) return;
+            var list = document.getElementById('project-task-list');
+            var btn = document.getElementById('save-progress-btn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+            (async function() {
+                try {
+                    await loadProjectsWithCounts();
+                    var tasks = await taskService.getTasks(currentUser.id, { project_id: currentProjectId });
+                    if (list) {
+                        list.innerHTML = '';
+                        tasks.forEach(function(t) {
+                            var completed = (t.status || '').toLowerCase() === 'completed' || (t.status || '').toLowerCase() === 'done';
+                            var dateStr = t.due_date ? (new Date(t.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })) : 'No date';
+                            list.insertAdjacentHTML('beforeend',
+                                '<div class="group flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all" data-task-id="' + escapeHtml(t.id) + '">' +
+                                '<button type="button" onclick="toggleTaskInDrawer(this)" class="mt-0.5 w-4 h-4 rounded-md border-2 flex items-center justify-center transition-colors ' + (completed ? 'border-success bg-success/20' : 'border-gray-500 hover:border-gray-400') + '">' +
+                                '<i data-lucide="check" class="w-3 h-3 text-success ' + (completed ? '' : 'hidden') + '"></i></button>' +
+                                '<div class="flex-1 min-w-0"><div class="text-sm text-white task-title transition-all truncate ' + (completed ? 'line-through text-gray-500' : '') + '">' + escapeHtml(t.title || '') + '</div>' +
+                                '<div class="text-[10px] text-gray-500 mt-1 flex items-center gap-2"><i data-lucide="calendar" class="w-3 h-3"></i> ' + escapeHtml(dateStr) + '</div></div>' +
+                                '<button type="button" onclick="removeTaskInDrawer(this)" class="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-danger rounded transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>'
+                            );
+                        });
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+                    }
+                    if (btn) { btn.disabled = false; btn.textContent = 'Simpan'; }
+                    showSaveFeedback();
+                } catch (err) {
+                    console.error('Save progress error:', err);
+                    if (btn) { btn.disabled = false; btn.textContent = 'Simpan'; }
+                    alert('Gagal menyimpan progres: ' + (err.message || 'Coba lagi.'));
+                }
+            })();
+        }
+
+        function showSaveFeedback() {
+            var el = document.getElementById('save-feedback');
+            if (el) { el.remove(); }
+            el = document.createElement('div');
+            el.id = 'save-feedback';
+            el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-success/90 text-white text-sm font-medium shadow-lg z-[60] animate-slide-up';
+            el.textContent = 'Progres disimpan';
+            document.body.appendChild(el);
+            setTimeout(function() { if (el.parentNode) el.remove(); }, 2000);
+        }
+
+        function simulateAIGeneration() {
+            var btn = document.getElementById('ai-generate-btn');
+            var textEl = document.getElementById('ai-generate-text');
+            var list = document.getElementById('project-task-list');
+            if (!btn || !textEl || !list) return;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            textEl.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin inline-block mr-2"></i> Menganalisis deskripsi...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            setTimeout(function() {
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                textEl.textContent = 'AI Task Breakdown';
+                var aiTasks = ['Riset kompetitor dan buat daftar fitur esensial MVP', 'Desain skema database Supabase', 'Integrasikan API autentikasi', 'Lakukan QA testing pada PWA'];
+                aiTasks.forEach(function(taskTitle) {
+                    var safeTitle = (taskTitle || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    list.insertAdjacentHTML('beforeend',
+                        '<div class="group flex items-start gap-3 p-3 rounded-xl bg-accent/5 border border-accent/20 hover:border-accent/40 transition-all animate-slide-up cursor-pointer ai-suggested-row" data-ai-title="' + escapeHtml(taskTitle) + '" onclick="addAISuggestedTask(this)">' +
+                        '<div class="mt-0.5 w-4 h-4 rounded-md border-2 border-accent/50 flex items-center justify-center flex-shrink-0"><i data-lucide="plus" class="w-3 h-3 text-accent"></i></div>' +
+                        '<div class="flex-1 min-w-0"><div class="text-sm text-white task-title transition-all truncate">' + escapeHtml(taskTitle) + '</div>' +
+                        '<div class="text-[10px] text-accent mt-1 flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> Klik untuk menambahkan ke project</div></div>' +
+                        '<button type="button" onclick="event.stopPropagation(); this.closest(\'.ai-suggested-row\').remove()" class="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-danger rounded transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>'
+                    );
+                });
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }, 2000);
+        }
+
+        function toggleTaskInDrawer(btn) {
+            var icon = btn ? btn.querySelector('i') : null;
+            if (!icon) return;
+            var row = btn.closest('[data-task-id]');
+            var taskId = row ? row.dataset.taskId : null;
+            var taskText = btn.closest('.flex') ? btn.closest('.flex').querySelector('.task-title') : null;
+            icon.classList.toggle('hidden');
+            var isCompleted = !icon.classList.contains('hidden');
+            if (isCompleted) {
+                btn.classList.remove('border-gray-500', 'hover:border-gray-400', 'border-accent/50', 'hover:border-accent');
+                btn.classList.add('border-success', 'bg-success/20');
+                icon.classList.remove('text-white', 'text-accent');
+                icon.classList.add('text-success');
+                if (taskText) { taskText.classList.add('line-through', 'text-gray-500'); taskText.classList.remove('text-white'); }
+                if (taskId && taskService) taskService.updateTask(taskId, { status: 'done' }).catch(function(err) { console.error(err); });
+            } else {
+                btn.classList.add('border-gray-500', 'hover:border-gray-400');
+                btn.classList.remove('border-success', 'bg-success/20');
+                icon.classList.remove('text-success');
+                icon.classList.add('text-white');
+                if (taskText) { taskText.classList.remove('line-through', 'text-gray-500'); taskText.classList.add('text-white'); }
+                if (taskId && taskService) taskService.updateTask(taskId, { status: 'todo' }).catch(function(err) { console.error(err); });
+            }
+        }
+
+        function removeTaskInDrawer(btn) {
+            var row = btn.closest('[data-task-id]');
+            var taskId = row ? row.dataset.taskId : null;
+            if (taskId && taskService) taskService.deleteTask(taskId).catch(function(err) { console.error(err); });
+            if (row) row.remove();
+        }
+
+        /** Klik rekomendasi AI: buat task dan tambahkan ke project, lalu ganti baris dengan task asli */
+        function addAISuggestedTask(rowEl) {
+            var row = rowEl && rowEl.classList && rowEl.classList.contains('ai-suggested-row') ? rowEl : rowEl.closest('.ai-suggested-row');
+            if (!row || !currentProjectId || !currentUser || !taskService) return;
+            var title = (row.getAttribute('data-ai-title') || row.querySelector('.task-title') || {}).textContent || '';
+            title = title.trim();
+            if (!title) return;
+            row.classList.add('opacity-50', 'pointer-events-none');
+            var list = document.getElementById('project-task-list');
+            taskService.createTask(currentUser.id, { title: title, project_id: currentProjectId }).then(function(t) {
+                if (row.parentNode) row.remove();
+                if (list) {
+                    var completed = (t.status || '').toLowerCase() === 'completed' || (t.status || '').toLowerCase() === 'done';
+                    var dateStr = t.due_date ? (new Date(t.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })) : 'No date';
+                    list.insertAdjacentHTML('beforeend',
+                        '<div class="group flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all" data-task-id="' + escapeHtml(t.id) + '">' +
+                        '<button type="button" onclick="toggleTaskInDrawer(this)" class="mt-0.5 w-4 h-4 rounded-md border-2 flex items-center justify-center transition-colors ' + (completed ? 'border-success bg-success/20' : 'border-gray-500 hover:border-gray-400') + '">' +
+                        '<i data-lucide="check" class="w-3 h-3 text-success ' + (completed ? '' : 'hidden') + '"></i></button>' +
+                        '<div class="flex-1 min-w-0"><div class="text-sm text-white task-title transition-all truncate ' + (completed ? 'line-through text-gray-500' : '') + '">' + escapeHtml(t.title || '') + '</div>' +
+                        '<div class="text-[10px] text-gray-500 mt-1 flex items-center gap-2"><i data-lucide="calendar" class="w-3 h-3"></i> ' + escapeHtml(dateStr) + '</div></div>' +
+                        '<button type="button" onclick="removeTaskInDrawer(this)" class="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-danger rounded transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>'
+                    );
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+            }).catch(function(err) {
+                console.error(err);
+                row.classList.remove('opacity-50', 'pointer-events-none');
+                alert('Gagal menambah tugas: ' + (err.message || 'Coba lagi.'));
+            });
+        }
+
+        function toggleDropdown(id) {
+            document.querySelectorAll('.dropdown-menu').forEach(function(el) {
+                if (el.id !== id) el.classList.add('hidden');
+            });
+            var dropdown = document.getElementById(id);
+            if (dropdown) dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.relative')) {
+                document.querySelectorAll('.dropdown-menu').forEach(function(el) { el.classList.add('hidden'); });
+            }
+        });
+
+        function filterProjects(domain, btnElement) {
+            currentDomainFilter = domain;
+            document.querySelectorAll('.project-filter-btn').forEach(function(btn) {
+                btn.classList.remove('bg-white/10', 'text-white', 'font-medium');
+                btn.classList.add('text-gray-400');
+            });
+            if (btnElement) {
+                btnElement.classList.remove('text-gray-400');
+                btnElement.classList.add('bg-white/10', 'text-white', 'font-medium');
+            }
+            applyDomainFilter();
+        }
+
+        function applyDomainFilter() {
+            var cards = document.querySelectorAll('.project-card');
+            cards.forEach(function(card) {
+                var show = currentDomainFilter === 'all' || card.dataset.domain === currentDomainFilter;
+                card.style.display = show ? 'flex' : 'none';
+            });
+        }
+
+        async function deleteProject(projectId) {
+            if (!projectId || !confirm('Hapus project ini? Task yang terhubung tidak dihapus.')) return;
+            try {
+                await projectService.deleteProject(projectId);
+                await loadProjectsWithCounts();
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } catch (err) {
+                console.error('Delete project error:', err);
+                alert('Gagal menghapus project.');
+            }
+        }
+    </script>
+</body>
+</html>

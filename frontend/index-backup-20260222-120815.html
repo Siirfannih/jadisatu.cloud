@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JadiSatu OS — Life Dashboard</title>
+
+    <!-- Supabase Auth Guard - MUST load first -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Hide content until auth verified -->
+    <style>
+        #app-content { display: none; }
+        #auth-loading {
+            position: fixed;
+            inset: 0;
+            background: #0f0f11;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+    </style>
+
+    <script>
+        // Fast auth check with loading screen
+        (function() {
+            const supabase = window.supabase.createClient(
+                'https://dwpkokavxjvtrltntjtn.supabase.co',
+                'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1'
+            );
+
+            supabase.auth.getSession().then(({ data: { session } }) => {
+                if (!session) {
+                    window.location.replace('/login.html');
+                } else {
+                    // Auth passed - show content
+                    document.addEventListener('DOMContentLoaded', () => {
+                        document.getElementById('auth-loading').style.display = 'none';
+                        document.getElementById('app-content').style.display = 'block';
+                    });
+                }
+            });
+        })();
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        bg: '#0f0f11',
+                        surface: '#18181b',
+                        'surface-light': '#27272a',
+                        'surface-hover': '#3f3f46',
+                        border: '#3f3f46',
+
+                        // Domain Colors
+                        work: {
+                            DEFAULT: '#3b82f6', // Blue
+                            light: '#60a5fa',
+                            dark: '#1d4ed8',
+                            bg: 'rgba(59, 130, 246, 0.1)'
+                        },
+                        learn: {
+                            DEFAULT: '#f59e0b', // Amber
+                            light: '#fbbf24',
+                            dark: '#d97706',
+                            bg: 'rgba(245, 158, 11, 0.1)'
+                        },
+                        business: {
+                            DEFAULT: '#10b981', // Emerald
+                            light: '#34d399',
+                            dark: '#059669',
+                            bg: 'rgba(16, 185, 129, 0.1)'
+                        },
+                        personal: {
+                            DEFAULT: '#8b5cf6', // Violet
+                            light: '#a78bfa',
+                            dark: '#7c3aed',
+                            bg: 'rgba(139, 92, 246, 0.1)'
+                        },
+
+                        accent: '#ec4899', // Pink for highlights
+                        danger: '#ef4444',
+                        success: '#22c55e',
+                        warning: '#eab308',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f0f11;
+            color: #fafafa;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(24, 24, 27, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-strong {
+            background: rgba(24, 24, 27, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 3px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #52525b;
+        }
+
+        /* Animations */
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+            }
+        }
+
+        .pulse-work {
+            animation: pulse-glow 3s infinite;
+        }
+
+        /* Domain Gradients */
+        .gradient-work {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+
+        .gradient-learn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .gradient-business {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .gradient-personal {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        /* Card Hover Effects */
+        .hover-lift {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Stoic Quote */
+        .stoic-text {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+        }
+
+        /* Kanban */
+        .kanban-col {
+            min-width: 300px;
+            background: rgba(24, 24, 27, 0.5);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Timeline */
+        .timeline-line {
+            background: linear-gradient(to bottom, #3b82f6, #8b5cf6, #10b981);
+        }
+    </style>
+
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- App JavaScript Modules -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/views.js"></script>
+    <script src="js/morning-briefing.js"></script>
+    <script src="js/main.js"></script>
+</head>
+
+<body class="h-screen flex overflow-hidden">
+
+    <!-- Auth Loading Screen -->
+    <div id="auth-loading">
+        <div style="text-align: center; color: white;">
+            <div style="width: 48px; height: 48px; border: 3px solid rgba(59,130,246,0.3); border-top-color: #3b82f6; border-radius: 50%; margin: 0 auto 16px; animation: spin 1s linear infinite;"></div>
+            <div style="font-size: 14px; color: #9ca3af;">Loading...</div>
+        </div>
+    </div>
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+    <!-- Dashboard Content (hidden until auth passes) -->
+    <div id="app-content" style="display: flex; width: 100%; height: 100%;">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 glass-strong flex flex-col shrink-0 z-20">
+        <!-- Profile Header -->
+        <div class="p-6 border-b border-white/5">
+            <div class="flex items-center gap-3 mb-4">
+                <div id="profile-initials"
+                    class="w-10 h-10 rounded-xl gradient-personal flex items-center justify-center text-white font-bold text-lg">
+                    IF
+                </div>
+                <div>
+                    <div id="profile-name" class="font-semibold text-white">Irfan</div>
+                    <div id="profile-email" class="text-xs text-gray-400">Solo Founder</div>
+                </div>
+            </div>
+
+            <!-- Life Balance Indicator -->
+            <div class="space-y-2">
+                <div class="flex justify-between text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                    <span>Life Balance</span>
+                    <span id="life-balance-percentage" class="text-white">78%</span>
+                </div>
+                <div id="life-balance-bar" class="h-1.5 bg-gray-800 rounded-full overflow-hidden flex">
+                    <div class="h-full bg-work w-[40%]"></div>
+                    <div class="h-full bg-learn w-[25%]"></div>
+                    <div class="h-full bg-business w-[35%]"></div>
+                </div>
+                <div class="flex gap-3 text-[10px]">
+                    <span class="flex items-center gap-1 text-work-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-work"></div>Work
+                    </span>
+                    <span class="flex items-center gap-1 text-learn-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-learn"></div>Learn
+                    </span>
+                    <span class="flex items-center gap-1 text-business-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-business"></div>Business
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1">
+            <div class="px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Dashboard</div>
+
+            <a href="#" onclick="ViewManager.switchView('home')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 text-white text-sm font-medium transition-all hover:bg-white/10">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 text-accent"></i>
+                <span>Overview</span>
+            </a>
+
+            <a href="#" onclick="ViewManager.switchView('focus')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="target" class="w-4 h-4"></i>
+                <span>Today's Focus</span>
+                <span class="ml-auto bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded-full">3</span>
+            </a>
+
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Domains</div>
+
+            <a href="#" onclick="ViewManager.switchView('work')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div
+                    class="w-2 h-2 rounded-full bg-work group-hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-shadow">
+                </div>
+                <span>Work & Career</span>
+                <span class="ml-auto text-[10px] text-gray-600">Ojek</span>
+            </a>
+
+            <a href="#" onclick="ViewManager.switchView('learn')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div
+                    class="w-2 h-2 rounded-full bg-learn group-hover:shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-shadow">
+                </div>
+                <span>Learning</span>
+                <span class="ml-auto text-[10px] text-gray-600">Kuliah</span>
+            </a>
+
+            <a href="#" onclick="ViewManager.switchView('business')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div
+                    class="w-2 h-2 rounded-full bg-business group-hover:shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-shadow">
+                </div>
+                <span>Business</span>
+                <span class="ml-auto text-[10px] text-gray-600">JadiSatu</span>
+            </a>
+
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Workspace</div>
+
+            <a href="#" onclick="ViewManager.switchView('projects')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+                <span>Projects</span>
+            </a>
+
+            <a href="#" onclick="ViewManager.switchView('kanban')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="columns" class="w-4 h-4"></i>
+                <span>Kanban Board</span>
+            </a>
+
+            <a href="#" onclick="ViewManager.switchView('notes')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="notebook-pen" class="w-4 h-4"></i>
+                <span>Notes & Ideas</span>
+                <span class="ml-auto text-[10px] text-gray-600">Notion-style</span>
+            </a>
+
+            <a href="#" onclick="ViewManager.switchView('crm')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="users" class="w-4 h-4"></i>
+                <span>CRM</span>
+                <span class="ml-auto bg-business/20 text-business-light text-[10px] px-2 py-0.5 rounded-full">12</span>
+            </a>
+
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">System</div>
+
+            <a href="#" onclick="ViewManager.switchView('agents')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="bot" class="w-4 h-4"></i>
+                <span>AI Agents</span>
+                <span class="ml-auto flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
+                    <span class="text-[10px] text-success">2</span>
+                </span>
+            </a>
+
+            <a href="#" onclick="ViewManager.switchView('history')"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <i data-lucide="line-chart" class="w-4 h-4"></i>
+                <span>Progress & History</span>
+            </a>
+        </nav>
+
+        <!-- Quick Actions -->
+        <div class="p-4 border-t border-white/5 space-y-2">
+            <button onclick="toggleCommandBar()"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all">
+                <i data-lucide="command" class="w-3.5 h-3.5"></i>
+                <span>Command Menu</span>
+                <span class="ml-auto text-[10px] opacity-50">⌘K</span>
+            </button>
+            <button id="logout-btn" onclick="signOut()"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-danger/10 hover:bg-danger/20 text-xs text-danger hover:text-danger-light transition-all">
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                <span>Logout</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col min-w-0 relative">
+
+        <!-- MORNING BRIEFING MODAL -->
+        <div id="morning-briefing" class="fixed inset-0 z-50 hidden">
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+            <div class="relative h-full flex items-center justify-center p-6">
+                <div class="w-full max-w-lg animate-slide-up">
+                    <!-- Progress -->
+                    <div class="flex gap-2 mb-8">
+                        <div id="progress-1" class="h-1 flex-1 rounded-full bg-white transition-all duration-500"></div>
+                        <div id="progress-2" class="h-1 flex-1 rounded-full bg-white/20 transition-all duration-500">
+                        </div>
+                        <div id="progress-3" class="h-1 flex-1 rounded-full bg-white/20 transition-all duration-500">
+                        </div>
+                        <div id="progress-4" class="h-1 flex-1 rounded-full bg-white/20 transition-all duration-500">
+                        </div>
+                    </div>
+
+                    <!-- Question 1: Clarity -->
+                    <div id="q1" class="glass-strong rounded-2xl p-8 text-center">
+                        <div
+                            class="w-16 h-16 rounded-2xl gradient-work mx-auto mb-6 flex items-center justify-center pulse-work">
+                            <i data-lucide="brain" class="w-8 h-8 text-white"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white mb-2">Clarity Check</h2>
+                        <p class="text-gray-400 mb-8">Seberapa jernih pikiranmu pagi ini?</p>
+
+                        <div class="space-y-6">
+                            <input type="range" min="1" max="5" value="3"
+                                class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-clarity"
+                                oninput="updateClarity(this.value)">
+                            <div class="flex justify-between text-xs text-gray-500 uppercase tracking-wider">
+                                <span>Buram</span>
+                                <span id="clarity-label"
+                                    class="text-work-light font-semibold text-base normal-case">Cukup Jernih</span>
+                                <span>Sangat Jernih</span>
+                            </div>
+                        </div>
+
+                        <button onclick="nextBriefing(2)"
+                            class="mt-8 w-full py-3 bg-work hover:bg-work-light text-white rounded-xl font-medium transition-all">
+                            Lanjutkan
+                        </button>
+                    </div>
+
+                    <!-- Question 2: Priority -->
+                    <div id="q2" class="hidden glass-strong rounded-2xl p-8">
+                        <div
+                            class="w-16 h-16 rounded-2xl gradient-business mx-auto mb-6 flex items-center justify-center">
+                            <i data-lucide="target" class="w-8 h-8 text-white"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white mb-2 text-center">Prioritas Hari Ini</h2>
+                        <p class="text-gray-400 mb-6 text-center">Satu hal yang harus selesai hari ini?</p>
+
+                        <div class="space-y-3">
+                            <button onclick="selectPriority(this, 'Launch JadiSatu MVP')"
+                                class="w-full p-4 rounded-xl border border-gray-700 hover:border-business bg-gray-800/50 hover:bg-business/10 text-left transition-all group priority-btn">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="font-medium text-white group-hover:text-business-light">Launch
+                                            JadiSatu MVP</div>
+                                        <div class="text-xs text-gray-500 mt-1">Business • High Impact</div>
+                                    </div>
+                                    <div
+                                        class="w-5 h-5 rounded-full border-2 border-gray-600 group-hover:border-business check-circle">
+                                    </div>
+                                </div>
+                            </button>
+
+                            <button onclick="selectPriority(this, 'Finish Thesis Chapter 4')"
+                                class="w-full p-4 rounded-xl border border-gray-700 hover:border-learn bg-gray-800/50 hover:bg-learn/10 text-left transition-all group priority-btn">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="font-medium text-white group-hover:text-learn-light">Finish Thesis
+                                            Chapter 4</div>
+                                        <div class="text-xs text-gray-500 mt-1">Learning • Deadline Tomorrow</div>
+                                    </div>
+                                    <div
+                                        class="w-5 h-5 rounded-full border-2 border-gray-600 group-hover:border-learn check-circle">
+                                    </div>
+                                </div>
+                            </button>
+
+                            <button onclick="selectPriority(this, 'Ojek Shift + Content')"
+                                class="w-full p-4 rounded-xl border border-gray-700 hover:border-work bg-gray-800/50 hover:bg-work/10 text-left transition-all group priority-btn">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="font-medium text-white group-hover:text-work-light">Ojek Shift +
+                                            Content Draft</div>
+                                        <div class="text-xs text-gray-500 mt-1">Work • Income + Growth</div>
+                                    </div>
+                                    <div
+                                        class="w-5 h-5 rounded-full border-2 border-gray-600 group-hover:border-work check-circle">
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div class="flex gap-3 mt-6">
+                            <button onclick="prevBriefing(1)"
+                                class="flex-1 py-3 border border-gray-700 hover:border-gray-500 text-white rounded-xl font-medium transition-all">Kembali</button>
+                            <button onclick="nextBriefing(3)"
+                                class="flex-1 py-3 bg-business hover:bg-business-light text-white rounded-xl font-medium transition-all">Lanjutkan</button>
+                        </div>
+                    </div>
+
+                    <!-- Question 3: Blocker -->
+                    <div id="q3" class="hidden glass-strong rounded-2xl p-8">
+                        <div
+                            class="w-16 h-16 rounded-2xl gradient-personal mx-auto mb-6 flex items-center justify-center">
+                            <i data-lucide="alert-triangle" class="w-8 h-8 text-white"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white mb-2 text-center">Potensi Hambatan</h2>
+                        <p class="text-gray-400 mb-6 text-center">Ada yang bisa mengganggu fokus hari ini?</p>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="toggleBlocker(this)"
+                                class="p-4 rounded-xl border border-gray-700 hover:border-warning/50 bg-gray-800/30 text-left transition-all blocker-btn">
+                                <i data-lucide="clock" class="w-5 h-5 text-warning mb-2"></i>
+                                <div class="font-medium text-white text-sm">Waktu Terbatas</div>
+                                <div class="text-[10px] text-gray-500 mt-1">Kuliah + Ojek overlap</div>
+                            </button>
+
+                            <button onclick="toggleBlocker(this)"
+                                class="p-4 rounded-xl border border-gray-700 hover:border-warning/50 bg-gray-800/30 text-left transition-all blocker-btn">
+                                <i data-lucide="zap" class="w-5 h-5 text-warning mb-2"></i>
+                                <div class="font-medium text-white text-sm">Energi Rendah</div>
+                                <div class="text-[10px] text-gray-500 mt-1">Kurang tidur</div>
+                            </button>
+
+                            <button onclick="toggleBlocker(this)"
+                                class="p-4 rounded-xl border border-gray-700 hover:border-warning/50 bg-gray-800/30 text-left transition-all blocker-btn">
+                                <i data-lucide="bug" class="w-5 h-5 text-warning mb-2"></i>
+                                <div class="font-medium text-white text-sm">Blocker Teknis</div>
+                                <div class="text-[10px] text-gray-500 mt-1">Bug/Error pending</div>
+                            </button>
+
+                            <button onclick="toggleBlocker(this)"
+                                class="p-4 rounded-xl border border-gray-700 hover:border-warning/50 bg-gray-800/30 text-left transition-all blocker-btn">
+                                <i data-lucide="heart" class="w-5 h-5 text-warning mb-2"></i>
+                                <div class="font-medium text-white text-sm">Personal Matter</div>
+                                <div class="text-[10px] text-gray-500 mt-1">Family/Health</div>
+                            </button>
+                        </div>
+
+                        <div class="flex gap-3 mt-6">
+                            <button onclick="prevBriefing(2)"
+                                class="flex-1 py-3 border border-gray-700 hover:border-gray-500 text-white rounded-xl font-medium transition-all">Kembali</button>
+                            <button onclick="finishBriefing()"
+                                class="flex-1 py-3 bg-personal hover:bg-personal-light text-white rounded-xl font-medium transition-all">Selesai</button>
+                        </div>
+                    </div>
+
+                    <!-- Stoic Quote -->
+                    <div id="q4" class="hidden text-center py-12">
+                        <div class="stoic-text text-3xl text-white/90 mb-6 leading-relaxed max-w-2xl mx-auto">
+                            "You have power over your mind — not outside events. Realize this, and you will find
+                            strength."
+                        </div>
+                        <div class="text-sm text-gray-500 uppercase tracking-[0.2em] mb-8">Marcus Aurelius</div>
+                        <button onclick="closeBriefing()"
+                            class="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-all border border-white/20">
+                            Mulai Hari Ini
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HEADER -->
+        <header class="h-16 glass border-b border-white/5 flex items-center justify-between px-6 shrink-0">
+            <div class="flex items-center gap-4">
+                <h1 id="page-title" class="text-lg font-semibold text-white">Overview</h1>
+                <span id="page-subtitle"
+                    class="text-xs text-gray-500 px-2 py-1 rounded-full bg-white/5 hidden sm:inline-block">Wednesday, 20
+                    Feb 2026</span>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- Domain Filter (Contextual) -->
+                <div class="flex items-center gap-1 p-1 rounded-lg bg-black/30 border border-white/5">
+                    <button
+                        class="px-3 py-1.5 rounded-md bg-white/10 text-white text-xs font-medium transition-all">All</button>
+                    <button
+                        class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Work</button>
+                    <button
+                        class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Learn</button>
+                    <button
+                        class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Business</button>
+                </div>
+
+                <div class="h-6 w-px bg-white/10 mx-2"></div>
+
+                <button
+                    class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                </button>
+
+                <button
+                    class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all relative">
+                    <i data-lucide="bell" class="w-4 h-4"></i>
+                    <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- CONTENT SCROLL AREA -->
+        <div class="flex-1 overflow-y-auto custom-scroll p-6">
+
+            <!-- HOME / OVERVIEW -->
+            <div id="view-home" class="space-y-6 max-w-7xl mx-auto animate-slide-up">
+
+                <!-- Top Grid: Calendar + Focus -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <!-- Calendar Strip -->
+                    <div class="lg:col-span-2 glass rounded-2xl p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-work/20 flex items-center justify-center">
+                                    <i data-lucide="calendar-days" class="w-5 h-5 text-work-light"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-white">Today's Schedule</h3>
+                                    <p class="text-xs text-gray-500">20 February 2026</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+                                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                                </button>
+                                <button
+                                    class="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Horizontal Timeline -->
+                        <div class="relative overflow-x-auto custom-scroll pb-2">
+                            <div id="todays-schedule-container" class="flex min-w-max gap-2">
+                                <!-- Time Slots -->
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">06:00</span>
+                                    <div class="w-full h-20 rounded-lg bg-gray-800/30 border border-white/5"></div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">07:00</span>
+                                    <div
+                                        class="w-full h-20 rounded-lg bg-work/20 border border-work/30 p-2 flex flex-col justify-center">
+                                        <span class="text-[10px] font-medium text-work-light">Ojek</span>
+                                        <span class="text-[9px] text-work-light/70">Morning</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">08:00</span>
+                                    <div
+                                        class="w-full h-20 rounded-lg bg-work/20 border border-work/30 p-2 flex flex-col justify-center">
+                                        <span class="text-[10px] font-medium text-work-light">Ojek</span>
+                                        <span class="text-[9px] text-work-light/70">Rush</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">09:00</span>
+                                    <div
+                                        class="w-full h-20 rounded-lg bg-work/20 border border-work/30 p-2 flex flex-col justify-center">
+                                        <span class="text-[10px] font-medium text-work-light">Ojek</span>
+                                        <span class="text-[9px] text-work-light/70">Continue</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">10:00</span>
+                                    <div class="w-full h-20 rounded-lg bg-gray-800/30 border border-white/5"></div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">11:00</span>
+                                    <div class="w-full h-20 rounded-lg bg-gray-800/30 border border-white/5"></div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">12:00</span>
+                                    <div
+                                        class="w-full h-20 rounded-lg bg-gray-800/30 border border-white/5 flex items-center justify-center">
+                                        <span class="text-[10px] text-gray-500">Lunch</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px] relative">
+                                    <span class="text-[10px] text-accent font-bold">14:00</span>
+                                    <div
+                                        class="w-full h-20 rounded-lg bg-accent/20 border border-accent/40 p-2 flex flex-col justify-center relative overflow-hidden">
+                                        <div class="absolute inset-0 bg-accent/5 animate-pulse"></div>
+                                        <span class="text-[10px] font-medium text-accent relative z-10">Deep Work</span>
+                                        <span class="text-[9px] text-accent/70 relative z-10">JadiSatu</span>
+                                    </div>
+                                    <!-- Current Time Indicator -->
+                                    <div
+                                        class="absolute -top-1 w-3 h-3 bg-accent rounded-full shadow-[0_0_10px_rgba(236,72,153,0.5)]">
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">15:00</span>
+                                    <div
+                                        class="w-full h-20 rounded-lg bg-accent/20 border border-accent/30 p-2 flex flex-col justify-center">
+                                        <span class="text-[10px] font-medium text-accent">Deep Work</span>
+                                        <span class="text-[9px] text-accent/70">Continue</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">16:00</span>
+                                    <div
+                                        class="w-full h-20 rounded-lg bg-business/20 border border-business/30 p-2 flex flex-col justify-center">
+                                        <span class="text-[10px] font-medium text-business-light">Meeting</span>
+                                        <span class="text-[9px] text-business-light/70">Client</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col items-center gap-2 min-w-[80px]">
+                                    <span class="text-[10px] text-gray-500 font-medium">19:00</span>
+                                    <div
+                                        class="w-full h-20 rounded-lg bg-learn/20 border border-learn/30 p-2 flex flex-col justify-center">
+                                        <span class="text-[10px] font-medium text-learn-light">Kuliah</span>
+                                        <span class="text-[9px] text-learn-light/70">Algorithm</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today's Focus -->
+                    <div class="glass rounded-2xl p-5 flex flex-col">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
+                                    <i data-lucide="target" class="w-5 h-5 text-accent"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-white">Focus</h3>
+                                    <p class="text-xs text-gray-500">3 priorities</p>
+                                </div>
+                            </div>
+                            <button class="text-xs text-accent hover:text-accent-light transition-colors">+ Add</button>
+                        </div>
+
+                        <div id="todays-focus-container" class="space-y-3 flex-1">
+                            <!-- Task 1 -->
+                            <div
+                                class="group p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-work/30 transition-all cursor-pointer hover-lift">
+                                <div class="flex items-start gap-3">
+                                    <button
+                                        class="mt-1 w-5 h-5 rounded-md border-2 border-work/50 hover:border-work flex items-center justify-center transition-all"
+                                        onclick="toggleTaskComplete(this)">
+                                        <i data-lucide="check" class="w-3 h-3 text-work hidden"></i>
+                                    </button>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-sm font-medium text-white truncate">Finalize JadiSatu
+                                                landing</span>
+                                            <span class="shrink-0 w-2 h-2 rounded-full bg-business"></span>
+                                        </div>
+                                        <div class="flex items-center gap-2 text-[10px] text-gray-500">
+                                            <span
+                                                class="px-1.5 py-0.5 rounded bg-business/20 text-business-light">Business</span>
+                                            <span>•</span>
+                                            <span>Due 14:00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Task 2: Overdue with Accountability -->
+                            <div
+                                class="group p-3 rounded-xl bg-danger/5 border border-danger/20 hover:border-danger/40 transition-all cursor-pointer hover-lift">
+                                <div class="flex items-start gap-3">
+                                    <button
+                                        class="mt-1 w-5 h-5 rounded-md border-2 border-danger/50 hover:border-danger flex items-center justify-center transition-all"
+                                        onclick="toggleTaskComplete(this)">
+                                        <i data-lucide="check" class="w-3 h-3 text-danger hidden"></i>
+                                    </button>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-sm font-medium text-white truncate">Review content
+                                                pipeline</span>
+                                            <span class="shrink-0 w-2 h-2 rounded-full bg-learn"></span>
+                                        </div>
+                                        <div class="flex items-center gap-2 text-[10px]">
+                                            <span
+                                                class="px-1.5 py-0.5 rounded bg-learn/20 text-learn-light">Learning</span>
+                                            <span class="text-gray-500">•</span>
+                                            <span class="text-danger/80 flex items-center gap-1">
+                                                <i data-lucide="alert-circle" class="w-3 h-3"></i>
+                                                2 days overdue
+                                            </span>
+                                        </div>
+                                        <div
+                                            class="mt-2 text-[10px] text-danger/60 bg-danger/10 p-2 rounded-lg border-l-2 border-danger/30">
+                                            This task has been rescheduled 3 times. Consider breaking it down.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Task 3 -->
+                            <div
+                                class="group p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-work/30 transition-all cursor-pointer hover-lift">
+                                <div class="flex items-start gap-3">
+                                    <button
+                                        class="mt-1 w-5 h-5 rounded-md border-2 border-work/50 hover:border-work flex items-center justify-center transition-all"
+                                        onclick="toggleTaskComplete(this)">
+                                        <i data-lucide="check" class="w-3 h-3 text-work hidden"></i>
+                                    </button>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-sm font-medium text-white truncate">Algorithm assignment
+                                                #4</span>
+                                            <span class="shrink-0 w-2 h-2 rounded-full bg-work"></span>
+                                        </div>
+                                        <div class="flex items-center gap-2 text-[10px] text-gray-500">
+                                            <span class="px-1.5 py-0.5 rounded bg-work/20 text-work-light">Work</span>
+                                            <span>•</span>
+                                            <span>Due tomorrow</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            class="mt-4 w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-medium transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                            View All Tasks
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Middle Grid: Projects + Learning + CRM Preview -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                    <!-- Active Projects -->
+                    <div class="glass rounded-2xl p-5 hover-lift">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-business/20 flex items-center justify-center">
+                                    <i data-lucide="rocket" class="w-5 h-5 text-business-light"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-white">Projects</h3>
+                                    <p class="text-xs text-gray-500">4 active</p>
+                                </div>
+                            </div>
+                            <button
+                                class="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <div id="projects-preview-container" class="space-y-3">
+                            <div
+                                class="p-3 rounded-xl bg-white/5 border border-white/5 hover:border-business/30 transition-all cursor-pointer group">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span
+                                        class="text-sm font-medium text-white group-hover:text-business-light transition-colors">JadiSatu
+                                        Platform</span>
+                                    <span
+                                        class="text-[10px] px-2 py-0.5 rounded-full bg-business/20 text-business-light">65%</span>
+                                </div>
+                                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden mb-2">
+                                    <div class="h-full bg-business w-[65%] rounded-full"></div>
+                                </div>
+                                <div class="flex items-center justify-between text-[10px] text-gray-500">
+                                    <span>8/12 tasks</span>
+                                    <div class="flex -space-x-1.5">
+                                        <div
+                                            class="w-5 h-5 rounded-full bg-work border border-gray-800 flex items-center justify-center text-[8px]">
+                                            IF</div>
+                                        <div
+                                            class="w-5 h-5 rounded-full bg-business border border-gray-800 flex items-center justify-center">
+                                            <i data-lucide="bot" class="w-3 h-3"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div
+                                class="p-3 rounded-xl bg-white/5 border border-white/5 hover:border-learn/30 transition-all cursor-pointer group">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span
+                                        class="text-sm font-medium text-white group-hover:text-learn-light transition-colors">Thesis
+                                        Research</span>
+                                    <span
+                                        class="text-[10px] px-2 py-0.5 rounded-full bg-learn/20 text-learn-light">40%</span>
+                                </div>
+                                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden mb-2">
+                                    <div class="h-full bg-learn w-[40%] rounded-full"></div>
+                                </div>
+                                <div class="flex items-center justify-between text-[10px] text-gray-500">
+                                    <span>Chapter 4/10</span>
+                                    <span class="text-learn-light">Due March</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Learning Progress -->
+                    <div class="glass rounded-2xl p-5 hover-lift">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-learn/20 flex items-center justify-center">
+                                    <i data-lucide="graduation-cap" class="w-5 h-5 text-learn-light"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-white">Learning</h3>
+                                    <p class="text-xs text-gray-500">This week</p>
+                                </div>
+                            </div>
+                            <button class="text-[10px] text-learn-light hover:underline">View all</button>
+                        </div>
+
+                        <div id="learning-preview-container" class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-white">Advanced Algorithms</span>
+                                    <span class="text-learn-light">85%</span>
+                                </div>
+                                <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-learn rounded-full" style="width: 85%"></div>
+                                </div>
+                                <div class="mt-1.5 flex items-center gap-2 text-[10px] text-gray-500">
+                                    <i data-lucide="book-open" class="w-3 h-3"></i>
+                                    <span>Chapter 12: Graph Theory</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="text-white">System Design</span>
+                                    <span class="text-work-light">45%</span>
+                                </div>
+                                <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-work rounded-full" style="width: 45%"></div>
+                                </div>
+                                <div class="mt-1.5 flex items-center gap-2 text-[10px] text-gray-500">
+                                    <i data-lucide="video" class="w-3 h-3"></i>
+                                    <span>Course: Distributed Systems</span>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 border-t border-white/5">
+                                <div class="flex items-center gap-2 text-[10px] text-gray-400">
+                                    <i data-lucide="calendar" class="w-3.5 h-3.5 text-learn-light"></i>
+                                    <span>Next: Algorithm exam on Friday</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CRM Preview -->
+                    <div class="glass rounded-2xl p-5 hover-lift">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-personal/20 flex items-center justify-center">
+                                    <i data-lucide="users" class="w-5 h-5 text-personal-light"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-white">Network</h3>
+                                    <p class="text-xs text-gray-500">12 contacts</p>
+                                </div>
+                            </div>
+                            <button
+                                class="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <div id="crm-preview-container" class="space-y-2">
+                            <div
+                                class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all cursor-pointer group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-work/20 flex items-center justify-center text-work-light text-xs font-bold">
+                                    AD</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-white truncate">Andi Developer</div>
+                                    <div class="text-[10px] text-gray-500">Tech Co-founder • Last: 2d ago</div>
+                                </div>
+                                <span class="w-2 h-2 rounded-full bg-success"></span>
+                            </div>
+
+                            <div
+                                class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all cursor-pointer group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-business/20 flex items-center justify-center text-business-light text-xs font-bold">
+                                    SC</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-white truncate">Sarah Client</div>
+                                    <div class="text-[10px] text-gray-500">Potential • Meeting scheduled</div>
+                                </div>
+                                <span class="w-2 h-2 rounded-full bg-warning"></span>
+                            </div>
+
+                            <div
+                                class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all cursor-pointer group">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-learn/20 flex items-center justify-center text-learn-light text-xs font-bold">
+                                    PM</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-white truncate">Prof. Michael</div>
+                                    <div class="text-[10px] text-gray-500">Thesis Advisor • Follow up</div>
+                                </div>
+                                <span class="w-2 h-2 rounded-full bg-gray-600"></span>
+                            </div>
+                        </div>
+
+                        <button
+                            class="mt-3 w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs transition-all">
+                            Open CRM
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bottom: Agent Activity + Quick Capture -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <!-- Agent Memory -->
+                    <div class="lg:col-span-2 glass rounded-2xl p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center relative">
+                                    <i data-lucide="bot" class="w-5 h-5 text-white"></i>
+                                    <span
+                                        class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-success rounded-full border-2 border-gray-900"></span>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-white">Agent Activity</h3>
+                                    <p class="text-xs text-gray-500">OpenClaw & Antigravity</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="relative">
+                                    <i data-lucide="search"
+                                        class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                                    <input type="text" placeholder="Search..."
+                                        class="pl-8 pr-3 py-1.5 rounded-lg bg-black/30 border border-white/10 text-xs text-white placeholder-gray-500 focus:border-work/50 outline-none w-40">
+                                </div>
+                                <select
+                                    class="px-2 py-1.5 rounded-lg bg-black/30 border border-white/10 text-xs text-white outline-none focus:border-work/50">
+                                    <option>All Agents</option>
+                                    <option>OpenClaw</option>
+                                    <option>Antigravity</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <div
+                                class="grid grid-cols-12 gap-4 px-3 py-2 text-[10px] font-medium text-gray-500 uppercase tracking-wider border-b border-white/5">
+                                <div class="col-span-2">Agent</div>
+                                <div class="col-span-6">Action</div>
+                                <div class="col-span-2">Domain</div>
+                                <div class="col-span-2 text-right">Time</div>
+                            </div>
+
+                            <div id="agent-activity-preview-container" class="space-y-1 max-h-48 overflow-y-auto custom-scroll">
+                                <div
+                                    class="grid grid-cols-12 gap-4 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer items-center group">
+                                    <div class="col-span-2 flex items-center gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-work"></div>
+                                        <span class="text-xs text-white font-medium">OpenClaw</span>
+                                    </div>
+                                    <div class="col-span-6 text-xs text-gray-300 truncate">
+                                        Optimized <span class="text-work-light">database queries</span> • 40% faster
+                                    </div>
+                                    <div class="col-span-2">
+                                        <span
+                                            class="text-[10px] px-1.5 py-0.5 rounded bg-work/20 text-work-light">Work</span>
+                                    </div>
+                                    <div class="col-span-2 text-right text-[10px] text-gray-500">2m ago</div>
+                                </div>
+
+                                <div
+                                    class="grid grid-cols-12 gap-4 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer items-center group">
+                                    <div class="col-span-2 flex items-center gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-business"></div>
+                                        <span class="text-xs text-white font-medium">Antigravity</span>
+                                    </div>
+                                    <div class="col-span-6 text-xs text-gray-300 truncate">
+                                        Drafted 3 <span class="text-business-light">LinkedIn posts</span> for review
+                                    </div>
+                                    <div class="col-span-2">
+                                        <span
+                                            class="text-[10px] px-1.5 py-0.5 rounded bg-business/20 text-business-light">Business</span>
+                                    </div>
+                                    <div class="col-span-2 text-right text-[10px] text-gray-500">15m ago</div>
+                                </div>
+
+                                <div
+                                    class="grid grid-cols-12 gap-4 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer items-center group">
+                                    <div class="col-span-2 flex items-center gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-learn"></div>
+                                        <span class="text-xs text-white font-medium">Antigravity</span>
+                                    </div>
+                                    <div class="col-span-6 text-xs text-gray-300 truncate">
+                                        Summarized <span class="text-learn-light">research papers</span> for thesis
+                                    </div>
+                                    <div class="col-span-2">
+                                        <span
+                                            class="text-[10px] px-1.5 py-0.5 rounded bg-learn/20 text-learn-light">Learn</span>
+                                    </div>
+                                    <div class="col-span-2 text-right text-[10px] text-gray-500">1h ago</div>
+                                </div>
+
+                                <div
+                                    class="grid grid-cols-12 gap-4 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer items-center group">
+                                    <div class="col-span-2 flex items-center gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-work"></div>
+                                        <span class="text-xs text-white font-medium">OpenClaw</span>
+                                    </div>
+                                    <div class="col-span-6 text-xs text-gray-300 truncate">
+                                        Deployed backup to <span class="text-work-light">VPS Hostinger</span>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <span
+                                            class="text-[10px] px-1.5 py-0.5 rounded bg-work/20 text-work-light">Work</span>
+                                    </div>
+                                    <div class="col-span-2 text-right text-[10px] text-gray-500">2h ago</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+                            <span class="text-[10px] text-gray-500">Showing recent 4 of 24 activities</span>
+                            <div class="flex items-center gap-1">
+                                <button
+                                    class="p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all disabled:opacity-30"
+                                    disabled>
+                                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                                </button>
+                                <button
+                                    class="p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Capture -->
+                    <div class="glass rounded-2xl p-5 flex flex-col">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
+                                <i data-lucide="pen-tool" class="w-5 h-5 text-accent"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-white">Quick Capture</h3>
+                                <p class="text-xs text-gray-500">Idea, task, or note</p>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 space-y-3">
+                            <div class="relative">
+                                <textarea placeholder="Type anything..."
+                                    class="w-full h-24 bg-black/30 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-gray-500 focus:border-accent/50 outline-none resize-none"></textarea>
+                                <div class="absolute bottom-3 right-3 flex gap-1">
+                                    <button
+                                        class="p-1.5 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all"
+                                        title="Add to Work">
+                                        <div class="w-2 h-2 rounded-full bg-work"></div>
+                                    </button>
+                                    <button
+                                        class="p-1.5 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all"
+                                        title="Add to Learn">
+                                        <div class="w-2 h-2 rounded-full bg-learn"></div>
+                                    </button>
+                                    <button
+                                        class="p-1.5 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all"
+                                        title="Add to Business">
+                                        <div class="w-2 h-2 rounded-full bg-business"></div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <button
+                                    class="flex-1 py-2 rounded-lg bg-work/20 hover:bg-work/30 text-work-light text-xs font-medium transition-all">
+                                    Task
+                                </button>
+                                <button
+                                    class="flex-1 py-2 rounded-lg bg-learn/20 hover:bg-learn/30 text-learn-light text-xs font-medium transition-all">
+                                    Idea
+                                </button>
+                                <button
+                                    class="flex-1 py-2 rounded-lg bg-business/20 hover:bg-business/30 text-business-light text-xs font-medium transition-all">
+                                    Note
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-white/5">
+                            <div class="text-[10px] text-gray-500 mb-2">Recent captures</div>
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-xs text-gray-400 truncate">
+                                    <i data-lucide="lightbulb" class="w-3 h-3 text-learn-light"></i>
+                                    <span class="truncate">AI agent architecture idea...</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-400 truncate">
+                                    <i data-lucide="check-square" class="w-3 h-3 text-work-light"></i>
+                                    <span class="truncate">Fix navigation bug</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KANBAN VIEW -->
+            <div id="view-kanban" class="hidden h-full animate-slide-up">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Task Board</h2>
+                        <p class="text-sm text-gray-500">Organize work across all domains</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <select
+                            class="px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white outline-none focus:border-work/50">
+                            <option>All Domains</option>
+                            <option>Work</option>
+                            <option>Learning</option>
+                            <option>Business</option>
+                        </select>
+                        <button
+                            class="px-4 py-2 bg-work hover:bg-work-light text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            New Task
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 overflow-x-auto custom-scroll pb-4 h-[calc(100vh-200px)]">
+                    <!-- Backlog -->
+                    <div class="kanban-col w-80 flex flex-col">
+                        <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-gray-500"></div>
+                                <span class="font-semibold text-white text-sm">Backlog</span>
+                                <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">8</span>
+                            </div>
+                            <button class="text-gray-500 hover:text-white transition-all">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div id="kanban-backlog" class="flex-1 p-3 space-y-3 overflow-y-auto custom-scroll">
+                            <div
+                                class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-work/30 transition-all cursor-pointer hover:shadow-lg group">
+                                <div class="flex items-start justify-between mb-2">
+                                    <span class="px-2 py-0.5 rounded bg-work/20 text-work-light text-[10px]">Work</span>
+                                    <button class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white">
+                                        <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                <h4 class="text-sm font-medium text-white mb-3">Update portfolio website</h4>
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <div class="flex items-center gap-2">
+                                        <div
+                                            class="w-5 h-5 rounded-full bg-work/20 flex items-center justify-center text-[8px] text-work-light">
+                                            IF</div>
+                                        <span>No due date</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- To Do -->
+                    <div class="kanban-col w-80 flex flex-col">
+                        <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-learn"></div>
+                                <span class="font-semibold text-white text-sm">To Do</span>
+                                <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">5</span>
+                            </div>
+                            <button class="text-gray-500 hover:text-white transition-all">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div id="kanban-todo" class="flex-1 p-3 space-y-3 overflow-y-auto custom-scroll">
+                            <div
+                                class="p-4 rounded-xl bg-learn/5 border border-learn/20 hover:border-learn/40 transition-all cursor-pointer hover:shadow-lg hover:shadow-learn/10 group">
+                                <div class="flex items-start justify-between mb-2">
+                                    <span
+                                        class="px-2 py-0.5 rounded bg-learn/20 text-learn-light text-[10px]">Learning</span>
+                                    <span class="px-2 py-0.5 rounded bg-danger/20 text-danger text-[10px]">Urgent</span>
+                                </div>
+                                <h4 class="text-sm font-medium text-white mb-3">Complete Algorithm assignment</h4>
+                                <div class="flex items-center gap-2 mb-3">
+                                    <div class="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-learn w-0 rounded-full"></div>
+                                    </div>
+                                    <span class="text-[10px] text-gray-500">0/3</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <span class="flex items-center gap-1 text-learn-light">
+                                        <i data-lucide="clock" class="w-3 h-3"></i>
+                                        Tomorrow
+                                    </span>
+                                    <div class="flex -space-x-1">
+                                        <div
+                                            class="w-5 h-5 rounded-full bg-learn/20 flex items-center justify-center text-[8px] text-learn-light">
+                                            IF</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- In Progress -->
+                    <div class="kanban-col w-80 flex flex-col border-work/20">
+                        <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-work animate-pulse"></div>
+                                <span class="font-semibold text-white text-sm">In Progress</span>
+                                <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">2</span>
+                            </div>
+                        </div>
+                        <div id="kanban-in-progress" class="flex-1 p-3 space-y-3 overflow-y-auto custom-scroll">
+                            <div
+                                class="p-4 rounded-xl bg-work/5 border-l-2 border-work hover:bg-work/10 transition-all cursor-pointer hover:shadow-lg hover:shadow-work/10 group">
+                                <div class="flex items-start justify-between mb-2">
+                                    <span
+                                        class="px-2 py-0.5 rounded bg-business/20 text-business-light text-[10px]">Business</span>
+                                    <button class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white">
+                                        <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                <h4 class="text-sm font-medium text-white mb-3">JadiSatu Landing Page</h4>
+                                <div class="flex items-center gap-2 mb-3">
+                                    <div class="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-work w-[65%] rounded-full"></div>
+                                    </div>
+                                    <span class="text-[10px] text-gray-500">65%</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <span class="flex items-center gap-1">
+                                        <i data-lucide="calendar" class="w-3 h-3"></i>
+                                        Today
+                                    </span>
+                                    <div class="flex -space-x-1">
+                                        <div
+                                            class="w-5 h-5 rounded-full bg-work/20 flex items-center justify-center text-[8px] text-work-light">
+                                            IF</div>
+                                        <div
+                                            class="w-5 h-5 rounded-full bg-business/20 flex items-center justify-center">
+                                            <i data-lucide="bot" class="w-3 h-3 text-business-light"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Review -->
+                    <div class="kanban-col w-80 flex flex-col">
+                        <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-personal"></div>
+                                <span class="font-semibold text-white text-sm">Review</span>
+                                <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">1</span>
+                            </div>
+                        </div>
+                        <div id="kanban-review" class="flex-1 p-3 space-y-3 overflow-y-auto custom-scroll">
+                            <div class="p-4 rounded-xl bg-personal/5 border border-personal/20 opacity-75">
+                                <h4 class="text-sm font-medium text-white mb-2">Thesis Chapter 3</h4>
+                                <p class="text-xs text-gray-500">Waiting for advisor feedback</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Done -->
+                    <div class="kanban-col w-80 flex flex-col">
+                        <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-success"></div>
+                                <span class="font-semibold text-white text-sm">Done</span>
+                                <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">12</span>
+                            </div>
+                        </div>
+                        <div id="kanban-done" class="flex-1 p-3 space-y-3 overflow-y-auto custom-scroll">
+                            <div class="p-4 rounded-xl bg-white/5 opacity-50 hover:opacity-75 transition-all">
+                                <h4 class="text-sm font-medium text-white line-through">Setup VPS Environment</h4>
+                                <div class="text-xs text-success mt-1">Completed yesterday</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NOTES / IDEAS VIEW (Notion-style) -->
+            <div id="view-notes" class="hidden max-w-6xl mx-auto animate-slide-up">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Notes & Ideas</h2>
+                        <p class="text-sm text-gray-500">Capture everything. Curate later.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex bg-black/30 rounded-lg p-1 border border-white/10">
+                            <button class="px-3 py-1.5 rounded-md bg-white/10 text-white text-xs">Grid</button>
+                            <button class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white text-xs">List</button>
+                        </div>
+                        <button
+                            class="px-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            New Note
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Input -->
+                <div class="glass rounded-xl p-4 mb-6 border-accent/20">
+                    <input type="text" placeholder="Type an idea, thought, or insight... Press Enter to save"
+                        class="w-full bg-transparent text-white placeholder-gray-500 outline-none text-lg mb-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex gap-2">
+                            <span
+                                class="px-3 py-1 rounded-full bg-work/20 text-work-light text-xs cursor-pointer hover:bg-work/30 transition-all">#work</span>
+                            <span
+                                class="px-3 py-1 rounded-full bg-learn/20 text-learn-light text-xs cursor-pointer hover:bg-learn/30 transition-all">#learning</span>
+                            <span
+                                class="px-3 py-1 rounded-full bg-business/20 text-business-light text-xs cursor-pointer hover:bg-business/30 transition-all">#business</span>
+                            <span
+                                class="px-3 py-1 rounded-full bg-white/5 text-gray-400 text-xs cursor-pointer hover:bg-white/10 transition-all">+</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-gray-500">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-accent"></i>
+                            <span>AI Suggestions ON</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="glass rounded-xl p-5 hover-lift cursor-pointer group border-l-4 border-work">
+                        <div class="flex items-start justify-between mb-3">
+                            <span class="px-2 py-1 rounded bg-work/20 text-work-light text-[10px]">Work</span>
+                            <button
+                                class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white transition-all">
+                                <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <h3 class="font-semibold text-white mb-2">Implement real-time sync</h3>
+                        <p class="text-sm text-gray-400 line-clamp-3 mb-4">Switch from polling every 30s to Supabase
+                            Realtime subscriptions. Need to handle reconnection logic and error states...</p>
+                        <div class="flex items-center justify-between text-xs text-gray-500">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="bot" class="w-3.5 h-3.5 text-accent"></i>
+                                <span>OpenClaw</span>
+                            </div>
+                            <span>2h ago</span>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-5 hover-lift cursor-pointer group border-l-4 bg-business">
+                        <div class="flex items-start justify-between mb-3">
+                            <span
+                                class="px-2 py-1 rounded bg-business/20 text-business-light text-[10px]">Business</span>
+                            <button
+                                class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white transition-all">
+                                <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <h3 class="font-semibold text-white mb-2">Content Strategy Q1</h3>
+                        <p class="text-sm text-gray-400 line-clamp-3 mb-4">Focus on AI + Productivity narrative. Target
+                            audience: solo founders and hybrid workers. Channels: LinkedIn + Twitter...</p>
+                        <div class="flex items-center justify-between text-xs text-gray-500">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                                <span>You</span>
+                            </div>
+                            <span>Yesterday</span>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-5 hover-lift cursor-pointer group border-l-4 border-learn">
+                        <div class="flex items-start justify-between mb-3">
+                            <span class="px-2 py-1 rounded bg-learn/20 text-learn-light text-[10px]">Learning</span>
+                            <button
+                                class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white transition-all">
+                                <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <h3 class="font-semibold text-white mb-2">Algorithm Resources</h3>
+                        <p class="text-sm text-gray-400 line-clamp-3 mb-4">Collected resources for graph theory: CLRS
+                            book, MIT OpenCourseWare, LeetCode patterns. Need to organize by topic...</p>
+                        <div class="flex items-center justify-between text-xs text-gray-500">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                                <span>You</span>
+                            </div>
+                            <span>3d ago</span>
+                        </div>
+                    </div>
+
+                    <div
+                        class="border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center text-gray-500 hover:border-accent/50 hover:text-white transition-all cursor-pointer min-h-[200px] group">
+                        <div
+                            class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:bg-accent/20 transition-all">
+                            <i data-lucide="plus" class="w-6 h-6"></i>
+                        </div>
+                        <span class="font-medium">Capture new idea</span>
+                        <span class="text-xs mt-1 opacity-60">Or drag files here</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CRM VIEW -->
+            <div id="view-crm" class="hidden max-w-7xl mx-auto animate-slide-up">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Network & CRM</h2>
+                        <p class="text-sm text-gray-500">Manage relationships and opportunities</p>
+                    </div>
+                    <button
+                        class="px-4 py-2 bg-business hover:bg-business-light text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i>
+                        Add Contact
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Stats -->
+                    <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-white mb-1">24</div>
+                            <div class="text-xs text-gray-500">Total Contacts</div>
+                            <div class="mt-2 text-[10px] text-business-light">+3 this month</div>
+                        </div>
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-white mb-1">5</div>
+                            <div class="text-xs text-gray-500">Active Deals</div>
+                            <div class="mt-2 text-[10px] text-learn-light">Rp 45M pipeline</div>
+                        </div>
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-white mb-1">8</div>
+                            <div class="text-xs text-gray-500">Follow-ups</div>
+                            <div class="mt-2 text-[10px] text-danger">3 overdue</div>
+                        </div>
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-white mb-1">92%</div>
+                            <div class="text-xs text-gray-500">Response Rate</div>
+                            <div class="mt-2 text-[10px] text-success">+5% vs last month</div>
+                        </div>
+                    </div>
+
+                    <!-- Contacts List -->
+                    <div class="lg:col-span-2 glass rounded-2xl p-5">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="relative flex-1">
+                                <i data-lucide="search"
+                                    class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                                <input type="text" placeholder="Search contacts..."
+                                    class="w-full pl-10 pr-4 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white placeholder-gray-500 focus:border-business/50 outline-none">
+                            </div>
+                            <select
+                                class="px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white outline-none focus:border-business/50">
+                                <option>All Status</option>
+                                <option>Active</option>
+                                <option>Lead</option>
+                                <option>Inactive</option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-2">
+                            <div
+                                class="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer group">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-work/20 flex items-center justify-center text-work-light font-semibold">
+                                    AD</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-white">Andi Developer</span>
+                                        <span
+                                            class="px-1.5 py-0.5 rounded bg-work/20 text-work-light text-[10px]">Work</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 truncate">Tech Co-founder • PT Teknologi Nusantara
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-gray-400">Last contact</div>
+                                    <div class="text-xs text-success">2d ago</div>
+                                </div>
+                                <button
+                                    class="opacity-0 group-hover:opacity-100 p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white">
+                                    <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+
+                            <div
+                                class="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer group border-l-2 border-business">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-business/20 flex items-center justify-center text-business-light font-semibold">
+                                    SC</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-white">Sarah Client</span>
+                                        <span
+                                            class="px-1.5 py-0.5 rounded bg-business/20 text-business-light text-[10px]">Business</span>
+                                        <span class="px-1.5 py-0.5 rounded bg-warning/20 text-warning text-[10px]">Hot
+                                            Lead</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 truncate">Potential Client • JadiSatu Platform
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-gray-400">Meeting</div>
+                                    <div class="text-xs text-learn-light">Tomorrow</div>
+                                </div>
+                                <button
+                                    class="opacity-0 group-hover:opacity-100 p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white">
+                                    <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+
+                            <div
+                                class="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer group">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-learn/20 flex items-center justify-center text-learn-light font-semibold">
+                                    PM</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-white">Prof. Michael</span>
+                                        <span
+                                            class="px-1.5 py-0.5 rounded bg-learn/20 text-learn-light text-[10px]">Learning</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 truncate">Thesis Advisor • Universitas Indonesia
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-gray-400">Follow up</div>
+                                    <div class="text-xs text-danger">3d overdue</div>
+                                </div>
+                                <button
+                                    class="opacity-0 group-hover:opacity-100 p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white">
+                                    <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="glass rounded-2xl p-5">
+                        <h3 class="font-semibold text-white mb-4">Recent Activity</h3>
+                        <div class="space-y-4">
+                            <div class="flex gap-3">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-business/20 flex items-center justify-center shrink-0">
+                                    <i data-lucide="mail" class="w-4 h-4 text-business-light"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-white">Email sent to Sarah</div>
+                                    <div class="text-xs text-gray-500 mt-0.5">Proposal follow-up • 2h ago</div>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-full bg-work/20 flex items-center justify-center shrink-0">
+                                    <i data-lucide="phone" class="w-4 h-4 text-work-light"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-white">Call with Andi</div>
+                                    <div class="text-xs text-gray-500 mt-0.5">Tech discussion • Yesterday</div>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-full bg-learn/20 flex items-center justify-center shrink-0">
+                                    <i data-lucide="file-text" class="w-4 h-4 text-learn-light"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-white">Thesis draft shared</div>
+                                    <div class="text-xs text-gray-500 mt-0.5">To Prof. Michael • 3d ago</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            class="w-full mt-6 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs transition-all">
+                            View All Activity
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other views placeholders -->
+            <div id="view-work" class="hidden text-center py-20 text-gray-500">Work Domain View</div>
+            <div id="view-learn" class="hidden text-center py-20 text-gray-500">Learning Domain View</div>
+            <div id="view-business" class="hidden text-center py-20 text-gray-500">Business Domain View</div>
+            <div id="view-projects" class="hidden text-center py-20 text-gray-500">Projects Hub View</div>
+            <div id="view-agents" class="hidden text-center py-20 text-gray-500">Agent Control Center</div>
+            <div id="view-history" class="hidden text-center py-20 text-gray-500">Progress & History</div>
+            <div id="view-focus" class="hidden text-center py-20 text-gray-500">Focus Mode</div>
+
+        </div>
+    </main>
+
+    <!-- COMMAND BAR -->
+    <div id="command-bar"
+        class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[20vh]">
+        <div
+            class="w-full max-w-2xl glass-strong rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-slide-up">
+            <div class="flex items-center gap-3 p-4 border-b border-white/5">
+                <i data-lucide="search" class="w-5 h-5 text-gray-500"></i>
+                <input type="text" placeholder="Search or jump to..."
+                    class="flex-1 bg-transparent text-white outline-none placeholder-gray-500" autofocus>
+                <kbd class="px-2 py-1 rounded bg-white/5 text-[10px] text-gray-500">ESC</kbd>
+            </div>
+            <div class="p-2 max-h-80 overflow-y-auto custom-scroll">
+                <div class="text-[10px] font-medium text-gray-500 uppercase tracking-wider px-3 py-2">Quick Actions
+                </div>
+                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 text-left group">
+                    <div class="w-8 h-8 rounded-lg bg-work/20 flex items-center justify-center">
+                        <i data-lucide="plus" class="w-4 h-4 text-work-light"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm text-white">Create Task</div>
+                        <div class="text-xs text-gray-500">Add to any board</div>
+                    </div>
+                    <span class="ml-auto text-xs text-gray-600">⌘T</span>
+                </button>
+                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 text-left group">
+                    <div class="w-8 h-8 rounded-lg bg-learn/20 flex items-center justify-center">
+                        <i data-lucide="lightbulb" class="w-4 h-4 text-learn-light"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm text-white">Capture Idea</div>
+                        <div class="text-xs text-gray-500">Quick note to inbox</div>
+                    </div>
+                </button>
+                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 text-left group">
+                    <div class="w-8 h-8 rounded-lg bg-business/20 flex items-center justify-center">
+                        <i data-lucide="user-plus" class="w-4 h-4 text-business-light"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm text-white">Add Contact</div>
+                        <div class="text-xs text-gray-500">To CRM</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Morning Briefing Logic
+        let briefingStep = 1;
+        let briefingData = {};
+
+        function showMorningBriefing() {
+            const lastShown = localStorage.getItem('briefingDate');
+            const today = new Date().toDateString();
+            if (lastShown !== today) {
+                document.getElementById('morning-briefing').classList.remove('hidden');
+            }
+        }
+
+        function updateClarity(val) {
+            const labels = ['Sangat Buram', 'Buram', 'Cukup Jernih', 'Jernih', 'Sangat Jernih'];
+            document.getElementById('clarity-label').textContent = labels[val - 1];
+            briefingData.clarity = val;
+        }
+
+        function nextBriefing(step) {
+            document.getElementById(`q${briefingStep}`).classList.add('hidden');
+            document.getElementById(`q${step}`).classList.remove('hidden');
+            document.getElementById(`progress-${briefingStep}`).classList.remove('bg-white');
+            document.getElementById(`progress-${briefingStep}`).classList.add('bg-white/20');
+            document.getElementById(`progress-${step}`).classList.remove('bg-white/20');
+            document.getElementById(`progress-${step}`).classList.add('bg-white');
+            briefingStep = step;
+        }
+
+        function prevBriefing(step) {
+            document.getElementById(`q${briefingStep}`).classList.add('hidden');
+            document.getElementById(`q${step}`).classList.remove('hidden');
+            briefingStep = step;
+        }
+
+        function selectPriority(el, text) {
+            document.querySelectorAll('.priority-btn .check-circle').forEach(c => {
+                c.classList.remove('bg-business', 'border-business');
+                c.innerHTML = '';
+            });
+            el.querySelector('.check-circle').classList.add('bg-business', 'border-business');
+            el.querySelector('.check-circle').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            briefingData.priority = text;
+        }
+
+        function toggleBlocker(el) {
+            el.classList.toggle('bg-warning/10');
+            el.classList.toggle('border-warning/50');
+        }
+
+        function finishBriefing() {
+            document.getElementById(`q${briefingStep}`).classList.add('hidden');
+            document.getElementById('q4').classList.remove('hidden');
+            document.getElementById(`progress-${briefingStep}`).classList.remove('bg-white');
+            document.getElementById(`progress-${briefingStep}`).classList.add('bg-white/20');
+            document.getElementById('progress-4').classList.remove('bg-white/20');
+            document.getElementById('progress-4').classList.add('bg-white');
+        }
+
+        function closeBriefing() {
+            localStorage.setItem('briefingDate', new Date().toDateString());
+            document.getElementById('morning-briefing').classList.add('hidden');
+        }
+
+        // Show briefing on load
+        setTimeout(showMorningBriefing, 500);
+
+        // View Switching
+        function switchView(viewName) {
+            // Hide all views
+            document.querySelectorAll('[id^="view-"]').forEach(v => v.classList.add('hidden'));
+            // Show selected
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+
+            // Update nav active state
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('bg-white/5', 'text-white');
+                item.classList.add('text-gray-400');
+            });
+            event.currentTarget.classList.remove('text-gray-400');
+            event.currentTarget.classList.add('bg-white/5', 'text-white');
+
+            // Update title
+            const titles = {
+                'home': 'Overview',
+                'focus': 'Focus Mode',
+                'work': 'Work',
+                'learn': 'Learning',
+                'business': 'Business',
+                'projects': 'Projects',
+                'kanban': 'Task Board',
+                'notes': 'Notes & Ideas',
+                'crm': 'Network & CRM',
+                'agents': 'AI Agents',
+                'history': 'Progress & History'
+            };
+            document.getElementById('page-title').textContent = titles[viewName] || viewName;
+        }
+
+        // Command Bar
+        function toggleCommandBar() {
+            const bar = document.getElementById('command-bar');
+            bar.classList.toggle('hidden');
+            if (!bar.classList.contains('hidden')) {
+                bar.querySelector('input').focus();
+            }
+        }
+
+        // Task Complete Toggle
+        function toggleTaskComplete(btn) {
+            const icon = btn.querySelector('svg');
+            icon.classList.toggle('hidden');
+            if (!icon.classList.contains('hidden')) {
+                btn.classList.add('bg-work', 'border-work');
+                btn.classList.remove('border-work/50');
+            } else {
+                btn.classList.remove('bg-work', 'border-work');
+                btn.classList.add('border-work/50');
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('command-bar').classList.add('hidden');
+            }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                toggleCommandBar();
+            }
+        });
+
+        // Close command bar on outside click
+        document.getElementById('command-bar').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) toggleCommandBar();
+        });
+    </script>
+
+    </div><!-- End #app-content -->
+
+</body>
+
+</html>

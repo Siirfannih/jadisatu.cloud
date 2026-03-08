@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JadiSatu OS — Pengaturan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        bg: '#0f0f11',
+                        work: { DEFAULT: '#3b82f6', light: '#60a5fa' },
+                        learn: { DEFAULT: '#f59e0b', light: '#fbbf24' },
+                        business: { DEFAULT: '#10b981', light: '#34d399' },
+                        personal: { DEFAULT: '#8b5cf6', light: '#a78bfa' },
+                        accent: '#ec4899',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f0f11;
+            color: #fafafa;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .glass {
+            background: rgba(24, 24, 27, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-strong {
+            background: rgba(15, 15, 17, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 3px;
+        }
+
+        #workspace-sidebar.sidebar-collapsed {
+            width: 5rem !important;
+            min-width: 5rem;
+        }
+
+        #workspace-sidebar.sidebar-collapsed .sidebar-nav-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-section-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-header-detail {
+            display: none;
+        }
+
+        #workspace-sidebar.sidebar-collapsed .nav-item {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        .gradient-personal {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+    </style>
+</head>
+
+<body class="h-screen flex overflow-hidden">
+
+    <aside id="workspace-sidebar"
+        class="w-64 glass-strong flex flex-col shrink-0 z-20 border-r border-white/5 transition-[width] duration-300">
+        <div class="p-6 border-b border-white/5 sidebar-header-detail">
+            <div class="flex items-center gap-3 mb-4">
+                <div id="sidebar-user-avatar"
+                    class="w-10 h-10 rounded-xl gradient-personal flex items-center justify-center text-white font-bold text-lg shrink-0">
+                    —</div>
+                <div class="min-w-0">
+                    <div id="sidebar-user-name" class="font-semibold text-white truncate">User</div>
+                    <div class="text-xs text-gray-400">JadiSatu OS</div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between text-[10px] uppercase tracking-wider text-gray-500 mb-1"><span>Life
+                        Balance</span><span id="sidebar-life-balance-pct" class="text-white">0</span></div>
+                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden flex">
+                    <div id="sidebar-bar-work" class="h-full bg-work transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-learn" class="h-full bg-learn transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-business" class="h-full bg-business transition-all" style="width: 0%"></div>
+                </div>
+                <div class="flex gap-3 text-[10px]">
+                    <span class="flex items-center gap-1 text-work-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-work"></div>Work
+                    </span>
+                    <span class="flex items-center gap-1 text-learn-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-learn"></div>Learn
+                    </span>
+                    <span class="flex items-center gap-1 text-business-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-business"></div>Business
+                    </span>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1">
+            <div
+                class="px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Dashboard</div>
+            <a href="dashboard.html#home"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i><span
+                    class="sidebar-nav-label">Overview</span></a>
+            <a href="focus-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Today's
+                    Focus</span></a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Domains</div>
+            <a href="dashboard.html#work"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <div class="w-2 h-2 rounded-full bg-work shrink-0"></div><span class="sidebar-nav-label">Work &
+                    Career</span>
+            </a>
+            <a href="dashboard.html#learn"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <div class="w-2 h-2 rounded-full bg-learn shrink-0"></div><span
+                    class="sidebar-nav-label">Learning</span>
+            </a>
+            <a href="dashboard.html#business"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <div class="w-2 h-2 rounded-full bg-business shrink-0"></div><span
+                    class="sidebar-nav-label">Business</span>
+            </a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Workspace</div>
+            <a href="projects-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="folder-kanban" class="w-4 h-4 shrink-0"></i><span
+                    class="sidebar-nav-label">Projects</span></a>
+            <a href="kanban-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="columns" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Kanban
+                    Board</span></a>
+            <a href="notes-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="notebook-pen" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Notes &
+                    Ideas</span></a>
+            <a href="creative-hub-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="sparkles" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Creative
+                    Hub</span></a>
+            <a href="crm-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="users" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">CRM</span></a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                System</div>
+            <a href="ai-agent-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="bot" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">AI Agents</span></a>
+            <a href="progress-history-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="line-chart" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Progress &
+                    History</span></a>
+            <a href="settings-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 text-white text-sm font-medium hover:bg-white/10"><i
+                    data-lucide="settings" class="w-4 h-4 shrink-0 text-personal"></i><span
+                    class="sidebar-nav-label">Pengaturan</span></a>
+        </nav>
+        <div class="p-4 border-t border-white/5 space-y-2">
+            <button type="button" id="sidebar-toggle-btn"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i
+                    data-lucide="panel-left-close" data-sidebar-toggle-icon class="w-3.5 h-3.5 shrink-0"></i><span
+                    data-sidebar-toggle-label class="sidebar-nav-label">Sembunyikan</span></button>
+            <a href="dashboard.html#home"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i
+                    data-lucide="command" class="w-3.5 h-3.5 shrink-0"></i><span class="sidebar-nav-label">Command
+                    Menu</span></a>
+            <a href="login.html"
+                onclick="event.preventDefault(); if(window.supabaseClient) window.supabaseClient.auth.signOut().then(function(){ window.location.href='login.html'; }); else window.location.href='login.html';"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs text-red-400 hover:text-red-300 transition-all"><i
+                    data-lucide="log-out" class="w-3.5 h-3.5 shrink-0"></i><span
+                    class="sidebar-nav-label">Logout</span></a>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div class="flex-1 overflow-y-auto custom-scroll p-6 max-w-2xl mx-auto w-full space-y-8">
+            <div>
+                <h1 class="text-xl font-bold text-white">Pengaturan</h1>
+                <p class="text-sm text-gray-500">Profil, Juru (AI), dan integrasi</p>
+            </div>
+
+            <!-- Profil -->
+            <div class="glass rounded-2xl p-6 border border-white/5">
+                <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-lucide="user"
+                        class="w-4 h-4 text-personal"></i> Profil</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Nama tampilan</label>
+                        <input type="text" id="settings-display-name" placeholder="Nama yang tampil di sidebar"
+                            class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 outline-none focus:border-personal/50 text-sm">
+                    </div>
+                    <button type="button" id="settings-save-profile"
+                        class="px-4 py-2 rounded-lg bg-personal hover:bg-personal-light text-white text-sm font-medium">Simpan
+                        profil</button>
+                </div>
+            </div>
+
+            <!-- Juru & AI -->
+            <div class="glass rounded-2xl p-6 border border-white/5">
+                <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-lucide="bot"
+                        class="w-4 h-4 text-personal"></i> Juru & AI</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Model AI default</label>
+                        <select id="settings-ai-model"
+                            class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white outline-none focus:border-personal/50 text-sm">
+                            <option value="kimi">Kimi (Moonshot)</option>
+                            <option value="claude">Claude</option>
+                            <option value="gemini">Gemini</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="settings-juru-use-free-api"
+                            class="rounded border-white/20 bg-black/30 text-personal focus:ring-personal">
+                        <label for="settings-juru-use-free-api" class="text-xs font-medium text-gray-300">Gunakan Kimi
+                            Free API (gratis)</label>
+                    </div>
+                    <div id="settings-juru-free-api-fields" class="space-y-3 hidden">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">URL server Free API</label>
+                            <input type="url" id="settings-juru-free-api-url"
+                                placeholder="https://kimi-free-api-xxx.onrender.com"
+                                class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 outline-none focus:border-personal/50 text-sm"
+                                autocomplete="off">
+                            <p class="text-[10px] text-gray-500 mt-1">URL base tanpa /v1/chat/completions. Deploy dari
+                                <a href="https://github.com/LLM-Red-Team/kimi-free-api" target="_blank" rel="noopener"
+                                    class="text-personal underline">kimi-free-api</a>.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Refresh token Kimi</label>
+                            <input type="password" id="settings-juru-refresh-token"
+                                placeholder="Dari kimi.moonshot.cn (F12 → Application → Local Storage)"
+                                class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 outline-none focus:border-personal/50 text-sm"
+                                autocomplete="off">
+                            <p class="text-[10px] text-gray-500 mt-1">Buka kimi.moonshot.cn → F12 → Application → Local
+                                Storage → salin <code class="bg-white/10 px-1 rounded">refresh_token</code>.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">API Key (OpenClaw)</label>
+                        <input type="password" id="settings-api-key" placeholder="Tempel API key OpenClaw"
+                            class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 outline-none focus:border-personal/50 text-sm"
+                            autocomplete="off">
+                        <p class="text-[10px] text-gray-500 mt-1">Untuk fitur OpenClaw. Juru pakai Kimi (resmi atau Free
+                            API di atas).</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Nama asisten</label>
+                        <input type="text" id="settings-juru-name" placeholder="Juru"
+                            class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 outline-none focus:border-personal/50 text-sm">
+                    </div>
+                    <button type="button" id="settings-save-juru"
+                        class="px-4 py-2 rounded-lg bg-personal hover:bg-personal-light text-white text-sm font-medium">Simpan
+                        pengaturan Juru</button>
+                </div>
+            </div>
+
+            <!-- Integrasi -->
+            <div class="glass rounded-2xl p-6 border border-white/5">
+                <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><i data-lucide="calendar"
+                        class="w-4 h-4 text-personal"></i> Integrasi</h2>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div>
+                            <div class="font-medium text-white text-sm">Google Calendar</div>
+                            <div class="text-xs text-gray-500 mt-0.5">Sinkronkan jadwal konten & task ke Google Calendar
+                            </div>
+                        </div>
+                        <button type="button" id="settings-google-calendar-btn"
+                            class="px-4 py-2 rounded-lg border border-white/10 text-gray-300 hover:bg-white/10 text-sm font-medium">Hubungkan</button>
+                    </div>
+                    <p class="text-[10px] text-gray-500">Fitur koneksi Google Calendar akan tersedia di update
+                        berikutnya.</p>
+                </div>
+            </div>
+
+            <!-- Integrations: HANYA Canva OAuth + Via Canva Design (template). Brand Config ada di Carousel → Manual Canvas. -->
+            <div class="glass rounded-2xl p-6 border border-white/5">
+                <h2 class="text-sm font-semibold text-white mb-1 flex items-center gap-2"><i data-lucide="link"
+                        class="w-4 h-4 text-personal"></i> Integrations — Canva</h2>
+                <p class="text-xs text-gray-500 mb-4">Untuk Carousel Generator: sambungkan akun Canva (OAuth) dan/atau
+                    isi link template. Warna, font, dan ukuran kanvas diatur di <strong>Carousel Generator</strong> →
+                    Manual Canvas (Buka Configurator).</p>
+
+                <!-- 1. Connect to Canva (OAuth) — HARUS PALING ATAS AGAR TERLIHAT -->
+                <div id="settings-canva-oauth-card"
+                    class="p-5 rounded-xl bg-personal/10 border-2 border-personal/40 mb-6">
+                    <h3 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+                        <i data-lucide="user-check" class="w-4 h-4 text-personal-light"></i>
+                        Connect to Canva (OAuth)
+                    </h3>
+                    <p class="text-[11px] text-gray-400 mb-3">Sambungkan akun Canva agar sistem bisa membuat & mengedit
+                        desain carousel lewat Canva. Tanpa ini, Publish to Canva hanya membuka link.</p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span id="settings-canva-oauth-status"
+                            class="text-[10px] px-2 py-1 rounded-full bg-gray-700 text-gray-400">Memeriksa…</span>
+                        <button type="button" id="settings-connect-canva-btn"
+                            class="px-4 py-2.5 rounded-lg bg-personal hover:bg-personal-light text-white text-sm font-medium inline-flex items-center gap-2">
+                            <i data-lucide="link" class="w-4 h-4"></i> Connect to Canva
+                        </button>
+                        <button type="button" id="settings-disconnect-canva-btn"
+                            class="hidden px-4 py-2 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/10 text-sm font-medium">Disconnect</button>
+                        <button type="button" id="settings-reset-canva-btn"
+                            class="px-3 py-1.5 rounded-lg border border-amber-500/50 text-amber-400 hover:bg-amber-500/10 text-xs font-medium" title="Hapus semua data Canva di server agar bisa connect ulang seperti user baru">Reset data Canva</button>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-2">Akun Canva yang dipakai saat connect <strong>boleh
+                            berbeda</strong> dengan akun yang mendaftar integrasi. Jika Canva menampilkan &quot;ID klien
+                        tidak valid&quot;, perbarui <code class="bg-black/30 px-1 rounded">CANVA_CLIENT_ID</code> di
+                        Supabase → Edge Functions → Secrets agar sama dengan Client ID dari Canva Developer Portal.</p>
+                    <p class="text-[10px] text-gray-500 mt-1">Jika Connect gagal di Chrome, coba browser lain (mis. Brave).</p>
+                </div>
+
+                <!-- 2. Via Canva Design — link template: sistem mempelajari style & layout -->
+                <div class="p-4 rounded-xl bg-white/5 border border-white/10">
+                    <h3 class="text-sm font-medium text-white mb-1">Via Canva Design (link template)</h3>
+                    <p class="text-[11px] text-gray-400 mb-3">Paste link desain Canva. Sistem akan mempelajari
+                        <strong>style & layout</strong> desain ini untuk membuat carousel baru dengan tampilan serupa.
+                        Link ini juga dipakai untuk "Open in Canva" jika perlu.</p>
+                    <div class="flex gap-2">
+                        <input type="url" id="settings-canva-template-url"
+                            placeholder="https://www.canva.com/design/..."
+                            class="flex-1 px-4 py-2 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 outline-none focus:border-personal/50 text-sm">
+                        <button type="button" id="settings-save-canva"
+                            class="px-4 py-2 rounded-lg bg-personal hover:bg-personal-light text-white text-sm font-medium">Simpan</button>
+                    </div>
+                    <span id="settings-canva-status"
+                        class="text-[10px] mt-2 inline-block px-2 py-0.5 rounded-full bg-gray-700 text-gray-400">Belum
+                        diset</span>
+                </div>
+
+                <p class="text-[10px] text-gray-500 mt-4 pt-4 border-t border-white/5">
+                    <strong>Brand Config</strong> (warna, font, ukuran kanvas) tidak di sini. Atur di halaman
+                    <strong>Carousel Generator</strong> → kartu <strong>Manual Canvas</strong> → Buka Configurator, atau
+                    pakai <strong>Smart Extractor</strong> (upload gambar untuk analisis AI).
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <div id="settings-toast"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-white text-sm z-[100] hidden">
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/data-service.js"></script>
+    <script src="js/app-settings-service.js"></script>
+    <script src="js/sidebar-workspace.js"></script>
+    <script src="js/juru-bubble.js?v=juru-gemini"></script>
+    <script>
+        var SUPABASE_URL = 'https://dwpkokavxjvtrltntjtn.supabase.co';
+        var SUPABASE_ANON_KEY = 'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1';
+        var supabaseClient, currentUser, userProfileService, userSettingsService;
+
+        function showToast(msg) {
+            var el = document.getElementById('settings-toast');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            clearTimeout(window._settingsToastT);
+            window._settingsToastT = setTimeout(function () { el.classList.add('hidden'); }, 2500);
+        }
+
+        (async function init() {
+            if (typeof window.supabase === 'undefined') return;
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            window.supabaseClient = supabaseClient;
+
+            // Retry session fetch hingga 3x (handle race condition saat pertama login)
+            var session = null;
+            for (var attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    var { data: { session: s }, error } = await supabaseClient.auth.getSession();
+                    if (!error && s) { session = s; break; }
+                    if (attempt < 3) await new Promise(function (r) { setTimeout(r, 800); });
+                } catch (e) { if (attempt === 3) break; await new Promise(function (r) { setTimeout(r, 800); }); }
+            }
+            if (!session) { window.location.replace('login.html'); return; }
+            currentUser = session.user;
+            window.currentUser = currentUser;
+            userProfileService = new UserProfileService(supabaseClient);
+            userSettingsService = new UserSettingsService(supabaseClient);
+
+            var profile = await userProfileService.getProfile(currentUser.id);
+            // Gunakan static helper untuk konsistensi fallback di semua halaman
+            var displayName = (typeof UserProfileService !== 'undefined' && UserProfileService.deriveDisplayName)
+                ? UserProfileService.deriveDisplayName(profile, currentUser)
+                : ((profile && profile.display_name && profile.display_name.trim()) || (currentUser.email && currentUser.email.split('@')[0]) || 'User');
+            var nameEl = document.getElementById('sidebar-user-name');
+            var avatarEl = document.getElementById('sidebar-user-avatar');
+            if (nameEl) nameEl.textContent = displayName;
+            if (avatarEl) avatarEl.textContent = (displayName.substring(0, 2) || '—').toUpperCase();
+
+            document.getElementById('settings-display-name').value = displayName;
+
+            var settings = await userSettingsService.getSettings(currentUser.id);
+            if (settings) {
+                if (settings.default_ai_model) document.getElementById('settings-ai-model').value = settings.default_ai_model;
+                if (settings.ai_api_key_encrypted) document.getElementById('settings-api-key').placeholder = '••••••••••••';
+                if (settings.juru_display_name) document.getElementById('settings-juru-name').value = settings.juru_display_name;
+                var useFreeApi = document.getElementById('settings-juru-use-free-api');
+                var freeApiFields = document.getElementById('settings-juru-free-api-fields');
+                if (useFreeApi) useFreeApi.checked = !!settings.juru_use_free_api;
+                if (freeApiFields) freeApiFields.classList.toggle('hidden', !settings.juru_use_free_api);
+                if (settings.juru_free_api_base_url) document.getElementById('settings-juru-free-api-url').value = settings.juru_free_api_base_url;
+                if (settings.juru_refresh_token_encrypted) document.getElementById('settings-juru-refresh-token').placeholder = '••••••••••••';
+            }
+            document.getElementById('settings-juru-use-free-api').addEventListener('change', function () {
+                document.getElementById('settings-juru-free-api-fields').classList.toggle('hidden', !this.checked);
+            });
+
+            document.getElementById('settings-save-profile').addEventListener('click', async function () {
+                var name = document.getElementById('settings-display-name').value.trim() || (currentUser.email && currentUser.email.split('@')[0]) || 'User';
+                await userProfileService.saveProfile(currentUser.id, { display_name: name });
+                if (nameEl) nameEl.textContent = name;
+                if (avatarEl) avatarEl.textContent = (name.substring(0, 2) || '—').toUpperCase();
+                showToast('Profil disimpan.');
+            });
+
+            document.getElementById('settings-save-juru').addEventListener('click', async function () {
+                var model = document.getElementById('settings-ai-model').value;
+                var key = document.getElementById('settings-api-key').value.trim();
+                var juruName = document.getElementById('settings-juru-name').value.trim() || 'Juru';
+                var useFreeApi = document.getElementById('settings-juru-use-free-api').checked;
+                var freeApiUrl = document.getElementById('settings-juru-free-api-url').value.trim();
+                var refreshToken = document.getElementById('settings-juru-refresh-token').value.trim();
+                var payload = { default_ai_model: model, juru_display_name: juruName, juru_use_free_api: useFreeApi, juru_free_api_base_url: freeApiUrl || null };
+                if (key) payload.ai_api_key_encrypted = key;
+                if (refreshToken) payload.juru_refresh_token_encrypted = refreshToken;
+                await userSettingsService.saveSettings(currentUser.id, payload);
+                if (key) document.getElementById('settings-api-key').placeholder = '••••••••••••';
+                document.getElementById('settings-api-key').value = '';
+                if (refreshToken) document.getElementById('settings-juru-refresh-token').placeholder = '••••••••••••';
+                document.getElementById('settings-juru-refresh-token').value = '';
+                showToast('Pengaturan Juru disimpan.');
+            });
+
+            document.getElementById('settings-google-calendar-btn').addEventListener('click', function () {
+                showToast('Google Calendar akan tersedia di update berikutnya.');
+            });
+
+            var FUNCTIONS_URL = SUPABASE_URL + '/functions/v1';
+            async function checkCanvaOAuthStatus() {
+                var badge = document.getElementById('settings-canva-oauth-status');
+                var btnConnect = document.getElementById('settings-connect-canva-btn');
+                var btnDisconnect = document.getElementById('settings-disconnect-canva-btn');
+                if (!badge || !btnConnect) return;
+                try {
+                    var res = await supabaseClient.from('mcp_config').select('status').eq('user_id', currentUser.id).maybeSingle();
+                    var connected = res.data && res.data.status === 'connected';
+                    badge.textContent = connected ? 'Connected \u2713' : 'Not connected';
+                    badge.className = 'text-[10px] px-2 py-0.5 rounded-full ' + (connected ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-400');
+                    btnConnect.classList.toggle('hidden', connected);
+                    if (btnDisconnect) btnDisconnect.classList.toggle('hidden', !connected);
+                } catch (e) {
+                    badge.textContent = 'Not connected';
+                    badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-400';
+                    btnConnect.classList.remove('hidden');
+                    if (btnDisconnect) btnDisconnect.classList.add('hidden');
+                }
+                if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+            }
+            await checkCanvaOAuthStatus();
+
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('canva') === 'connected') {
+                showToast('Canva berhasil terhubung!');
+                window.history.replaceState({}, document.title, window.location.pathname);
+                checkCanvaOAuthStatus();
+            } else if (urlParams.get('canva_auth') === 'failed') {
+                var err = urlParams.get('error') || 'Otorisasi gagal';
+                showToast('Canva: ' + err + '. Coba Connect lagi atau periksa Client ID di Supabase.');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (urlParams.get('canva') === 'denied') {
+                showToast('Otorisasi Canva dibatalkan.');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (urlParams.get('canva') === 'error' || urlParams.get('canva') === 'expired') {
+                showToast(urlParams.get('canva') === 'expired' ? 'Sesi OAuth kedaluwarsa. Coba lagi.' : 'Gagal menghubungkan Canva.');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            document.getElementById('settings-connect-canva-btn').addEventListener('click', async function () {
+                var session = (await supabaseClient.auth.getSession()).data.session;
+                if (!session) { showToast('Silakan login ulang.'); return; }
+                try {
+                    var refreshed = await supabaseClient.auth.refreshSession({ refresh_token: session.refresh_token });
+                    if (refreshed.data.session) session = refreshed.data.session;
+                } catch (e) { /* pakai session lama */ }
+                if (!session || !session.access_token) {
+                    showToast('Sesi habis. Silakan login ulang.');
+                    return;
+                }
+                try {
+                    var i, key;
+                    try {
+                        for (i = sessionStorage.length - 1; i >= 0; i--) {
+                            key = sessionStorage.key(i);
+                            if (key && (key.toLowerCase().indexOf('canva') !== -1 || key.toLowerCase().indexOf('oauth') !== -1)) sessionStorage.removeItem(key);
+                        }
+                        for (i = localStorage.length - 1; i >= 0; i--) {
+                            key = localStorage.key(i);
+                            if (key && (key.toLowerCase().indexOf('canva') !== -1 || key.toLowerCase().indexOf('oauth') !== -1)) localStorage.removeItem(key);
+                        }
+                    } catch (clearErr) { /* ignore */ }
+                    var ts = new Date().getTime();
+                    var rnd = Math.random().toString(36).slice(2, 11);
+                    var authUrl = FUNCTIONS_URL + '/canva-oauth-start?t=' + ts + '&r=' + rnd;
+                    var r = await fetch(authUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': 'Bearer ' + session.access_token,
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (data && data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                    } else {
+                        var msg = data.error || data.message || 'Gagal memulai OAuth.';
+                        if (msg === 'Server misconfiguration') {
+                            msg = 'Backend: set CANVA_CLIENT_ID di Supabase → Edge Functions → Secrets.';
+                        } else if (msg === 'Unauthorized') {
+                            msg = 'Sesi habis. Silakan login ulang.';
+                        } else if (msg === 'Failed to start OAuth') {
+                            msg = 'Tabel oauth_pkce belum ada atau gagal. Jalankan migration 20250227_canva_mcp_tables.sql.';
+                        } else if (msg === 'Internal server error' && data.hint) {
+                            msg = data.hint;
+                            if (data.detail) msg = msg + ' (' + (data.detail.length > 60 ? data.detail.slice(0, 60) + '…' : data.detail) + ')';
+                        } else if (typeof msg === 'string' && (msg.toLowerCase().indexOf('jwt') !== -1 || msg.toLowerCase().indexOf('invalid') !== -1)) {
+                            msg = 'Token tidak valid atau kedaluwarsa. Silakan logout lalu login ulang, lalu coba lagi.';
+                        } else if (data.hint) {
+                            msg = msg + ' — ' + data.hint;
+                        }
+                        if (r.status !== 200 && msg.indexOf('[HTTP') === -1) {
+                            msg = msg + ' [HTTP ' + r.status + ']';
+                        }
+                        showToast(msg);
+                    }
+                } catch (e) {
+                    var errMsg = (e && e.message) ? e.message : String(e);
+                    console.error('[Connect Canva] error:', e);
+                    if (errMsg.toLowerCase().indexOf('failed to fetch') !== -1 || errMsg.toLowerCase().indexOf('network') !== -1 || errMsg.toLowerCase().indexOf('load') !== -1) {
+                        showToast('Tidak bisa menjangkau server. Buka F12 → Console untuk detail.');
+                    } else {
+                        showToast('Error: ' + (errMsg.length > 50 ? errMsg.slice(0, 50) + '…' : errMsg));
+                    }
+                }
+            });
+            document.getElementById('settings-disconnect-canva-btn').addEventListener('click', async function () {
+                if (!confirm('Lepas koneksi akun Canva?')) return;
+                var session = (await supabaseClient.auth.getSession()).data.session;
+                if (!session || !session.access_token) { showToast('Sesi habis. Silakan login ulang.'); return; }
+                try {
+                    var r = await fetch(FUNCTIONS_URL + '/canva-disconnect', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }
+                    });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (r.ok && data.ok) {
+                        showToast('Canva sudah dilepas.');
+                        checkCanvaOAuthStatus();
+                    } else {
+                        showToast(data.error || 'Gagal melepas.');
+                    }
+                } catch (e) {
+                    showToast('Gagal melepas.');
+                }
+            });
+            document.getElementById('settings-reset-canva-btn').addEventListener('click', async function () {
+                if (!confirm('Hapus semua data Canva Anda di server? Setelah ini Anda bisa klik Connect to Canva lagi seperti user baru.')) return;
+                var session = (await supabaseClient.auth.getSession()).data.session;
+                if (!session || !session.access_token) { showToast('Sesi habis. Silakan login ulang.'); return; }
+                try {
+                    var r = await fetch(FUNCTIONS_URL + '/canva-reset', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + session.access_token,
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (r.ok && data.ok) {
+                        showToast(data.message || 'Data Canva direset. Silakan klik Connect to Canva lagi.');
+                        checkCanvaOAuthStatus();
+                    } else {
+                        showToast((data.error || '') + (data.detail ? ' — ' + data.detail : '') || 'Reset gagal. [HTTP ' + r.status + ']');
+                    }
+                } catch (e) {
+                    console.error('[canva-reset]', e);
+                    showToast('Reset gagal: ' + ((e && e.message) ? e.message : 'network error'));
+                }
+            });
+
+            var appSettings = window.AppSettingsService ? window.AppSettingsService.load() : {};
+            if (appSettings.canva_template_url) {
+                var urlInput = document.getElementById('settings-canva-template-url');
+                if (urlInput) urlInput.value = appSettings.canva_template_url;
+                var statusEl = document.getElementById('settings-canva-status');
+                if (statusEl) { statusEl.textContent = 'Saved \u2713'; statusEl.className = 'text-[10px] mt-2 inline-block px-2 py-0.5 rounded-full bg-green-900/50 text-green-400'; }
+            }
+            document.getElementById('settings-save-canva').addEventListener('click', function () {
+                var url = document.getElementById('settings-canva-template-url').value.trim();
+                if (window.AppSettingsService) window.AppSettingsService.save({ canva_template_url: url });
+                var statusEl = document.getElementById('settings-canva-status');
+                if (statusEl) {
+                    statusEl.textContent = url ? 'Saved \u2713' : 'Belum diset';
+                    statusEl.className = 'text-[10px] mt-2 inline-block px-2 py-0.5 rounded-full ' + (url ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-400');
+                }
+                showToast('Link template Canva disimpan.');
+            });
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        })();
+    </script>
+</body>
+
+</html>

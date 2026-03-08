@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JadiSatu OS — Progress & History</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+                    colors: {
+                        bg: '#0f0f11', surface: '#18181b',
+                        work: { DEFAULT: '#3b82f6', light: '#60a5fa' },
+                        learn: { DEFAULT: '#f59e0b', light: '#fbbf24' },
+                        business: { DEFAULT: '#10b981', light: '#34d399' },
+                        personal: { DEFAULT: '#8b5cf6', light: '#a78bfa' },
+                        accent: { DEFAULT: '#ec4899', light: '#f472b6' },
+                        danger: '#ef4444', success: '#22c55e', warning: '#eab308',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f0f11;
+            color: #fafafa;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .glass {
+            background: rgba(24, 24, 27, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-strong {
+            background: rgba(15, 15, 17, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 3px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #52525b;
+        }
+
+        .hover-lift {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: scale(0.92) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .animate-pop-in {
+            opacity: 0;
+            animation: popIn 0.55s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+        }
+
+        .anim-delay-0 {
+            animation-delay: 0s;
+        }
+
+        .anim-delay-1 {
+            animation-delay: 0.08s;
+        }
+
+        .anim-delay-2 {
+            animation-delay: 0.16s;
+        }
+
+        .anim-delay-3 {
+            animation-delay: 0.24s;
+        }
+
+        .anim-delay-4 {
+            animation-delay: 0.32s;
+        }
+
+        .anim-delay-5 {
+            animation-delay: 0.42s;
+        }
+
+        .anim-delay-6 {
+            animation-delay: 0.5s;
+        }
+
+        .anim-delay-7 {
+            animation-delay: 0.6s;
+        }
+
+        .distrib-bar-fill {
+            transition: width 0.7s cubic-bezier(0.34, 1.2, 0.64, 1);
+        }
+
+        .heatmap-grid {
+            display: grid;
+            grid-template-rows: repeat(7, 12px);
+            grid-auto-columns: 12px;
+            grid-auto-flow: column;
+            gap: 4px;
+        }
+
+        .heatmap-cell {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.5);
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        #workspace-sidebar {
+            transition: width 0.25s ease;
+        }
+
+        #workspace-sidebar.sidebar-collapsed {
+            width: 5rem !important;
+            min-width: 5rem;
+        }
+
+        #workspace-sidebar.sidebar-collapsed .sidebar-nav-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-section-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-header-detail {
+            display: none;
+        }
+
+        #workspace-sidebar.sidebar-collapsed .nav-item {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        #workspace-sidebar.sidebar-collapsed .nav-item .ml-auto {
+            display: none;
+        }
+
+        .gradient-personal {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+    </style>
+</head>
+
+<body class="h-screen flex overflow-hidden">
+
+    <aside id="workspace-sidebar"
+        class="w-64 glass-strong flex flex-col shrink-0 z-20 border-r border-white/5 transition-[width] duration-300">
+        <div class="p-6 border-b border-white/5 sidebar-header-detail">
+            <div class="flex items-center gap-3 mb-4">
+                <div id="sidebar-user-avatar"
+                    class="w-10 h-10 rounded-xl gradient-personal flex items-center justify-center text-white font-bold text-lg shrink-0">
+                    —</div>
+                <div class="min-w-0">
+                    <div id="sidebar-user-name" class="font-semibold text-white truncate">User</div>
+                    <div id="sidebar-user-subtitle" class="text-xs text-gray-400">JadiSatu OS</div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between text-[10px] uppercase tracking-wider text-gray-500 mb-1"><span>Life
+                        Balance</span><span id="sidebar-life-balance-pct" class="text-white">0</span></div>
+                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden flex">
+                    <div id="sidebar-bar-work" class="h-full bg-work transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-learn" class="h-full bg-learn transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-business" class="h-full bg-business transition-all" style="width: 0%"></div>
+                </div>
+                <div class="flex gap-3 text-[10px]">
+                    <span class="flex items-center gap-1 text-work-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-work"></div>Work
+                    </span>
+                    <span class="flex items-center gap-1 text-learn-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-learn"></div>Learn
+                    </span>
+                    <span class="flex items-center gap-1 text-business-light">
+                        <div class="w-1.5 h-1.5 rounded-full bg-business"></div>Business
+                    </span>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1">
+            <div
+                class="px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Dashboard</div>
+            <a href="dashboard.html#home"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i><span
+                    class="sidebar-nav-label">Overview</span></a>
+            <a href="focus-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Today's
+                    Focus</span></a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Domains</div>
+            <a href="dashboard.html#work"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div
+                    class="w-2 h-2 rounded-full bg-work group-hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-shadow shrink-0">
+                </div><span class="sidebar-nav-label">Work & Career</span><span id="sidebar-domain-work"
+                    class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span>
+            </a>
+            <a href="dashboard.html#learn"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div
+                    class="w-2 h-2 rounded-full bg-learn group-hover:shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-shadow shrink-0">
+                </div><span class="sidebar-nav-label">Learning</span><span id="sidebar-domain-learn"
+                    class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span>
+            </a>
+            <a href="dashboard.html#business"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group">
+                <div
+                    class="w-2 h-2 rounded-full bg-business group-hover:shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-shadow shrink-0">
+                </div><span class="sidebar-nav-label">Business</span><span id="sidebar-domain-business"
+                    class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span>
+            </a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                Workspace</div>
+            <a href="projects-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="folder-kanban" class="w-4 h-4 shrink-0"></i><span
+                    class="sidebar-nav-label">Projects</span></a>
+            <a href="kanban-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="columns" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Kanban
+                    Board</span></a>
+            <a href="notes-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="notebook-pen" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Notes &
+                    Ideas</span></a>
+            <a href="creative-hub-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="sparkles" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Creative Hub</span></a>
+            <a href="crm-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="users" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">CRM</span></a>
+            <div
+                class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">
+                System</div>
+            <a href="ai-agent-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="bot" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">AI Agents</span></a>
+            <a href="progress-history-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 text-white text-sm font-medium hover:bg-white/10"><i
+                    data-lucide="line-chart" class="w-4 h-4 shrink-0 text-accent"></i><span
+                    class="sidebar-nav-label">Progress & History</span></a>
+            <a href="settings-view.html"
+                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i
+                    data-lucide="settings" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Pengaturan</span></a>
+        </nav>
+        <div class="p-4 border-t border-white/5 space-y-2">
+            <button type="button" id="sidebar-toggle-btn"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i
+                    data-lucide="panel-left-close" data-sidebar-toggle-icon class="w-3.5 h-3.5 shrink-0"></i><span
+                    data-sidebar-toggle-label class="sidebar-nav-label">Sembunyikan</span></button>
+            <a href="dashboard.html#home"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i
+                    data-lucide="command" class="w-3.5 h-3.5 shrink-0"></i><span class="sidebar-nav-label">Command
+                    Menu</span><span class="ml-auto text-[10px] opacity-50">⌘K</span></a>
+            <a href="login.html"
+                onclick="event.preventDefault(); if(window.supabaseClient) window.supabaseClient.auth.signOut().then(function(){ window.location.href='login.html'; }); else window.location.href='login.html';"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs text-red-400 hover:text-red-300 transition-all"><i
+                    data-lucide="log-out" class="w-3.5 h-3.5 shrink-0"></i><span
+                    class="sidebar-nav-label">Logout</span></a>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 relative">
+        <div id="view-history"
+            class="h-full flex flex-col max-w-7xl mx-auto animate-slide-up p-6 w-full custom-scroll overflow-y-auto">
+            <!-- Header -->
+            <div
+                class="animate-pop-in anim-delay-0 flex flex-col sm:flex-row sm:items-center justify-between mb-8 shrink-0 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-tight">Progress & History</h2>
+                    <p class="text-sm text-gray-500 mt-1">Lacak konsistensi dan keseimbangan Anda.</p>
+                </div>
+                <div class="flex items-center gap-2 p-1 rounded-lg bg-black/30 border border-white/5">
+                    <button onclick="changePeriod('week', this)"
+                        class="period-btn px-4 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Minggu
+                        Ini</button>
+                    <button onclick="changePeriod('month', this)"
+                        class="period-btn px-4 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 text-xs transition-all">Bulan
+                        Ini</button>
+                    <button onclick="changePeriod('all', this)"
+                        class="period-btn px-4 py-1.5 rounded-md bg-white/10 text-white text-xs font-medium shadow-sm transition-all">Semua</button>
+                </div>
+            </div>
+
+            <!-- Top Stats Row -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 shrink-0">
+                <div
+                    class="animate-pop-in anim-delay-1 glass rounded-2xl p-5 hover-lift relative overflow-hidden group">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-accent/10 rounded-full blur-2xl group-hover:bg-accent/20 transition-all">
+                    </div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center text-accent"><i
+                                data-lucide="flame" class="w-4 h-4"></i></div><span
+                            class="text-xs font-medium text-gray-400">Current Streak</span>
+                    </div>
+                    <div class="flex items-end gap-2"><span id="stat-streak"
+                            class="text-3xl font-bold text-white">0</span><span
+                            class="text-sm text-gray-500 pb-1">Hari</span></div>
+                    <div id="stat-streak-sub" class="mt-3 text-[10px] text-gray-500 flex items-center gap-1"></div>
+                </div>
+                <div
+                    class="animate-pop-in anim-delay-2 glass rounded-2xl p-5 hover-lift relative overflow-hidden group">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-work/10 rounded-full blur-2xl group-hover:bg-work/20 transition-all">
+                    </div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-work/20 flex items-center justify-center text-work-light"><i
+                                data-lucide="check-circle-2" class="w-4 h-4"></i></div><span
+                            class="text-xs font-medium text-gray-400">Tugas Selesai</span>
+                    </div>
+                    <div class="flex items-end gap-2"><span id="stat-tasks"
+                            class="text-3xl font-bold text-white">0</span><span
+                            class="text-sm text-gray-500 pb-1">Tugas</span></div>
+                    <div id="stat-tasks-sub" class="mt-3 text-[10px] text-gray-500 flex items-center gap-1"></div>
+                </div>
+                <div
+                    class="animate-pop-in anim-delay-3 glass rounded-2xl p-5 hover-lift relative overflow-hidden group">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-learn/10 rounded-full blur-2xl group-hover:bg-learn/20 transition-all">
+                    </div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-learn/20 flex items-center justify-center text-learn-light"><i
+                                data-lucide="list-checks" class="w-4 h-4"></i></div><span
+                            class="text-xs font-medium text-gray-400">Total Tugas</span>
+                    </div>
+                    <div class="flex items-end gap-2"><span id="stat-total"
+                            class="text-3xl font-bold text-white">0</span><span
+                            class="text-sm text-gray-500 pb-1">Tugas</span></div>
+                    <div id="stat-total-sub" class="mt-3 text-[10px] text-gray-500 flex items-center gap-1"></div>
+                </div>
+                <div
+                    class="animate-pop-in anim-delay-4 glass rounded-2xl p-5 hover-lift relative overflow-hidden group">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-business/10 rounded-full blur-2xl group-hover:bg-business/20 transition-all">
+                    </div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div
+                            class="w-8 h-8 rounded-lg bg-business/20 flex items-center justify-center text-business-light">
+                            <i data-lucide="activity" class="w-4 h-4"></i></div><span
+                            class="text-xs font-medium text-gray-400">Completion Rate</span>
+                    </div>
+                    <div class="flex items-end gap-2"><span id="stat-rate"
+                            class="text-3xl font-bold text-white">0</span><span
+                            class="text-sm text-gray-500 pb-1">%</span></div>
+                    <div id="stat-rate-sub" class="mt-3 text-[10px] text-gray-500 flex items-center gap-1"></div>
+                </div>
+            </div>
+
+            <!-- Middle Section: Visualizations -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 shrink-0">
+                <!-- Consistency Heatmap -->
+                <div class="animate-pop-in anim-delay-5 lg:col-span-2 glass rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="font-semibold text-white">Konsistensi Harian</h3>
+                        <div class="flex items-center gap-2 text-[10px] text-gray-500">
+                            <span>Less</span>
+                            <div class="flex gap-1">
+                                <div class="w-3 h-3 rounded-sm bg-surface" title="Tidak ada aktivitas"></div>
+                                <div class="w-3 h-3 rounded-sm bg-gray-600" title="1-2 tugas selesai"></div>
+                                <div class="w-3 h-3 rounded-sm bg-work" title="3+ tugas selesai"></div>
+                            </div>
+                            <span>More</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 w-full overflow-hidden">
+                        <div class="grid grid-rows-7 gap-1 text-[10px] text-gray-500 pr-2 font-medium">
+                            <span class="h-3 flex items-center">Sen</span><span
+                                class="h-3 flex items-center">Sel</span><span
+                                class="h-3 flex items-center">Rab</span><span
+                                class="h-3 flex items-center">Kam</span><span
+                                class="h-3 flex items-center">Jum</span><span
+                                class="h-3 flex items-center">Sab</span><span class="h-3 flex items-center">Min</span>
+                        </div>
+                        <div class="flex-1 heatmap-grid custom-scroll overflow-x-auto pb-2" id="heatmap-container">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Domain Distribution (Dynamic) -->
+                <div class="animate-pop-in anim-delay-6 glass rounded-2xl p-6 flex flex-col">
+                    <h3 class="font-semibold text-white mb-6">Distribusi Fokus</h3>
+                    <div id="domain-distribution" class="flex-1 flex flex-col justify-center gap-6">
+                        <p class="text-sm text-gray-500">Memuat...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Section: System Activity Timeline (Dynamic) -->
+            <div class="animate-pop-in anim-delay-7 glass rounded-2xl p-6 flex-1">
+                <div class="flex items-center justify-between mb-8">
+                    <h3 class="font-semibold text-white">Log Sistem & Aktivitas</h3>
+                    <div class="flex items-center gap-3">
+                        <select id="timeline-filter" onchange="renderTimeline()"
+                            class="bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-gray-500 cursor-pointer">
+                            <option value="all">Semua Aktivitas</option>
+                            <option value="task_created">Buat Tugas</option>
+                            <option value="task_updated">Edit Tugas</option>
+                            <option value="task_deleted">Hapus Tugas</option>
+                            <option value="task_completed">Selesaikan Tugas</option>
+                            <option value="agent">Tindakan Agent AI</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="timeline-container" class="relative pl-3 sm:pl-0">
+                    <p class="text-sm text-gray-500">Memuat timeline...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/data-service.js?v=taskfix"></script>
+    <script src="js/sidebar-metrics.js"></script>
+    <script src="js/sidebar-workspace.js"></script>
+    <script>
+        window.allTasks = [];
+        var allAgentActivities = [];
+        var allActivityLog = [];
+        var currentPeriod = 'all';
+
+        function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function timeAgo(dateStr) {
+            if (!dateStr) return '';
+            var now = new Date(); var d = new Date(dateStr);
+            var diff = Math.floor((now - d) / 1000);
+            if (diff < 60) return 'baru saja';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm yang lalu';
+            if (diff < 86400) return Math.floor(diff / 3600) + ' jam lalu';
+            if (diff < 604800) return Math.floor(diff / 86400) + ' hari lalu';
+            return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function filterByPeriod(items, dateField) {
+            if (currentPeriod === 'all') return items;
+            var now = new Date();
+            var cutoff;
+            if (currentPeriod === 'week') {
+                cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7);
+            } else if (currentPeriod === 'month') {
+                cutoff = new Date(now); cutoff.setMonth(cutoff.getMonth() - 1);
+            }
+            return items.filter(function (item) {
+                var d = item[dateField];
+                return d && new Date(d) >= cutoff;
+            });
+        }
+
+        function animateNumber(el, end, durationMs) {
+            if (!el) return;
+            var start = 0; var startTime = null;
+            function step(timestamp) {
+                if (!startTime) startTime = timestamp;
+                var elapsed = timestamp - startTime;
+                var progress = Math.min(elapsed / durationMs, 1);
+                var easeOut = 1 - Math.pow(1 - progress, 2);
+                el.innerText = Math.round(start + (end - start) * easeOut);
+                if (progress < 1) requestAnimationFrame(step);
+                else el.innerText = end;
+            }
+            requestAnimationFrame(step);
+        }
+
+        function updateStats() {
+            // Metrik kartu: all-time (tidak filter periode)
+            var tasks = window.allTasks || [];
+            var completed = tasks.filter(function (t) { var s = (t.status || '').toLowerCase(); return s === 'completed' || s === 'done'; });
+            var total = tasks.length;
+            var rate = total > 0 ? Math.round((completed.length / total) * 100) : 0;
+
+            // Current Streak: hari berturut-turut dengan minimal 1 tugas selesai. Jika hari ini tidak ada selesai = reset 0.
+            var streak = 0;
+            var today = new Date(); today.setHours(0, 0, 0, 0);
+            var todayKey = today.toISOString().split('T')[0];
+            var completedDates = {};
+            completed.forEach(function (t) {
+                var dateStr = (t.completed_at || t.updated_at || t.created_at || '').toString().split('T')[0];
+                if (dateStr) completedDates[dateStr] = true;
+            });
+            if (completedDates[todayKey]) {
+                var checkDate = new Date(today);
+                while (completedDates[checkDate.toISOString().split('T')[0]]) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                }
+            }
+
+            var dur = 650; var delay = 80;
+            setTimeout(function () { animateNumber(document.getElementById('stat-streak'), streak, dur); }, 0);
+            setTimeout(function () { animateNumber(document.getElementById('stat-tasks'), completed.length, dur); }, delay);
+            setTimeout(function () { animateNumber(document.getElementById('stat-total'), total, dur); }, delay * 2);
+            setTimeout(function () { animateNumber(document.getElementById('stat-rate'), rate, dur); }, delay * 3);
+
+            var subStreak = document.getElementById('stat-streak-sub');
+            if (subStreak) subStreak.innerHTML = streak > 0 ? '<i data-lucide="trending-up" class="w-3 h-3"></i> Terus jaga konsistensi!' : 'Mulai selesaikan tugas hari ini';
+            var subTasks = document.getElementById('stat-tasks-sub');
+            if (subTasks) subTasks.textContent = completed.length > 0 ? 'dari ' + total + ' total tugas' : 'Belum ada tugas selesai';
+            var subTotal = document.getElementById('stat-total-sub');
+            if (subTotal) subTotal.textContent = total > 0 ? (total - completed.length) + ' masih aktif' : 'Belum ada tugas';
+            var subRate = document.getElementById('stat-rate-sub');
+            if (subRate) {
+                if (rate >= 70) subRate.innerHTML = '<i data-lucide="trending-up" class="w-3 h-3 text-success"></i> <span class="text-success">Performa bagus!</span>';
+                else if (rate > 0) subRate.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 text-warning"></i> <span class="text-warning">Perlu peningkatan</span>';
+                else subRate.textContent = '';
+            }
+        }
+
+        function renderHeatmap() {
+            var container = document.getElementById('heatmap-container');
+            if (!container) return;
+            container.innerHTML = '';
+            var totalDays = currentPeriod === 'week' ? 14 : currentPeriod === 'month' ? 35 : 180;
+
+            // Konsistensi harian: hitung tugas SELESAI per hari (untuk less/more). Tanpa aktivitas = gelap.
+            var completedPerDay = {};
+            (window.allTasks || []).forEach(function (t) {
+                var s = (t.status || '').toLowerCase();
+                if (s !== 'completed' && s !== 'done') return;
+                var dateStr = (t.completed_at || t.updated_at || t.created_at || '').toString().split('T')[0];
+                if (dateStr) completedPerDay[dateStr] = (completedPerDay[dateStr] || 0) + 1;
+            });
+
+            for (var i = 0; i < totalDays; i++) {
+                var cell = document.createElement('div');
+                cell.className = 'heatmap-cell';
+                var cellDate = new Date(Date.now() - (totalDays - i) * 24 * 60 * 60 * 1000);
+                var dateKey = cellDate.toISOString().split('T')[0];
+                var count = completedPerDay[dateKey] || 0;
+
+                if (count >= 3) { cell.className += ' bg-work'; }
+                else if (count >= 1) { cell.className += ' bg-gray-600'; }
+                else { cell.className += ' bg-surface'; }
+
+                cell.title = count === 0 ? 'Tidak ada tugas selesai' : count + ' tugas selesai pada ' + cellDate.toLocaleDateString('id-ID');
+                container.appendChild(cell);
+            }
+            setTimeout(function () { container.scrollLeft = container.scrollWidth; }, 50);
+        }
+
+        function renderDistribution() {
+            var el = document.getElementById('domain-distribution');
+            if (!el) return;
+            // Distribusi fokus: berdasarkan tugas yang dikerjakan/selesai per domain (all-time)
+            var tasks = window.allTasks || [];
+            var completed = tasks.filter(function (t) { var s = (t.status || '').toLowerCase(); return s === 'completed' || s === 'done'; });
+            var total = completed.length;
+            var domains = { work: 0, learn: 0, business: 0, personal: 0 };
+            completed.forEach(function (t) {
+                var d = (t.domain || 'work').toLowerCase();
+                if (domains.hasOwnProperty(d)) domains[d]++;
+            });
+            var labels = { work: 'Work & Career', learn: 'Learning', business: 'Business', personal: 'Personal' };
+            var colors = { work: 'work', learn: 'learn', business: 'business', personal: 'personal' };
+
+            if (total === 0) {
+                el.innerHTML = '<p class="text-sm text-gray-500 text-center">Belum ada data tugas untuk menghitung distribusi.</p>';
+                return;
+            }
+
+            el.innerHTML = Object.keys(domains).map(function (key) {
+                var pct = total > 0 ? Math.round((domains[key] / total) * 100) : 0;
+                return '<div>' +
+                    '<div class="flex justify-between text-xs mb-2"><span class="flex items-center gap-2 text-white"><span class="w-2 h-2 rounded-full bg-' + colors[key] + '"></span>' + labels[key] + '</span><span class="text-gray-400">' + pct + '%</span></div>' +
+                    '<div class="h-2.5 bg-surface rounded-full overflow-hidden"><div class="distrib-bar-fill h-full bg-' + colors[key] + ' rounded-full" style="width: 0" data-target="' + pct + '%"></div></div></div>';
+            }).join('');
+
+            // Animate bars
+            setTimeout(function () {
+                el.querySelectorAll('.distrib-bar-fill').forEach(function (bar, i) {
+                    setTimeout(function () { bar.style.width = bar.getAttribute('data-target'); }, i * 80);
+                });
+            }, 100);
+        }
+
+        function renderTimeline() {
+            var container = document.getElementById('timeline-container');
+            if (!container) return;
+            var filter = (document.getElementById('timeline-filter') || {}).value || 'all';
+
+            var items = [];
+            // Log sistem & aktivitas: dari activity_log (buat, edit, hapus, selesai tugas)
+            var logFilter = ['task_created', 'task_updated', 'task_deleted', 'task_completed'];
+            var includeTaskLog = filter === 'all' || logFilter.indexOf(filter) !== -1;
+            if (includeTaskLog) {
+                filterByPeriod(allActivityLog, 'created_at').forEach(function (a) {
+                    if (filter !== 'all' && a.action !== filter) return;
+                    var label = a.action === 'task_created' ? 'Buat tugas' : a.action === 'task_updated' ? 'Edit tugas' : a.action === 'task_deleted' ? 'Hapus tugas' : a.action === 'task_completed' ? 'Selesaikan tugas' : a.action;
+                    items.push({ type: 'activity', action: a.action, title: label + (a.title ? ': ' + a.title : ''), description: a.details || '', domain: a.domain || 'work', date: a.created_at, icon: a.action === 'task_completed' ? 'check' : a.action === 'task_deleted' ? 'trash-2' : a.action === 'task_created' ? 'plus' : 'edit' });
+                });
+            }
+            if (filter === 'all' || filter === 'agent') {
+                filterByPeriod(allAgentActivities, 'created_at').forEach(function (a) {
+                    items.push({ type: 'agent', title: (a.agent_name || 'Agent') + ': ' + (a.action || ''), description: a.details || '', domain: a.domain || 'work', date: a.created_at, icon: 'bot' });
+                });
+            }
+
+            items.sort(function (a, b) { return new Date(b.date || 0) - new Date(a.date || 0); });
+            items = items.slice(0, 50);
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="text-center py-12"><div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3"><i data-lucide="inbox" class="w-8 h-8 text-gray-600"></i></div><p class="text-sm text-gray-500">Belum ada aktivitas tercatat.</p><p class="text-xs text-gray-600 mt-1">Aktivitas akan muncul saat Anda menambah, mengedit, menghapus, atau menyelesaikan tugas.</p></div>';
+                if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+                return;
+            }
+
+            var colorMap = { work: 'work', learn: 'learn', business: 'business', personal: 'personal' };
+            var html = '<div class="absolute left-[19px] sm:left-1/2 top-0 bottom-0 w-px bg-white/5 -translate-x-1/2"></div><div class="space-y-8">';
+
+            items.forEach(function (item, idx) {
+                var color = colorMap[item.domain] || 'work';
+                var dateStr = item.date ? new Date(item.date).toLocaleString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+                var sourceLabel = item.type === 'agent' ? 'Agent' : (item.type === 'activity' ? 'Tugas' : 'Manual');
+                var domainLabel = (item.domain || 'work').charAt(0).toUpperCase() + (item.domain || 'work').slice(1);
+
+                html += '<div class="relative flex flex-col sm:flex-row items-start sm:items-center justify-between group">' +
+                    '<div class="hidden sm:block w-[45%] text-right pr-12"><div class="text-sm font-medium text-white">' + esc(dateStr) + '</div><div class="text-xs text-gray-500">' + esc(sourceLabel) + '</div></div>' +
+                    '<div class="absolute left-0 sm:left-1/2 w-10 h-10 rounded-full bg-[#18181b] border-4 border-[#0f0f11] flex items-center justify-center -translate-x-1/2 z-10 group-hover:scale-110 transition-transform">' +
+                    '<div class="w-full h-full rounded-full bg-' + color + '/20 flex items-center justify-center"><i data-lucide="' + item.icon + '" class="w-4 h-4 text-' + color + '-light"></i></div></div>' +
+                    '<div class="w-full sm:w-[45%] pl-12 sm:pl-12">' +
+                    '<div class="sm:hidden text-xs text-gray-500 mb-1">' + esc(dateStr) + ' • ' + esc(sourceLabel) + '</div>' +
+                    '<div class="bg-white/5 border border-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors">' +
+                    '<h4 class="text-sm font-medium text-white mb-1">' + esc(item.title) + '</h4>' +
+                    (item.description ? '<p class="text-xs text-gray-400">' + esc(item.description) + '</p>' : '') +
+                    '<div class="mt-3 flex gap-2"><span class="px-2 py-0.5 rounded bg-' + color + '/10 text-' + color + '-light text-[10px]">' + domainLabel + '</span></div></div></div></div>';
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        }
+
+        function changePeriod(period, btnElement) {
+            currentPeriod = period;
+            document.querySelectorAll('.period-btn').forEach(function (btn) {
+                btn.classList.remove('bg-white/10', 'text-white', 'font-medium', 'shadow-sm');
+                btn.classList.add('text-gray-400');
+            });
+            btnElement.classList.remove('text-gray-400');
+            btnElement.classList.add('bg-white/10', 'text-white', 'font-medium', 'shadow-sm');
+            updateStats();
+            renderHeatmap();
+            renderDistribution();
+            renderTimeline();
+        }
+
+        (async function init() {
+            if (typeof window.supabase === 'undefined') return;
+            var supabase = window.supabase.createClient('https://dwpkokavxjvtrltntjtn.supabase.co', 'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1');
+
+            // Retry session fetch hingga 3x (handle race condition saat pertama login)
+            var session = null;
+            for (var attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    var _r = await supabase.auth.getSession();
+                    if (!_r.error && _r.data.session) { session = _r.data.session; break; }
+                    if (attempt < 3) await new Promise(function (r) { setTimeout(r, 800); });
+                } catch (e) { if (attempt === 3) break; await new Promise(function (r) { setTimeout(r, 800); }); }
+            }
+            if (!session) { window.location.replace('login.html'); return; }
+            window.supabaseClient = supabase;
+            window.currentUser = session.user;
+            var nameEl = document.getElementById('sidebar-user-name');
+            var avatarEl = document.getElementById('sidebar-user-avatar');
+            if (nameEl && session.user.email) nameEl.textContent = (session.user.email.split('@')[0] || 'User').replace(/[0-9]/g, '');
+            if (avatarEl && session.user.email) avatarEl.textContent = (session.user.email.substring(0, 2) || '—').toUpperCase();
+
+            // Load data
+            try {
+                var taskService = new TaskService(supabase);
+                window.allTasks = await taskService.getTasks(session.user.id, {}) || [];
+            } catch (e) { window.allTasks = []; }
+
+            try {
+                var agentService = new AgentActivityService(supabase);
+                allAgentActivities = await agentService.getActivities(session.user.id) || [];
+            } catch (e) { allAgentActivities = []; }
+
+            try {
+                var activityLogService = new ActivityLogService(supabase);
+                allActivityLog = await activityLogService.getActivities(session.user.id, { limit: 200 }) || [];
+            } catch (e) { allActivityLog = []; }
+
+            updateStats();
+            renderHeatmap();
+            renderDistribution();
+            renderTimeline();
+
+            if (typeof window.syncSidebarMetrics === 'function') window.syncSidebarMetrics();
+            lucide.createIcons();
+        })();
+    </script>
+</body>
+
+</html>

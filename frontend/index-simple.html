@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JadiSatu OS - Loading...</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0f0f11 0%, #1a1a2e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: white;
+        }
+        .loader {
+            text-align: center;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .text {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader">
+        <div class="spinner"></div>
+        <div class="text">Checking authentication...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Simple auth router for jadisatu.cloud root access
+        (async function() {
+            try {
+                console.log('🔍 Root access - checking authentication...');
+
+                const supabase = window.supabase.createClient(
+                    'https://dwpkokavxjvtrltntjtn.supabase.co',
+                    'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1'
+                );
+
+                // Check session with proper validation
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (session && !error) {
+                    // Verify session is not expired
+                    const expiresAt = session.expires_at;
+                    const now = Math.floor(Date.now() / 1000);
+
+                    if (expiresAt && expiresAt > now) {
+                        // Valid session → go to dashboard
+                        console.log('✅ Valid session found, redirecting to dashboard');
+                        window.location.replace('dashboard.html');
+                        return;
+                    } else {
+                        // Expired session → clear it
+                        console.log('⚠️ Session expired, clearing');
+                        await supabase.auth.signOut();
+                    }
+                }
+
+                // No valid session → go to login
+                console.log('ℹ️ No valid session, redirecting to login');
+                window.location.replace('login.html');
+
+            } catch (err) {
+                console.error('❌ Error checking auth:', err);
+                // On error, redirect to login
+                window.location.replace('login.html');
+            }
+        })();
+
+        // Failsafe timeout - if nothing happens in 5 seconds, go to login
+        setTimeout(() => {
+            console.log('⏱️ Timeout - redirecting to login');
+            window.location.replace('login.html');
+        }, 5000);
+    </script>
+</body>
+</html>

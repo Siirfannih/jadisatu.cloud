@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JadiSatu OS — Task Board (Kanban)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+                    colors: {
+                        bg: '#0f0f11', surface: '#18181b',
+                        work: { DEFAULT: '#3b82f6', light: '#60a5fa' },
+                        learn: { DEFAULT: '#f59e0b', light: '#fbbf24' },
+                        business: { DEFAULT: '#10b981', light: '#34d399' },
+                        personal: { DEFAULT: '#8b5cf6', light: '#a78bfa' },
+                        accent: '#ec4899', danger: '#ef4444', success: '#22c55e', warning: '#eab308',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0f0f11; color: #fafafa; -webkit-font-smoothing: antialiased; }
+        .glass { background: rgba(24, 24, 27, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-strong { background: rgba(15, 15, 17, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        .kanban-col { min-width: 0; background: rgba(24, 24, 27, 0.5); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; }
+        .kanban-board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; width: 100%; max-width: 100%; min-width: 0; align-items: start; }
+        .kanban-board-wrap { min-width: 0; overflow-x: hidden; }
+        .kanban-cards-area { min-height: 80px; }
+        @media (max-width: 1024px) { .kanban-board { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 640px) { .kanban-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        #workspace-sidebar { transition: width 0.25s ease; }
+        #workspace-sidebar.sidebar-collapsed { width: 5rem !important; min-width: 5rem; }
+        #workspace-sidebar.sidebar-collapsed .sidebar-nav-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-section-label,
+        #workspace-sidebar.sidebar-collapsed .sidebar-header-detail { display: none; }
+        #workspace-sidebar.sidebar-collapsed .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+        #workspace-sidebar.sidebar-collapsed .nav-item .ml-auto { display: none; }
+        .gradient-personal { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+        @keyframes taskCheckPop { 0% { transform: scale(0.8); opacity: 0.5; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+        .task-completing [data-action="toggle-complete"] { animation: taskCheckPop 0.35s ease-out; }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+    <aside id="workspace-sidebar" class="w-64 glass-strong flex flex-col shrink-0 z-20 border-r border-white/5 transition-[width] duration-300">
+        <div class="p-6 border-b border-white/5 sidebar-header-detail">
+            <div class="flex items-center gap-3 mb-4">
+                <div id="sidebar-user-avatar" class="w-10 h-10 rounded-xl gradient-personal flex items-center justify-center text-white font-bold text-lg shrink-0">—</div>
+                <div class="min-w-0">
+                    <div id="sidebar-user-name" class="font-semibold text-white truncate">Loading...</div>
+                    <div id="sidebar-user-subtitle" class="text-xs text-gray-400">User</div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                    <span>Life Balance</span>
+                    <span id="sidebar-life-balance-pct" class="text-white">0</span>
+                </div>
+                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden flex">
+                    <div id="sidebar-bar-work" class="h-full bg-work transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-learn" class="h-full bg-learn transition-all" style="width: 0%"></div>
+                    <div id="sidebar-bar-business" class="h-full bg-business transition-all" style="width: 0%"></div>
+                </div>
+                <div class="flex gap-3 text-[10px]">
+                    <span class="flex items-center gap-1 text-work-light"><div class="w-1.5 h-1.5 rounded-full bg-work"></div>Work</span>
+                    <span class="flex items-center gap-1 text-learn-light"><div class="w-1.5 h-1.5 rounded-full bg-learn"></div>Learn</span>
+                    <span class="flex items-center gap-1 text-business-light"><div class="w-1.5 h-1.5 rounded-full bg-business"></div>Business</span>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1">
+            <div class="px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Dashboard</div>
+            <a href="dashboard.html#home" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Overview</span></a>
+            <a href="focus-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Today's Focus</span><span class="ml-auto bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded-full">3</span></a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Domains</div>
+            <a href="dashboard.html#work" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group"><div class="w-2 h-2 rounded-full bg-work group-hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-shadow shrink-0"></div><span class="sidebar-nav-label">Work & Career</span><span id="sidebar-domain-work" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span></a>
+            <a href="dashboard.html#learn" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group"><div class="w-2 h-2 rounded-full bg-learn group-hover:shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-shadow shrink-0"></div><span class="sidebar-nav-label">Learning</span><span id="sidebar-domain-learn" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span></a>
+            <a href="dashboard.html#business" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all group"><div class="w-2 h-2 rounded-full bg-business group-hover:shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-shadow shrink-0"></div><span class="sidebar-nav-label">Business</span><span id="sidebar-domain-business" class="ml-auto text-[10px] text-gray-600 truncate max-w-[80px]" title="">—</span></a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">Workspace</div>
+            <a href="projects-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="folder-kanban" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Projects</span></a>
+            <a href="kanban-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 text-white text-sm font-medium hover:bg-white/10"><i data-lucide="columns" class="w-4 h-4 shrink-0 text-accent"></i><span class="sidebar-nav-label">Kanban Board</span></a>
+            <a href="notes-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="notebook-pen" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Notes & Ideas</span></a>
+            <a href="creative-hub-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="sparkles" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Creative Hub</span></a>
+            <a href="crm-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="users" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">CRM</span><span id="sidebar-crm-badge" class="ml-auto bg-business/20 text-business-light text-[10px] px-2 py-0.5 rounded-full hidden"></span></a>
+            <div class="mt-6 px-3 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider sidebar-section-label">System</div>
+            <a href="ai-agent-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="bot" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">AI Agents</span><span id="sidebar-agent-badge" class="ml-auto flex items-center gap-1 hidden"></span></a>
+            <a href="progress-history-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="line-chart" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Progress & History</span></a>
+            <a href="settings-view.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm transition-all"><i data-lucide="settings" class="w-4 h-4 shrink-0"></i><span class="sidebar-nav-label">Pengaturan</span></a>
+        </nav>
+        <div class="p-4 border-t border-white/5 space-y-2">
+            <button type="button" id="sidebar-toggle-btn" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i data-lucide="panel-left-close" data-sidebar-toggle-icon class="w-3.5 h-3.5 shrink-0"></i><span data-sidebar-toggle-label class="sidebar-nav-label">Sembunyikan</span></button>
+            <a href="dashboard.html#home" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-white transition-all"><i data-lucide="command" class="w-3.5 h-3.5 shrink-0"></i><span class="sidebar-nav-label">Command Menu</span><span class="ml-auto text-[10px] opacity-50">⌘K</span></a>
+            <a href="login.html" onclick="event.preventDefault(); if(window.supabaseClient) window.supabaseClient.auth.signOut().then(function(){ window.location.href='login.html'; }); else window.location.href='login.html';" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs text-red-400 hover:text-red-300 transition-all"><i data-lucide="log-out" class="w-3.5 h-3.5 shrink-0"></i><span class="sidebar-nav-label">Logout</span></a>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 relative overflow-hidden">
+        <div class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden custom-scroll p-6">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Task Board</h2>
+                    <p class="text-sm text-gray-500">Organize work across all domains</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <select id="kanban-domain-filter" class="px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white outline-none focus:border-work/50">
+                        <option value="">All Domains</option>
+                        <option value="work">Work</option>
+                        <option value="learn">Learning</option>
+                        <option value="business">Business</option>
+                    </select>
+                    <button type="button" onclick="typeof showCreateTaskModal === 'function' && showCreateTaskModal()" class="px-4 py-2 bg-work hover:bg-work-light text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> New Task
+                    </button>
+                </div>
+            </div>
+            <div class="kanban-board-wrap pb-4 min-w-0">
+            <div class="kanban-board">
+                <div class="kanban-col flex flex-col">
+                    <div class="p-3 border-b border-white/5 flex items-center justify-between min-w-0">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <div class="w-2 h-2 rounded-full bg-gray-500 shrink-0"></div>
+                            <span class="font-semibold text-white text-sm truncate">Backlog</span>
+                            <span id="kanban-count-backlog" class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <button type="button" onclick="typeof showCreateTaskModal === 'function' && showCreateTaskModal()" class="text-gray-500 hover:text-white transition-all"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                    </div>
+                    <div id="kanban-col-backlog" class="kanban-cards-area p-3 space-y-3 custom-scroll"></div>
+                    <div class="kanban-add-card p-3 border-t border-white/5">
+                        <button type="button" class="kanban-add-card-btn w-full text-left py-2 px-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2" data-column="backlog"><i data-lucide="plus" class="w-4 h-4"></i> Add a card</button>
+                        <div class="kanban-add-card-form hidden mt-2 space-y-2">
+                            <input type="text" class="kanban-quick-title w-full px-3 py-2 rounded-lg bg-black/30 border border-work/50 text-white text-sm placeholder-gray-500 outline-none focus:border-work" placeholder="Enter a title or paste a link" data-column="backlog">
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="kanban-quick-add-btn px-3 py-1.5 rounded-lg bg-work hover:bg-work-light text-white text-sm font-medium" data-column="backlog">Add card</button>
+                                <button type="button" class="kanban-quick-cancel p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Cancel"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="kanban-col flex flex-col">
+                    <div class="p-3 border-b border-white/5 flex items-center justify-between min-w-0">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <div class="w-2 h-2 rounded-full bg-learn shrink-0"></div>
+                            <span class="font-semibold text-white text-sm truncate">To Do</span>
+                            <span id="kanban-count-todo" class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <button type="button" onclick="typeof showCreateTaskModal === 'function' && showCreateTaskModal()" class="text-gray-500 hover:text-white transition-all"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                    </div>
+                    <div id="kanban-col-todo" class="kanban-cards-area p-3 space-y-3 custom-scroll"></div>
+                    <div class="kanban-add-card p-3 border-t border-white/5">
+                        <button type="button" class="kanban-add-card-btn w-full text-left py-2 px-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2" data-column="todo"><i data-lucide="plus" class="w-4 h-4"></i> Add a card</button>
+                        <div class="kanban-add-card-form hidden mt-2 space-y-2">
+                            <input type="text" class="kanban-quick-title w-full px-3 py-2 rounded-lg bg-black/30 border border-work/50 text-white text-sm placeholder-gray-500 outline-none focus:border-work" placeholder="Enter a title or paste a link" data-column="todo">
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="kanban-quick-add-btn px-3 py-1.5 rounded-lg bg-work hover:bg-work-light text-white text-sm font-medium" data-column="todo">Add card</button>
+                                <button type="button" class="kanban-quick-cancel p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Cancel"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="kanban-col flex flex-col border-work/20">
+                    <div class="p-3 border-b border-white/5 flex items-center justify-between min-w-0">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <div class="w-2 h-2 rounded-full bg-work animate-pulse shrink-0"></div>
+                            <span class="font-semibold text-white text-sm truncate">In Progress</span>
+                            <span id="kanban-count-in_progress" class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                    </div>
+                    <div id="kanban-col-in_progress" class="kanban-cards-area p-3 space-y-3 custom-scroll"></div>
+                    <div class="kanban-add-card p-3 border-t border-white/5">
+                        <button type="button" class="kanban-add-card-btn w-full text-left py-2 px-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2" data-column="in_progress"><i data-lucide="plus" class="w-4 h-4"></i> Add a card</button>
+                        <div class="kanban-add-card-form hidden mt-2 space-y-2">
+                            <input type="text" class="kanban-quick-title w-full px-3 py-2 rounded-lg bg-black/30 border border-work/50 text-white text-sm placeholder-gray-500 outline-none focus:border-work" placeholder="Enter a title or paste a link" data-column="in_progress">
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="kanban-quick-add-btn px-3 py-1.5 rounded-lg bg-work hover:bg-work-light text-white text-sm font-medium" data-column="in_progress">Add card</button>
+                                <button type="button" class="kanban-quick-cancel p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Cancel"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="kanban-col flex flex-col">
+                    <div class="p-3 border-b border-white/5 flex items-center justify-between min-w-0">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <div class="w-2 h-2 rounded-full bg-personal shrink-0"></div>
+                            <span class="font-semibold text-white text-sm truncate">Review</span>
+                            <span id="kanban-count-review" class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                    </div>
+                    <div id="kanban-col-review" class="kanban-cards-area p-3 space-y-3 custom-scroll"></div>
+                    <div class="kanban-add-card p-3 border-t border-white/5">
+                        <button type="button" class="kanban-add-card-btn w-full text-left py-2 px-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2" data-column="review"><i data-lucide="plus" class="w-4 h-4"></i> Add a card</button>
+                        <div class="kanban-add-card-form hidden mt-2 space-y-2">
+                            <input type="text" class="kanban-quick-title w-full px-3 py-2 rounded-lg bg-black/30 border border-work/50 text-white text-sm placeholder-gray-500 outline-none focus:border-work" placeholder="Enter a title or paste a link" data-column="review">
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="kanban-quick-add-btn px-3 py-1.5 rounded-lg bg-work hover:bg-work-light text-white text-sm font-medium" data-column="review">Add card</button>
+                                <button type="button" class="kanban-quick-cancel p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Cancel"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="kanban-col flex flex-col">
+                    <div class="p-3 border-b border-white/5 flex items-center justify-between min-w-0">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <div class="w-2 h-2 rounded-full bg-success shrink-0"></div>
+                            <span class="font-semibold text-white text-sm truncate">Done</span>
+                            <span id="kanban-count-done" class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                    </div>
+                    <div id="kanban-col-done" class="kanban-cards-area p-3 space-y-3 custom-scroll"></div>
+                    <div class="kanban-add-card p-3 border-t border-white/5">
+                        <button type="button" class="kanban-add-card-btn w-full text-left py-2 px-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2" data-column="done"><i data-lucide="plus" class="w-4 h-4"></i> Add a card</button>
+                        <div class="kanban-add-card-form hidden mt-2 space-y-2">
+                            <input type="text" class="kanban-quick-title w-full px-3 py-2 rounded-lg bg-black/30 border border-work/50 text-white text-sm placeholder-gray-500 outline-none focus:border-work" placeholder="Enter a title or paste a link" data-column="done">
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="kanban-quick-add-btn px-3 py-1.5 rounded-lg bg-work hover:bg-work-light text-white text-sm font-medium" data-column="done">Add card</button>
+                                <button type="button" class="kanban-quick-cancel p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Cancel"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Task Modal -->
+    <div id="create-task-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-strong rounded-2xl max-w-lg w-full p-6 border border-white/10">
+            <h3 class="text-xl font-bold text-white mb-4">Create New Task</h3>
+            <form id="create-task-form" class="space-y-4">
+                <div>
+                    <label for="task-title" class="block text-sm font-medium text-gray-300 mb-1">Judul <span class="text-red-400">*</span></label>
+                    <input type="text" id="task-title" name="title" required placeholder="Contoh: Review proposal" class="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-work/50 outline-none transition">
+                </div>
+                <div>
+                    <label for="task-description" class="block text-sm font-medium text-gray-300 mb-1">Deskripsi (opsional)</label>
+                    <textarea id="task-description" name="description" rows="2" placeholder="Detail tugas..." class="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-work/50 outline-none resize-none"></textarea>
+                </div>
+                <div>
+                    <label for="task-project_id" class="block text-sm font-medium text-gray-300 mb-1">Project (opsional)</label>
+                    <select id="task-project_id" name="project_id" class="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:border-work/50 outline-none">
+                        <option value="">Semua / Tanpa project</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="task-domain" class="block text-sm font-medium text-gray-300 mb-1">Domain <span class="text-red-400">*</span></label>
+                    <select id="task-domain" name="domain" required class="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:border-work/50 outline-none">
+                        <option value="work">Work</option>
+                        <option value="learn">Learn</option>
+                        <option value="business">Business</option>
+                        <option value="personal">Personal</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="task-priority" class="block text-sm font-medium text-gray-300 mb-1">Prioritas <span class="text-red-400">*</span></label>
+                    <select id="task-priority" name="priority" required class="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:border-work/50 outline-none">
+                        <option value="high">High</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="task-due_date" class="block text-sm font-medium text-gray-300 mb-1">Jatuh tempo (opsional)</label>
+                    <div class="date-picker-trigger flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2 cursor-pointer hover:border-work/40 focus-within:border-work/50">
+                        <input type="date" id="task-due_date" name="due_date" class="flex-1 min-w-0 bg-transparent text-white outline-none [color-scheme:dark] cursor-pointer">
+                        <i data-lucide="calendar" class="w-4 h-4 text-gray-400 shrink-0 pointer-events-none"></i>
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="hideCreateTaskModal()" class="flex-1 px-4 py-2 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 transition-colors">Batal</button>
+                    <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-work hover:bg-work-light text-white font-medium transition-colors">Buat Tugas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/data-service.js?v=taskfix"></script>
+    <script src="js/sidebar-metrics.js"></script>
+    <script src="js/sidebar-workspace.js"></script>
+    <script src="js/task-renderer.js"></script>
+    <script src="js/task-form.js"></script>
+    <script src="js/task-actions.js"></script>
+    <script src="js/date-picker-trigger.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://dwpkokavxjvtrltntjtn.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1';
+        let supabaseClient, taskService, projectService, currentUser;
+        window.allTasks = [];
+        window.allProjects = [];
+        window.currentProjectId = null;
+        window.showToast = window.showToast || function(msg) { var el = document.createElement('div'); el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-white text-sm z-[100]'; el.textContent = msg; document.body.appendChild(el); setTimeout(function() { el.remove(); }, 2500); };
+
+        async function loadTasks() {
+            if (!currentUser) return;
+            try {
+                window.allTasks = await taskService.getTasks(currentUser.id, window.currentProjectId ? { project_id: window.currentProjectId } : {});
+                if (typeof renderKanbanTasks === 'function') renderKanbanTasks(window.allTasks);
+            } catch (err) { console.error('Load tasks error:', err); }
+        }
+
+        function openKanbanQuickAdd(columnId) {
+            document.querySelectorAll('.kanban-add-card-form').forEach(function (f) { f.classList.add('hidden'); });
+            document.querySelectorAll('.kanban-add-card-btn').forEach(function (b) { b.classList.remove('hidden'); });
+            var block = document.querySelector('.kanban-add-card-form input[data-column="' + columnId + '"]');
+            if (block) {
+                block.closest('.kanban-add-card').querySelector('.kanban-add-card-btn').classList.add('hidden');
+                block.closest('.kanban-add-card-form').classList.remove('hidden');
+                block.value = '';
+                block.focus();
+            }
+        }
+        function closeKanbanQuickAdd(columnId) {
+            var block = document.querySelector('.kanban-add-card-form input[data-column="' + columnId + '"]');
+            if (block) {
+                block.closest('.kanban-add-card-form').classList.add('hidden');
+                block.closest('.kanban-add-card').querySelector('.kanban-add-card-btn').classList.remove('hidden');
+                block.value = '';
+            }
+        }
+        function submitKanbanQuickAdd(columnId) {
+            var input = document.querySelector('.kanban-add-card-form input[data-column="' + columnId + '"]');
+            if (!input || !currentUser || !taskService) return;
+            var title = (input.value || '').trim();
+            if (!title) { input.focus(); return; }
+            var domainEl = document.getElementById('kanban-domain-filter');
+            var domain = (domainEl && domainEl.value) ? domainEl.value : 'work';
+            taskService.createTask(currentUser.id, { title: title, status: columnId, domain: domain })
+                .then(function () {
+                    closeKanbanQuickAdd(columnId);
+                    return loadTasks();
+                })
+                .then(function () {
+                    if (typeof window.showToast === 'function') window.showToast('Tugas ditambahkan.');
+                })
+                .catch(function (err) {
+                    console.error(err);
+                    if (typeof window.showToast === 'function') window.showToast('Gagal menambah tugas.');
+                });
+        }
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.kanban-add-card-btn');
+            if (btn) { e.preventDefault(); openKanbanQuickAdd(btn.getAttribute('data-column')); return; }
+            var cancel = e.target.closest('.kanban-quick-cancel');
+            if (cancel) {
+                var col = cancel.closest('.kanban-add-card').querySelector('.kanban-quick-title');
+                if (col) closeKanbanQuickAdd(col.getAttribute('data-column'));
+                return;
+            }
+            var addBtn = e.target.closest('.kanban-quick-add-btn');
+            if (addBtn) { submitKanbanQuickAdd(addBtn.getAttribute('data-column')); return; }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            var input = e.target.closest('.kanban-quick-title');
+            if (input) {
+                e.preventDefault();
+                submitKanbanQuickAdd(input.getAttribute('data-column'));
+            }
+        });
+
+        (async function init() {
+            if (typeof window.supabase === 'undefined') return;
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            window.supabaseClient = supabaseClient;
+
+            // Retry session fetch hingga 3x (handle race condition saat pertama login)
+            var session = null;
+            for (var attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    var _r = await supabaseClient.auth.getSession();
+                    if (!_r.error && _r.data.session) { session = _r.data.session; break; }
+                    if (attempt < 3) await new Promise(function (r) { setTimeout(r, 800); });
+                } catch (e) { if (attempt === 3) break; await new Promise(function (r) { setTimeout(r, 800); }); }
+            }
+            if (!session) { window.location.replace('login.html'); return; }
+            currentUser = session.user;
+            window.currentUser = currentUser;
+            taskService = new TaskService(supabaseClient);
+            projectService = new ProjectService(supabaseClient);
+            window.taskService = taskService;
+            window.allProjects = await projectService.getProjects(currentUser.id);
+            var nameEl = document.getElementById('sidebar-user-name');
+            var avatarEl = document.getElementById('sidebar-user-avatar');
+            if (nameEl && currentUser.email) nameEl.textContent = (currentUser.email.split('@')[0] || 'User').replace(/[0-9]/g, '');
+            if (avatarEl && currentUser.email) avatarEl.textContent = (currentUser.email.substring(0, 2) || '—').toUpperCase();
+            await loadTasks();
+            if (typeof window.syncSidebarMetrics === 'function') window.syncSidebarMetrics();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        })();
+    </script>
+</body>
+</html>

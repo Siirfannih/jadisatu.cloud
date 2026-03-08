@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jadisatu — Satu Tempat Berpikir</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        jadisatu: {
+                            bg: '#010100',
+                            glass: 'rgba(1, 1, 0, 0.6)',
+                            accent: '#ffffff',
+                            muted: '#666666',
+                            subtle: '#1a1a1a'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 8s ease-in-out infinite',
+                        'fade-in': 'fadeIn 1s ease-out forwards',
+                        'slide-up': 'slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(40px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #010100;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-nav {
+            background: rgba(1, 1, 0, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .text-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            filter: blur(10px);
+        }
+
+        .text-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0);
+        }
+
+        .word-rotate {
+            display: inline-block;
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .word-rotate.exiting {
+            opacity: 0;
+            transform: translateY(-20px);
+            filter: blur(10px);
+        }
+
+        .word-rotate.entering {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0);
+        }
+
+        .cursor-trail {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s;
+        }
+
+        .section-minimal {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .bubble-item {
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .bubble-item.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .divider-line {
+            width: 0;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .divider-line.visible {
+            width: 100%;
+        }
+
+        .image-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .image-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 3D Mockup Styling */
+        .mockup-container {
+            perspective: 2000px;
+            transform-style: preserve-3d;
+        }
+
+        .mockup-3d {
+            position: relative;
+            transform: rotateX(8deg) rotateY(-10deg) rotateZ(1deg) scale(0.95);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+            transform-style: preserve-3d;
+            box-shadow:
+                -30px 40px 80px rgba(0, 0, 0, 0.8),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .mockup-container:hover .mockup-3d {
+            transform: rotateX(2deg) rotateY(-2deg) rotateZ(0deg) scale(1.02);
+            box-shadow:
+                -10px 20px 50px rgba(0, 0, 0, 0.9),
+                0 0 60px rgba(168, 85, 247, 0.15),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+        }
+
+        /* Intense back glow */
+        .mockup-glow {
+            position: absolute;
+            inset: -4px;
+            background: linear-gradient(45deg, rgba(37, 211, 102, 0.4), rgba(168, 85, 247, 0.4), rgba(59, 130, 246, 0.4));
+            filter: blur(30px);
+            opacity: 0.2;
+            transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), filter 1s ease;
+            z-index: -1;
+            transform: translateZ(-30px);
+            border-radius: inherit;
+        }
+
+        .mockup-container:hover .mockup-glow {
+            opacity: 0.8;
+            filter: blur(40px);
+        }
+
+        /* Sweeping highlight reflection */
+        .mockup-reflection {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.03) 55%, transparent 70%);
+            background-size: 200% 100%;
+            pointer-events: none;
+            z-index: 10;
+            background-position: 200% 0;
+            border-radius: inherit;
+        }
+
+        .mockup-container:hover .mockup-reflection {
+            animation: shine 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes shine {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* Floating Accents */
+        .floating-accent {
+            position: absolute;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 1rem;
+            transform-style: preserve-3d;
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 20;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .accent-1 {
+            top: -20px;
+            right: -20px;
+            width: 80px;
+            height: 80px;
+            transform: translateZ(60px) rotateX(15deg) rotateY(15deg);
+        }
+
+        .accent-2 {
+            bottom: -30px;
+            left: -20px;
+            width: 140px;
+            height: 70px;
+            transform: translateZ(80px) rotateX(-10deg) rotateY(-15deg);
+        }
+
+        .mockup-container:hover .accent-1 {
+            transform: translateZ(100px) rotateX(5deg) rotateY(5deg) translateX(10px) translateY(-10px);
+        }
+
+        .mockup-container:hover .accent-2 {
+            transform: translateZ(120px) rotateX(-5deg) rotateY(-5deg) translateX(-10px) translateY(10px);
+        }
+
+        /* Hide scrollbar but keep functionality */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.02;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+    </style>
+</head>
+
+<body class="antialiased selection:bg-white selection:text-black">
+
+    <div class="noise"></div>
+    <div class="cursor-trail" id="cursorTrail"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-nav transition-all duration-500 opacity-0 -translate-y-full" id="navbar">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-8 h-8 border border-white/20 rounded-lg flex items-center justify-center font-semibold text-sm">
+                        J</div>
+                    <span class="font-medium tracking-tight text-white/90">Jadisatu</span>
+                </div>
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#essence"
+                        class="text-sm font-normal text-white/50 hover:text-white transition-colors duration-300">Esensi</a>
+                    <a href="#how-it-works"
+                        class="text-sm font-normal text-white/50 hover:text-white transition-colors duration-300">Cara
+                        Kerja</a>
+                    <a href="login.html"
+                        class="px-5 py-2.5 rounded-full border border-white/20 text-sm font-normal hover:bg-white hover:text-black transition-all duration-300 inline-block">
+                        Masuk
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Section 1: Absolute Focus Hero -->
+    <section class="section-minimal relative" id="hero">
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div class="w-[600px] h-[600px] bg-white/[0.02] rounded-full blur-3xl"></div>
+        </div>
+
+        <div class="relative z-10 text-center px-6 max-w-5xl mx-auto">
+            <!-- Main Headline Only -->
+            <h1 class="font-serif text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight leading-none">
+                <span class="block text-white/30 mb-4 text-reveal" id="hero-prefix">Satu tempat</span>
+                <span class="block text-reveal" style="transition-delay: 0.2s" id="hero-dynamic">
+                    <span id="rotating-word" class="word-rotate text-white">Berpikir</span>
+                </span>
+            </h1>
+
+            <!-- Hidden initially, revealed on interaction -->
+            <div class="mt-16 space-y-8 opacity-0 transition-all duration-1000" id="hero-content">
+                <p class="text-lg md:text-xl text-white/40 font-light max-w-xl mx-auto leading-relaxed text-reveal">
+                    Sistem yang mikir bareng kamu.
+                </p>
+
+                <div class="flex flex-col items-center gap-4 text-reveal" style="transition-delay: 0.2s">
+                    <div class="glass-panel px-6 py-4 rounded-2xl inline-flex items-center gap-3">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-white/70 text-sm font-normal">Titip ide lewat WhatsApp, eksekusi di
+                            dasbor</span>
+                    </div>
+
+                    <p class="text-white/20 text-xs font-light tracking-wide uppercase">
+                        Simpel. Fokus. Tanpa keputusan kecil yang menguras.
+                    </p>
+                </div>
+
+                <div class="pt-8 text-reveal" style="transition-delay: 0.4s">
+                    <button onclick="document.getElementById('essence').scrollIntoView({behavior: 'smooth'})"
+                        class="group px-8 py-4 rounded-full bg-white text-black font-medium text-sm hover:scale-105 transition-transform duration-300 flex items-center gap-2 mx-auto">
+                        Lihat Cara Kerjanya
+                        <svg class="w-4 h-4 group-hover:translate-y-1 transition-transform" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interaction hint -->
+        <div class="absolute bottom-12 left-1/2 -translate-x-1/2 text-white/20 text-xs font-mono tracking-widest uppercase opacity-0 transition-opacity duration-1000"
+            id="scroll-hint">
+            Scroll untuk melanjutkan
+        </div>
+    </section>
+
+    <!-- Section 2: The Essence (Full Screen Focus) -->
+    <section class="section-minimal bg-black relative" id="essence">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-white/[0.01] to-transparent"></div>
+
+        <div class="relative z-10 max-w-6xl mx-auto px-6 text-center">
+            <h2 class="font-serif text-4xl md:text-6xl lg:text-7xl font-medium leading-tight tracking-tight">
+                <span class="block text-reveal essence-line">Otakmu untuk mencari</span>
+                <span class="block text-reveal essence-line" style="transition-delay: 0.15s">jalan keluar,</span>
+                <span class="block text-white/30 text-reveal essence-line" style="transition-delay: 0.3s">bukan untuk
+                    mengingat</span>
+                <span class="block text-white/30 text-reveal essence-line" style="transition-delay: 0.45s">di mana
+                    catatanmu.</span>
+            </h2>
+        </div>
+    </section>
+
+    <!-- Section 3: The Problem (Bubbles) -->
+    <section class="py-32 relative" id="problem">
+        <div class="max-w-6xl mx-auto px-6">
+            <p class="text-white/40 text-center mb-20 font-light text-lg text-reveal problem-trigger">
+                Mencatat ide seringkali butuh terlalu banyak keputusan:
+            </p>
+
+            <!-- Horizontal Bubbles -->
+            <div class="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 mb-24">
+                <div class="bubble-item glass-panel px-8 py-5 rounded-full">
+                    <span class="text-white/80 font-light text-lg">Catat di mana?</span>
+                </div>
+
+                <div class="hidden md:block text-white/10">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+
+                <div class="bubble-item glass-panel px-8 py-5 rounded-full" style="transition-delay: 0.1s">
+                    <span class="text-white/80 font-light text-lg">Kategori apa?</span>
+                </div>
+
+                <div class="hidden md:block text-white/10">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+
+                <div class="bubble-item glass-panel px-8 py-5 rounded-full" style="transition-delay: 0.2s">
+                    <span class="text-white/80 font-light text-lg">Prioritasnya apa?</span>
+                </div>
+            </div>
+
+            <!-- Solution Split -->
+            <div class="grid md:grid-cols-2 gap-16 items-center">
+                <div class="order-2 md:order-1 relative group w-full mockup-container">
+
+                    <div class="image-reveal p-4 relative z-10 w-full transition-all duration-500">
+                        <!-- Dashboard UI 3D Image Wrapper -->
+                        <div class="mockup-3d relative w-full h-auto flex flex-col items-center justify-center">
+
+                            <!-- Intense Blur Glow -->
+                            <div class="mockup-glow"></div>
+
+                            <!-- The Actual Screenshot -->
+                            <!-- TODO: Ganti URL di bawah ini dengan nama file gambar yang sudah kamu simpan (misal: dashboard.png) -->
+                            <img src="dashboard.png" alt="Jadisatu Dashboard"
+                                class="w-full h-auto rounded-[12px] shadow-2xl relative z-10 border border-white/5 object-cover"
+                                style="aspect-ratio: 16/10;">
+
+                            <!-- Glassmorphism Light Reflection Overlay -->
+                            <div class="mockup-reflection"></div>
+                            <div
+                                class="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-xl pointer-events-none shadow-[inset_0_0_40px_rgba(0,0,0,0.4)] z-20">
+                            </div>
+
+                            <!-- Floating Glass Decor 1 -->
+                            <div class="floating-accent accent-1 flex items-center justify-center pointer-events-none">
+                                <div
+                                    class="w-10 h-10 rounded-full border border-purple-500/30 bg-purple-500/10 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- Floating Glass Decor 2 (Juru AI) -->
+                            <div
+                                class="floating-accent accent-2 p-3 flex items-center gap-3 pointer-events-none overflow-hidden">
+                                <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent"></div>
+                                <div
+                                    class="w-8 h-8 rounded-full bg-[#25D366]/20 border border-[#25D366]/30 flex items-center justify-center shrink-0">
+                                    <svg class="w-4 h-4 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                            d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" />
+                                    </svg>
+                                </div>
+                                <div class="flex flex-col relative z-10">
+                                    <span class="text-[10px] font-medium text-white/90">Task Complete</span>
+                                    <span class="text-[8px] text-[#25D366] font-mono">Synced to Dashboard</span>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-1 md:order-2 space-y-6">
+                    <h3 class="font-serif text-3xl md:text-4xl font-medium text-reveal solution-text">
+                        Jadisatu memotong<br>semua proses itu.
+                    </h3>
+                    <div class="divider-line"></div>
+                    <p class="text-white/50 font-light text-lg leading-relaxed text-reveal solution-text"
+                        style="transition-delay: 0.2s">
+                        Tumpahkan semuanya lewat chat, dan biarkan sistem merapikannya saat kamu siap mengeksekusi.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Philosophy -->
+    <section class="py-32 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.01] to-transparent"></div>
+
+        <div class="max-w-4xl mx-auto px-6 text-center relative z-10">
+            <h2
+                class="font-serif text-4xl md:text-5xl lg:text-6xl font-medium mb-8 leading-tight text-reveal philo-trigger">
+                Kami membangun <span class="italic text-white/60">asisten</span>,<br>
+                bukan lemari arsip.
+            </h2>
+
+            <div class="space-y-6 text-reveal philo-text" style="transition-delay: 0.3s">
+                <p class="text-white/40 font-light text-lg leading-relaxed max-w-2xl mx-auto">
+                    Aplikasi produktivitas tradisional memaksamu menjadi manajer administratif dari datamu sendiri.
+                    Jadisatu membalik logika itu.
+                </p>
+
+                <div class="glass-panel rounded-2xl p-8 max-w-2xl mx-auto mt-8 border border-white/5">
+                    <p class="text-white/70 font-light leading-relaxed">
+                        Delegasikan ide mentah dan tugas ke <span
+                            class="font-mono text-xs bg-white/10 px-2 py-1 rounded text-white/90">Juru</span> (Asisten
+                        WhatsApp kami), dan sistem di dasbor akan menyusunnya menjadi rencana kerja.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 5: How It Works -->
+    <section class="py-32 relative" id="how-it-works">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-20">
+                <h2 class="font-serif text-3xl md:text-5xl font-medium mb-4 text-reveal">How It Works</h2>
+                <p class="text-white/30 font-light text-reveal" style="transition-delay: 0.2s">Dari chaos ke clarity
+                    dalam tiga langkah</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8 items-start">
+                <!-- Step 1 & 2: WhatsApp -->
+                <div class="space-y-4 text-reveal" style="transition-delay: 0.3s">
+                    <div class="glass-panel rounded-3xl p-6 border border-white/5">
+                        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-white/5">
+                            <div class="w-10 h-10 rounded-full bg-[#25D366]/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-medium text-sm">Juru</div>
+                                <div class="text-xs text-white/30">Asisten WhatsApp</div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 font-mono text-xs">
+                            <div class="flex justify-end">
+                                <div class="bg-white/10 rounded-lg rounded-tr-sm px-3 py-2 max-w-[90%] text-white/70">
+                                    Meeting client besok 10am, prepare pitch deck campaign baru
+                                </div>
+                            </div>
+                            <div class="flex justify-start">
+                                <div
+                                    class="bg-white/5 border border-white/10 rounded-lg rounded-tl-sm px-3 py-2 max-w-[90%] text-white/50">
+                                    ✓ Catatan diterima<br>
+                                    > Kategori: Work<br>
+                                    > Priority: High<br>
+                                    > Due: Besok 09:30
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 text-white/30 text-xs font-mono ml-2">
+                        <span
+                            class="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center">1</span>
+                        <span>Kirim ide apa adanya</span>
+                    </div>
+                </div>
+
+                <!-- Arrow -->
+                <div class="hidden md:flex justify-center pt-20">
+                    <div
+                        class="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Step 3: Dashboard -->
+                <div class="space-y-4 text-reveal" style="transition-delay: 0.5s">
+                    <div class="glass-panel rounded-3xl p-6 border border-white/5 bg-white/[0.02]">
+                        <div class="flex items-center justify-between mb-6 pb-4 border-b border-white/5">
+                            <div class="flex items-center gap-2">
+                                <div
+                                    class="w-8 h-8 border border-white/20 rounded-lg flex items-center justify-center text-xs font-medium">
+                                    J</div>
+                                <span class="font-medium text-sm">Dasbor</span>
+                            </div>
+                            <div class="flex gap-1.5">
+                                <div class="w-2 h-2 rounded-full bg-white/20"></div>
+                                <div class="w-2 h-2 rounded-full bg-white/20"></div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="bg-white/5 border-l-2 border-white/40 rounded-r-lg p-3">
+                                <div class="flex justify-between items-start mb-1">
+                                    <span class="text-xs font-medium text-white/80">Prepare Pitch Deck</span>
+                                    <span class="text-[10px] px-2 py-0.5 bg-white/10 rounded text-white/40">High</span>
+                                </div>
+                                <p class="text-[10px] text-white/30 mb-2">Campaign Q3 presentation</p>
+                                <div class="text-[10px] text-white/20 font-mono">Due: Besok, 09:30</div>
+                            </div>
+
+                            <div class="bg-white/5 border-l-2 border-white/20 rounded-r-lg p-3">
+                                <div class="flex justify-between items-start mb-1">
+                                    <span class="text-xs font-medium text-white/60">Meeting Client</span>
+                                    <span class="text-[10px] px-2 py-0.5 bg-white/5 rounded text-white/30">10:00</span>
+                                </div>
+                                <div class="text-[10px] text-white/20 font-mono">Duration: 90min</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 text-white/30 text-xs font-mono ml-2">
+                        <span
+                            class="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center">2</span>
+                        <span>Sistem merapikan otomatis</span>
+                        <span
+                            class="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center">3</span>
+                        <span>Siap eksekusi</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Final CTA -->
+            <div class="mt-24 text-center space-y-6 text-reveal" style="transition-delay: 0.7s">
+                <p class="text-white/40 font-light text-lg max-w-xl mx-auto">
+                    Sistem yang udah nungguin kamu buat kerja, bukan sebaliknya.
+                </p>
+
+                <a href="login.html#signup"
+                    class="group px-10 py-5 rounded-full bg-white text-black font-medium text-sm hover:scale-105 transition-all duration-300 shadow-2xl shadow-white/10 inline-flex items-center justify-center">
+                    Mulai Jadisatu Sekarang
+                    <span class="inline-block ml-2 group-hover:translate-x-1 transition-transform">→</span>
+                </a>
+
+                <p class="text-white/20 text-xs font-light">Gratis selamanya untuk personal use</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-white/5">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2 text-white/30 text-xs font-mono">
+                <span>Jadisatu</span>
+                <span class="text-white/10">|</span>
+                <span>Sistem yang mikir bareng kamu</span>
+            </div>
+            <div class="text-white/20 text-xs">
+                © 2026
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Cursor trail effect
+        const cursorTrail = document.getElementById('cursorTrail');
+        let mouseX = 0, mouseY = 0;
+        let trailX = 0, trailY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        function animateTrail() {
+            trailX += (mouseX - trailX) * 0.1;
+            trailY += (mouseY - trailY) * 0.1;
+            cursorTrail.style.left = trailX + 'px';
+            cursorTrail.style.top = trailY + 'px';
+            requestAnimationFrame(animateTrail);
+        }
+        animateTrail();
+
+        // Word rotation in hero
+        const words = ['Berpikir', 'Bekerja', 'Berkembang'];
+        let wordIndex = 0;
+        const wordElement = document.getElementById('rotating-word');
+
+        setInterval(() => {
+            wordElement.classList.add('exiting');
+            setTimeout(() => {
+                wordIndex = (wordIndex + 1) % words.length;
+                wordElement.textContent = words[wordIndex];
+                wordElement.classList.remove('exiting');
+                wordElement.classList.add('entering');
+                setTimeout(() => {
+                    wordElement.classList.remove('entering');
+                }, 600);
+            }, 600);
+        }, 4000);
+
+        // Reveal hero content on first interaction
+        let heroRevealed = false;
+        const heroContent = document.getElementById('hero-content');
+        const scrollHint = document.getElementById('scroll-hint');
+        const navbar = document.getElementById('navbar');
+
+        function revealHero() {
+            if (!heroRevealed) {
+                heroRevealed = true;
+                heroContent.style.opacity = '1';
+                scrollHint.style.opacity = '1';
+                navbar.classList.remove('opacity-0', '-translate-y-full');
+
+                // Reveal text elements with stagger
+                document.querySelectorAll('#hero-content .text-reveal').forEach((el, i) => {
+                    setTimeout(() => {
+                        el.classList.add('visible');
+                    }, i * 100);
+                });
+            }
+        }
+
+        // Trigger reveal on scroll or mouse move
+        window.addEventListener('scroll', revealHero, { once: true });
+        document.addEventListener('mousemove', revealHero, { once: true });
+
+        // Intersection Observer for scroll animations
+        const observerOptions = {
+            threshold: 0.2,
+            rootMargin: '0px 0px -10% 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Reveal text elements
+                    if (entry.target.classList.contains('text-reveal')) {
+                        entry.target.classList.add('visible');
+                    }
+
+                    // Reveal bubbles sequentially
+                    if (entry.target.classList.contains('problem-trigger')) {
+                        document.querySelectorAll('.bubble-item').forEach((bubble, i) => {
+                            setTimeout(() => {
+                                bubble.classList.add('visible');
+                            }, i * 150);
+                        });
+                    }
+
+                    // Reveal divider line
+                    if (entry.target.classList.contains('solution-text')) {
+                        document.querySelector('.divider-line').classList.add('visible');
+                    }
+
+                    // Reveal image
+                    if (entry.target.classList.contains('image-reveal')) {
+                        entry.target.classList.add('visible');
+                    }
+                }
+            });
+        }, observerOptions);
+
+        // Observe all animated elements
+        document.querySelectorAll('.text-reveal').forEach(el => observer.observe(el));
+        document.querySelectorAll('.bubble-item').forEach(el => observer.observe(el));
+        document.querySelector('.problem-trigger') && observer.observe(document.querySelector('.problem-trigger'));
+        document.querySelectorAll('.solution-text').forEach(el => observer.observe(el));
+        document.querySelectorAll('.image-reveal').forEach(el => observer.observe(el));
+
+        // Smooth scroll behavior
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Initial reveal for hero prefix and dynamic word
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('hero-prefix').classList.add('visible');
+            }, 300);
+            setTimeout(() => {
+                document.getElementById('hero-dynamic').classList.add('visible');
+            }, 600);
+        });
+    </script>
+</body>
+
+</html>
