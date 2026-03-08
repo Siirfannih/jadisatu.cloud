@@ -1976,32 +1976,79 @@
             if (!_strategistData || !_strategistData[slideIndex]) return;
             var decision = _strategistData[slideIndex];
 
-            // Apply layout variant
+            // 1. Apply layout variant (CSS class)
             applyLayoutVariant(decision.layout_type || 'default');
 
-            // Apply bg variant
+            // 2. Apply background variant
+            var canvas = document.getElementById('carousel-live-canvas');
             var schema = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
-            applyBgVariant(decision.bg_variant || 'light', schema);
-
-            // Apply visual mode
-            if (decision.visual_mode === 'icon' && decision.icon_name) {
-                applySlideIcon(decision.icon_name);
-            } else if (decision.visual_mode === 'none') {
-                var va = document.getElementById('carousel-preview-visual-area');
-                if (va) va.style.display = 'none';
+            var cp = schema.color_palette || {};
+            if (canvas) {
+                if (decision.bg_variant === 'dark') {
+                    canvas.style.background = cp.background || '#0f0f11';
+                    canvas.style.setProperty('--preview-text', '#ffffff');
+                } else {
+                    canvas.style.background = cp.secondary || '#f8f7f4';
+                    canvas.style.setProperty('--preview-text', cp.text || '#1a1a1a');
+                }
             }
-            // diagram mode handled by existing applyVisualMode
 
-            // Update headline/body from strategist (optimized text)
-            if (decision.headline && slidesData[slideIndex]) {
-                slidesData[slideIndex].headline = decision.headline;
-                slidesData[slideIndex].body = decision.body || '';
+            // 3. Visual mode rendering
+            var iconWrap = document.getElementById('carousel-preview-icon-wrap');
+            var visualArea = document.getElementById('carousel-preview-visual-area');
+            var visualImg = document.getElementById('carousel-preview-visual-img');
+            var headlineEl = document.getElementById('carousel-preview-headline');
+            var bodyEl = document.getElementById('carousel-preview-body');
+
+            // Reset visuals first
+            if (iconWrap) iconWrap.classList.add('hidden');
+            if (visualImg) visualImg.classList.add('hidden');
+            var oldDiagram = document.getElementById('carousel-diagram-container');
+            if (oldDiagram) oldDiagram.remove();
+
+            if (decision.visual_mode === 'icon' && decision.icon_name) {
+                // Show icon with proper sizing and colors
+                if (iconWrap) {
+                    iconWrap.classList.remove('hidden');
+                    iconWrap.style.cssText = 'width:100px; height:100px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:' + (cp.primary || '#8b5cf6') + '15; border:2px solid ' + (cp.primary || '#8b5cf6') + '30;';
+                    iconWrap.innerHTML = '<i data-lucide="' + decision.icon_name + '" style="width:48px;height:48px;color:' + (cp.primary || '#8b5cf6') + '"></i>';
+                }
+                if (visualArea) visualArea.style.display = '';
+                // Show text
+                if (headlineEl) headlineEl.style.display = '';
+                if (bodyEl) bodyEl.style.display = '';
+            } else if (decision.visual_mode === 'none') {
+                // No visual, text only
+                if (visualArea) visualArea.style.display = 'none';
+                if (headlineEl) headlineEl.style.display = '';
+                if (bodyEl) bodyEl.style.display = '';
+            } else {
+                // Default: show visual area, show text
+                if (visualArea) visualArea.style.display = '';
+                if (headlineEl) headlineEl.style.display = '';
+                if (bodyEl) bodyEl.style.display = '';
+            }
+
+            // 4. Update text content
+            if (decision.headline) {
+                if (headlineEl) headlineEl.textContent = decision.headline;
+                if (bodyEl) bodyEl.textContent = decision.body || '';
+            }
+
+            // 5. Store decisions on slide data
+            if (slidesData[slideIndex]) {
+                if (decision.headline) slidesData[slideIndex].headline = decision.headline;
+                if (decision.body !== undefined) slidesData[slideIndex].body = decision.body;
                 slidesData[slideIndex]._layoutType = decision.layout_type;
                 slidesData[slideIndex]._bgVariant = decision.bg_variant;
                 slidesData[slideIndex]._iconName = decision.icon_name;
                 slidesData[slideIndex]._visualMode = decision.visual_mode;
                 slidesData[slideIndex]._emotionalTone = decision.emotional_tone;
             }
+
+            // 6. Re-create lucide icons
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+            console.log('[Strategist] Slide ' + (slideIndex+1) + ': layout=' + decision.layout_type + ' visual=' + decision.visual_mode + ' icon=' + (decision.icon_name || 'n/a') + ' bg=' + decision.bg_variant);
         }
 
         function renderMainPreview() {
@@ -2267,25 +2314,31 @@
             renderMainPreview();
             // Apply per-slide style from template folder
             applySlideStyle(currentSlideIndex);
-            // Apply strategist layout per slide (if available)
-            if (_strategistData && _strategistData[currentSlideIndex]) {
+            // Apply per-slide rendering
+            var _vmo = slidesData[currentSlideIndex] && slidesData[currentSlideIndex]._visualModeOverride;
+
+            if (_vmo) {
+                // User manually overrode visual mode — respect it
+                applyLayoutVariant('default');
+                var _sch = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
+                _sch = Object.assign({}, _sch);
+                _sch.visual_mode = _vmo;
+                if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch);
+            } else if (_strategistData && _strategistData[currentSlideIndex]) {
+                // Strategist has decisions for this slide — use them (DON'T run applyVisualMode after)
                 applyStrategistToSlide(currentSlideIndex);
             } else {
+                // No strategist, no override — default rendering
                 applyLayoutVariant('default');
+                var _sch2 = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
+                _sch2 = Object.assign({}, _sch2);
+                if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch2);
             }
-
-            // Re-render visual mode per slide
-            var _vmo = slidesData[currentSlideIndex] && slidesData[currentSlideIndex]._visualModeOverride;
-            var _slide = slidesData[currentSlideIndex] || {};
-            var _sch = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
-            _sch = Object.assign({}, _sch);
-            // Use strategist visual mode, or user override, or default
-            var _effectiveMode = _vmo || _slide._visualMode || _sch.visual_mode || 'icon';
-            _sch.visual_mode = _effectiveMode;
-            if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch);
             // Sync inspector buttons
+            var _slide = slidesData[currentSlideIndex] || {};
+            var _activeMode = _vmo || _slide._visualMode || 'icon';
             document.querySelectorAll('.visual-mode-btn').forEach(function(b) {
-                b.classList.toggle('active', b.getAttribute('data-mode') === _effectiveMode);
+                b.classList.toggle('active', b.getAttribute('data-mode') === _activeMode);
             });
             // Hide tweak/reject panels and update feedback on slide change
             if (typeof window._hideTweakAndReject === 'function') window._hideTweakAndReject();
@@ -2552,10 +2605,14 @@
                             slidesData[si]._emotionalTone = d.emotional_tone;
                         }
                         // Re-render current slide with strategist data
+                        // Re-render with strategist data
                         renderSlideStrip();
                         renderMainPreview();
+                        // Apply strategist to current slide (handles layout + visual + text)
                         applyStrategistToSlide(currentSlideIndex);
                         updateValuesCount();
+                        // Update slide strip thumbnails with new headlines
+                        renderSlideStrip();
                         if (window._carouselToast) window._carouselToast('AI Strategist: ' + result.length + ' slide dioptimalkan!');
                     }
                 });
