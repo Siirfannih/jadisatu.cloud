@@ -65,3 +65,7 @@ lead-generator-env/
 *.pem
 *.backup
 *.bak
+
+# PM2
+ecosystem.config.js.bak
+.pm2/
