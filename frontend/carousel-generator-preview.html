@@ -1086,7 +1086,7 @@
 
         var CAROUSEL_PROCESSOR_URL = (SUPABASE_URL || '').replace(/\/$/, '') + '/functions/v1/carousel-processor';
         // Python AI Backend on VPS — handles Gemini Vision extraction
-        var CAROUSEL_AI_BACKEND_URL = 'http://76.13.190.196:8000';
+        var CAROUSEL_AI_BACKEND_URL = '';
 
         function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
@@ -2271,7 +2271,7 @@
                                 if (data.error) console.error('Error:', data.error, data.detail || '');
                                 console.groupEnd();
 
-                                if (!res.ok || !data.success) {
+                                if (!res.ok || !data.success || !data.template_schema) {
                                     seShowError(data.error || data.detail || 'Gagal ekstrak template dari AI backend');
                                     return;
                                 }
@@ -2394,7 +2394,13 @@
 
                             } catch (e) {
                                 console.error('Smart extractor error:', e);
-                                seShowError('Error: ' + (e.message || 'network error'));
+                                if (e.message && e.message.includes('Failed to fetch')) {
+                        seShowError('Backend unreachable. The AI service may be down or restarting. Please try again in 30 seconds.');
+                    } else if (e.name === 'SyntaxError') {
+                        seShowError('Invalid response from server. Please try again.');
+                    } else {
+                        seShowError('Error: ' + (e.message || 'Unknown network error. Check your connection.'));
+                    }
                             }
                         })();
                     });

@@ -103,6 +103,12 @@ else
   log "WARNING: Hunter Agent health check failed"
 fi
 
+if curl -sf http://localhost:8000/api/health > /dev/null 2>&1; then
+  log "Health: Extractor API OK (/api/health)"
+else
+  log "WARNING: Extractor API health check failed (/api/health)"
+fi
+
 # ── 8. Summary ────────────────────────────────────────────────
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))

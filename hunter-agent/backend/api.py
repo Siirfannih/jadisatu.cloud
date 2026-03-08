@@ -8,10 +8,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Query
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel
@@ -28,6 +24,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for deployment verification."""
+    import datetime
+    return {
+        "status": "ok",
+        "service": "hunter-agent",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "endpoints": [
+            "/api/health",
+            "/api/carousel/extract-template",
+            "/api/carousel/map-to-slides",
+            "/api/carousel/template-families"
+        ]
+    }
 
 # Initialize database
 db = Database()

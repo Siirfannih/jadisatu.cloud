@@ -86,7 +86,12 @@ class Database:
     def get_all(self, limit: int = 100, offset: int = 0) -> List[Dict]:
         """Get all pain points, sorted by pain score"""
         try:
-            response = self.supabase.table('leads')\                .select('*')\                .order('pain_score', desc=True)\                .order('scraped_at', desc=True)\                .range(offset, offset + limit - 1)\                .execute()
+            response = self.supabase.table('leads')\
+            .select('*')\
+            .order('pain_score', desc=True)\
+            .order('scraped_at', desc=True)\
+            .range(offset, offset + limit - 1)\
+            .execute()
             
             return response.data
             
@@ -97,7 +102,12 @@ class Database:
     def get_by_category(self, category: str, limit: int = 50) -> List[Dict]:
         """Get pain points by category"""
         try:
-            response = self.supabase.table('leads')\                .select('*')\                .eq('category', category)\                .order('pain_score', desc=True)\                .limit(limit)\                .execute()
+            response = self.supabase.table('leads')\
+            .select('*')\
+            .eq('category', category)\
+            .order('pain_score', desc=True)\
+            .limit(limit)\
+            .execute()
             
             return response.data
             
@@ -114,21 +124,34 @@ class Database:
             
             # Today's count
             today = datetime.now().date().isoformat()
-            today_response = self.supabase.table('leads')\                .select('id', count='exact')\                .gte('scraped_at', f"{today}T00:00:00")\                .execute()
+            today_response = self.supabase.table('leads')\
+            .select('id', count='exact')\
+            .gte('scraped_at', f"{today}T00:00:00")\
+            .execute()
             today_new = today_response.count
             
             # High opportunity count
-            high_opp_response = self.supabase.table('leads')\                .select('id', count='exact')\                .eq('opportunity_level', 'Very High')\                .execute()
+            high_opp_response = self.supabase.table('leads')\
+            .select('id', count='exact')\
+            .eq('opportunity_level', 'Very High')\
+            .execute()
             high_opp = high_opp_response.count
             
             # Average pain score
-            all_scores = self.supabase.table('leads')\                .select('pain_score')\                .gt('pain_score', 0)\                .execute()
+            all_scores = self.supabase.table('leads')\
+            .select('pain_score')\
+            .gt('pain_score', 0)\
+            .execute()
             
             scores = [item['pain_score'] for item in all_scores.data if item.get('pain_score')]
             avg_score = round(sum(scores) / len(scores), 1) if scores else 0
             
             # Category breakdown
-            all_categories = self.supabase.table('leads')\                .select('category')\                .neq('category', '')\                .not_.is_('category', 'null')\                .execute()
+            all_categories = self.supabase.table('leads')\
+            .select('category')\
+            .neq('category', '')\
+            .not_.is_('category', 'null')\
+            .execute()
             
             categories = {}
             for item in all_categories.data:
@@ -162,7 +185,12 @@ class Database:
         """Search pain points by keyword"""
         try:
             # Supabase text search
-            response = self.supabase.table('leads')\                .select('*')\                .or_(f"title.ilike.%{query}%,body.ilike.%{query}%")\                .order('pain_score', desc=True)\                .limit(limit)\                .execute()
+            response = self.supabase.table('leads')\
+            .select('*')\
+            .or_(f"title.ilike.%{query}%,body.ilike.%{query}%")\
+            .order('pain_score', desc=True)\
+            .limit(limit)\
+            .execute()
             
             return response.data
             
@@ -173,7 +201,10 @@ class Database:
     def update_status(self, problem_id: str, status: str) -> bool:
         """Update the status of a pain point"""
         try:
-            response = self.supabase.table('leads')\                .update({'status': status})\                .eq('id', problem_id)\                .execute()
+            response = self.supabase.table('leads')\
+            .update({'status': status})\
+            .eq('id', problem_id)\
+            .execute()
             
             return len(response.data) > 0
             
