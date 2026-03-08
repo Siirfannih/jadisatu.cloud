@@ -32,6 +32,27 @@ TEMPLATE_FAMILIES = {
         "visual_signals": ["steps", "bullets", "list", "numbered", "checklist", "caption", "icons"],
         "color_signal": "neutral_bg",
     },
+    "bold_modern": {
+        "description": "Bold sans typography, accent color keywords, card-based layouts, modern SaaS aesthetic",
+        "components": ["icon-card", "feature-card", "stats-block", "accent-text"],
+        "style_signals": ["bold", "modern", "clean", "professional", "tech", "startup"],
+        "visual_signals": ["card", "icon", "stats", "badge", "accent"],
+        "color_signal": "any",
+    },
+    "storytelling_editorial": {
+        "description": "Long text blocks, serif headings, narrative flow, quote layout",
+        "components": ["quote-block", "serif-headline", "long-body-text"],
+        "style_signals": ["editorial", "storytelling", "narrative", "warm", "philosophical"],
+        "visual_signals": ["quote", "text", "serif", "long-form"],
+        "color_signal": "any",
+    },
+    "technical_diagram": {
+        "description": "Heavy diagram usage with labeled nodes, connections, data visualization",
+        "components": ["diagram-arc", "node-points", "flowchart", "timeline", "hub-spoke"],
+        "style_signals": ["technical", "diagram", "structured", "data", "process"],
+        "visual_signals": ["diagram", "node", "flow", "chart", "hub", "spoke", "arrow", "connection"],
+        "color_signal": "any",
+    },
 }
 
 # ─── Gemini Vision Prompt ─────────────────────────────────────────────────────
@@ -44,7 +65,7 @@ Study the actual colors, fonts, layout, and components visible in the image.
 Return this exact structure:
 
 {
-  "template_family": "<exactly one of: dark_editorial_diagram | warm_photo_editorial | minimal_educational>",
+  "template_family": "<exactly one of: dark_editorial_diagram | warm_photo_editorial | minimal_educational | bold_modern | storytelling_editorial | technical_diagram>",
   "canvas": {
     "width": 1080,
     "height": 1080,
@@ -70,9 +91,48 @@ Return this exact structure:
     "muted_line": "<hex of subtle background lines, grids, secondary strokes>"
   },
   "visual_mode": "<exactly one of: diagram | illustration | icon | none>",
-  "diagram_type": "<only when visual_mode is diagram: flowchart | arc | cycle | comparison | timeline | coherence_arc | none>",
+  "diagram_type": "<only when visual_mode is diagram: hub_spoke | flowchart | arc | cycle | comparison | timeline | coherence_arc | funnel | none>",
+  "diagram_data": {
+    "NOTE": "Only include this object when visual_mode is diagram. Otherwise set to null.",
+    "center": {"label": "<center node text if hub/spoke>", "style": "<filled_dark or filled_accent or outline>"},
+    "nodes": [
+      {"label": "<node label>", "icon": "<lucide icon name>", "position": "<top or bottom or left or right or on_curve>"}
+    ],
+    "axis": {"label_top": "<text above axis>", "label_bottom": "<text below axis>", "style": "<dashed or solid or none>"},
+    "start_label": "<label at start of arc/timeline>",
+    "end_label": "<label at end of arc/timeline>",
+    "center_text": "<text in center area like 'Inner Work'>",
+    "connection_style": "<dashed or solid or none>"
+  },
+  "text_highlights": [
+    {"phrase": "<exact word or phrase that has different color or style>", "color": "<hex color>", "style": "<italic or bold or bold_italic or normal>"}
+  ],
+  "component_blocks": [
+    {
+      "type": "<icon_card or feature_card or stat_block or quote_block or icon_grid>",
+      "items": [
+        {"icon": "<lucide icon name>", "label": "<card label>", "title": "<card title>", "description": "<card description>", "color": "<accent color hex>", "style": "<light or dark or accent or elevated>"}
+      ],
+      "layout": "<horizontal or vertical or grid>",
+      "position": "<top or center or bottom>"
+    }
+  ],
+  "decorative_elements": {
+    "geometric_lines": <true or false>,
+    "background_pattern": "<dots or grid or triangles or none>",
+    "divider_style": "<short_colored or full_dashed or none>",
+    "divider_color": "<hex>"
+  },
+  "branding": {
+    "logo_position": "<top_left or top_center or none>",
+    "logo_text": "<brand name visible>",
+    "footer_left": "<text at bottom left>",
+    "footer_right": "<text at bottom right>",
+    "pagination": "<true or false>",
+    "pagination_style": "<dots or numbers or fraction>"
+  },
   "typography": {
-    "heading_font": "<font name, e.g. Inter, Playfair Display, Roboto>",
+    "heading_font": "<font name, e.g. Inter, Playfair Display, Space Mono>",
     "body_font": "<font name>",
     "heading_weight": "<700 or 800 or 900>",
     "body_weight": "<400 or 500>",
@@ -82,40 +142,58 @@ Return this exact structure:
     "line_height": "<tight or normal or relaxed>"
   },
   "layout_structure": {
-    "type": "<center_stack or split_horizontal or list_vertical or hero_text or fullbleed>",
+    "type": "<center_stack or split_horizontal or list_vertical or hero_text or fullbleed or text_top_visual_bottom or visual_center_text_around>",
     "alignment": "<center or left or right>",
     "text_alignment": "<center or left or right>",
     "padding": 64,
     "gap": 24,
-    "visual_position": "<top or bottom or left or right or none or background>",
+    "visual_position": "<top or center or bottom or left or right or none or background>",
     "has_slide_number": true,
-    "has_footer": false,
-    "has_logo_area": false,
+    "has_footer": true,
+    "has_logo_area": true,
     "grid_columns": 1
   },
-  "visual_components": ["<list actual components visible: diagram-arc, node-points, dashed-divider, annotation-labels, hero-photo, overlay-gradient, serif-headline, decorative-doodles, numbered-steps, icon-bullets, clean-divider, caption-box, progress-bar, quote-block, stats-block, icon-grid, timeline>"],
-  "style_traits": ["<list style descriptors: dark, light, minimal, editorial, warm, cool, geometric, organic, bold, subtle, modern, retro, playful, professional, educational, storytelling>"],
+  "visual_components": ["<list actual components visible>"],
+  "style_traits": ["<list style descriptors>"],
   "content_genre": "<educational or storytelling or promotional or tutorial or motivational or brand>"
 }
 
-Template Family Classification Guide:
-- dark_editorial_diagram: Dark background (very dark grey or black), geometric SVG shapes, diagram arcs, node graphs, dashed lines, technical annotations, sans-serif fonts, high contrast
-- warm_photo_editorial: Warm palette (browns, oranges, creams, earth tones), photo areas, gradient overlays, serif fonts, hand-drawn doodles/decorations, organic feel
-- minimal_educational: Light or neutral background (white, light grey, beige), clean layout, numbered steps, bullet lists, icon-based structure, lots of whitespace
+TEMPLATE FAMILY CLASSIFICATION:
+- dark_editorial_diagram: Dark bg (#000-#1a1a2e), geometric shapes, diagram arcs, node graphs, technical annotations, monospace/sans fonts, high contrast
+- warm_photo_editorial: Warm palette, photo areas, gradient overlays, serif fonts, hand-drawn decorations
+- minimal_educational: Light/neutral bg, clean layout, numbered steps, bullet lists, icon-based structure
+- bold_modern: Light OR dark bg, bold sans typography, accent colors on keywords, card-based layouts, modern SaaS/tech aesthetic
+- storytelling_editorial: Dark or warm bg, serif headings, long text blocks, quote-style layout, narrative flow
+- technical_diagram: Any bg, heavy diagram usage (flowcharts, process maps, data viz), labeled nodes, connecting arrows
 
-IMPORTANT: Extract REAL hex colors from the image. Do not use generic placeholder values.
+CRITICAL RULES:
 
-CRITICAL color rules:
-- For dark designs: background MUST be the TRUE dark color you see (e.g. #050505, #0a0a0f, #1a1a2e), NOT approximated grays like #333 or #666
-- line = color of actual visible lines, borders, dividers, or diagram strokes in the image
-- muted_line = very subtle secondary line color for grids or background strokes
-- If no lines are visible, set line to the primary color and muted_line to text_muted
+1. Colors — Extract REAL hex colors. For dark designs use TRUE dark (#050505, #0a0a0f), NOT approximated grays.
 
-Visual mode classification:
-- diagram: design contains charts, node graphs, flow diagrams, arc curves, connected elements, data visualization
-- illustration: design has a large hero visual, scene, photo, or decorative artwork
-- icon: design uses small supporting symbols/icons only
-- none: design is purely typography and spacing with no visual elements"""
+2. text_highlights — Scan the heading and body text carefully. If ANY word or phrase uses a DIFFERENT color than surrounding text, or is italic when others are not, list it. Examples: "here." in green, "entire" in green italic, "miss it." in purple italic. If no highlights exist, return empty array [].
+
+3. diagram_data — Only populate when visual_mode=diagram. Extract ALL visible nodes with their labels. For hub-spoke: identify center node and satellite nodes with their icons. For arc: identify stages along the curve. For flowchart: identify boxes and connections. If visual_mode is not diagram, set diagram_data to null.
+
+4. component_blocks — Detect card groups, stat displays, icon grids. Each card should capture: icon name (use closest Lucide icon), label, title, description, and accent color. Lucide icon names use lowercase-kebab-case: mail, bot, calendar, code, file-text, dollar-sign, message-square, monitor, etc.
+
+5. decorative_elements — Note geometric line patterns in background (thin triangles, dots, grids). These are subtle overlay decorations, not main content.
+
+6. branding — Extract visible brand text (logo, author, copyright, pagination dots/numbers).
+
+7. visual_mode classification:
+   - diagram: design has charts, node graphs, flow diagrams, hub-spoke, arc curves, connected elements
+   - illustration: design has large hero visual, scene, photo, or decorative artwork
+   - icon: design uses small supporting symbols/icons as accents
+   - none: design is purely typography and spacing
+
+8. diagram_type expanded options:
+   - hub_spoke: center node connected to surrounding satellite nodes (like a spider/radial diagram)
+   - flowchart: sequential boxes/nodes connected by arrows
+   - arc / coherence_arc: U-shaped or curved path with stage points
+   - cycle: circular path with nodes
+   - comparison: side-by-side elements
+   - timeline: linear horizontal or vertical sequence
+   - funnel: progressively narrowing stages"""
 
 
 # ─── Gemini Vision Extractor ──────────────────────────────────────────────────
@@ -190,6 +268,16 @@ class CarouselDesignExtractor:
                 f"  color_roles: bg={cr.get('background')} line={cr.get('line')} "
                 f"muted_line={cr.get('muted_line')}"
             )
+            print(f"  visual_mode={schema['visual_mode']} | diagram_type={schema['diagram_type']}")
+            dd = schema.get("diagram_data")
+            if dd and dd.get("nodes"):
+                print(f"  diagram_data: {len(dd['nodes'])} nodes, center={dd.get('center')}")
+            th = schema.get("text_highlights", [])
+            if th:
+                print(f"  text_highlights: {len(th)} highlights — {[h['phrase'] for h in th[:3]]}")
+            cb = schema.get("component_blocks", [])
+            if cb:
+                print(f"  component_blocks: {len(cb)} blocks — types={[b['type'] for b in cb]}")
             return {"success": True, "schema": schema}
 
         except json.JSONDecodeError as e:
@@ -221,6 +309,9 @@ class TemplateFamilyClassifier:
             "dark_editorial_diagram": 0,
             "warm_photo_editorial": 0,
             "minimal_educational": 0,
+            "bold_modern": 0,
+            "storytelling_editorial": 0,
+            "technical_diagram": 0,
         }
 
         traits_lower = [t.lower() for t in style_traits]
@@ -260,6 +351,30 @@ class TemplateFamilyClassifier:
         if not self._is_dark_color(bg) and not self._is_warm_color(bg):
             scores["minimal_educational"] += 2  # Neutral/light bg
 
+        # ── bold_modern ──────────────────────────────────────
+        for t in TEMPLATE_FAMILIES["bold_modern"]["style_signals"]:
+            if t in traits_lower:
+                scores["bold_modern"] += 2
+        for signal in TEMPLATE_FAMILIES["bold_modern"]["visual_signals"]:
+            if any(signal in c for c in comps_lower):
+                scores["bold_modern"] += 3
+
+        # ── storytelling_editorial ──────────────────────────────
+        for t in TEMPLATE_FAMILIES["storytelling_editorial"]["style_signals"]:
+            if t in traits_lower:
+                scores["storytelling_editorial"] += 2
+        for signal in TEMPLATE_FAMILIES["storytelling_editorial"]["visual_signals"]:
+            if any(signal in c for c in comps_lower):
+                scores["storytelling_editorial"] += 3
+
+        # ── technical_diagram ───────────────────────────────────
+        for t in TEMPLATE_FAMILIES["technical_diagram"]["style_signals"]:
+            if t in traits_lower:
+                scores["technical_diagram"] += 2
+        for signal in TEMPLATE_FAMILIES["technical_diagram"]["visual_signals"]:
+            if any(signal in c for c in comps_lower):
+                scores["technical_diagram"] += 3
+
         winner = max(scores, key=scores.get)
         print(f"🏷️ Template family classified: {winner} | scores={scores}")
         return winner
@@ -290,7 +405,7 @@ class TemplateFamilyClassifier:
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 VALID_VISUAL_MODES = ("diagram", "illustration", "icon", "none")
-VALID_DIAGRAM_TYPES = ("flowchart", "arc", "cycle", "comparison", "timeline", "coherence_arc", "none")
+VALID_DIAGRAM_TYPES = ("hub_spoke", "flowchart", "arc", "cycle", "comparison", "timeline", "coherence_arc", "funnel", "none")
 
 
 def _validate_visual_mode(mode: str) -> str:
@@ -311,6 +426,131 @@ def _build_color_roles(raw_schema: Dict, cp: Dict) -> Dict:
     }
     return roles
 
+
+
+
+def _build_diagram_data(raw_schema: Dict) -> Optional[Dict]:
+    """Build structured diagram data from Gemini extraction."""
+    dd = raw_schema.get("diagram_data")
+    if not dd or dd == "null" or (isinstance(dd, dict) and dd.get("NOTE")):
+        # If Gemini returned the template NOTE or null, build minimal
+        return {"center": None, "nodes": [], "axis": None, "start_label": None,
+                "end_label": None, "center_text": None, "connection_style": "dashed"}
+
+    center = dd.get("center")
+    if center and isinstance(center, dict):
+        center = {
+            "label": center.get("label", ""),
+            "style": center.get("style", "filled_dark")
+        }
+    else:
+        center = None
+
+    nodes = []
+    raw_nodes = dd.get("nodes", [])
+    if isinstance(raw_nodes, list):
+        for n in raw_nodes:
+            if isinstance(n, dict):
+                nodes.append({
+                    "label": n.get("label", ""),
+                    "icon": n.get("icon", "circle"),
+                    "position": n.get("position", "on_curve"),
+                })
+
+    axis = dd.get("axis")
+    if axis and isinstance(axis, dict):
+        axis = {
+            "label_top": axis.get("label_top", ""),
+            "label_bottom": axis.get("label_bottom", ""),
+            "style": axis.get("style", "none"),
+        }
+    else:
+        axis = None
+
+    return {
+        "center": center,
+        "nodes": nodes,
+        "axis": axis,
+        "start_label": dd.get("start_label"),
+        "end_label": dd.get("end_label"),
+        "center_text": dd.get("center_text"),
+        "connection_style": dd.get("connection_style", "dashed"),
+    }
+
+
+def _build_text_highlights(raw_highlights) -> list:
+    """Build validated text highlight list."""
+    if not raw_highlights or not isinstance(raw_highlights, list):
+        return []
+    result = []
+    for h in raw_highlights:
+        if isinstance(h, dict) and h.get("phrase"):
+            result.append({
+                "phrase": str(h["phrase"]),
+                "color": h.get("color", "#ffffff"),
+                "style": h.get("style", "normal") if h.get("style") in ("italic", "bold", "bold_italic", "normal") else "normal",
+            })
+    return result
+
+
+def _build_component_blocks(raw_blocks) -> list:
+    """Build validated component blocks list."""
+    if not raw_blocks or not isinstance(raw_blocks, list):
+        return []
+    VALID_BLOCK_TYPES = ("icon_card", "feature_card", "stat_block", "quote_block", "icon_grid")
+    result = []
+    for block in raw_blocks:
+        if not isinstance(block, dict):
+            continue
+        btype = block.get("type", "")
+        if btype not in VALID_BLOCK_TYPES:
+            continue
+        items = []
+        for item in block.get("items", []):
+            if isinstance(item, dict):
+                items.append({
+                    "icon": item.get("icon", "circle"),
+                    "label": item.get("label", ""),
+                    "title": item.get("title", ""),
+                    "description": item.get("description", ""),
+                    "color": item.get("color", ""),
+                    "style": item.get("style", "light"),
+                })
+        result.append({
+            "type": btype,
+            "items": items,
+            "layout": block.get("layout", "horizontal"),
+            "position": block.get("position", "center"),
+        })
+    return result
+
+
+def _build_decorative(raw_deco: Dict) -> Dict:
+    """Build validated decorative elements."""
+    if not isinstance(raw_deco, dict):
+        return {"geometric_lines": False, "background_pattern": "none",
+                "divider_style": "none", "divider_color": ""}
+    return {
+        "geometric_lines": bool(raw_deco.get("geometric_lines", False)),
+        "background_pattern": raw_deco.get("background_pattern", "none"),
+        "divider_style": raw_deco.get("divider_style", "none"),
+        "divider_color": raw_deco.get("divider_color", ""),
+    }
+
+
+def _build_branding(raw_brand: Dict) -> Dict:
+    """Build validated branding info."""
+    if not isinstance(raw_brand, dict):
+        return {"logo_position": "none", "logo_text": "", "footer_left": "",
+                "footer_right": "", "pagination": False, "pagination_style": "dots"}
+    return {
+        "logo_position": raw_brand.get("logo_position", "none"),
+        "logo_text": raw_brand.get("logo_text", ""),
+        "footer_left": raw_brand.get("footer_left", ""),
+        "footer_right": raw_brand.get("footer_right", ""),
+        "pagination": bool(raw_brand.get("pagination", False)),
+        "pagination_style": raw_brand.get("pagination_style", "dots"),
+    }
 
 # ─── Schema Builder ───────────────────────────────────────────────────────────
 def build_complete_schema(raw_schema: Dict) -> Dict:
@@ -393,4 +633,14 @@ def build_complete_schema(raw_schema: Dict) -> Dict:
         # ── Visual mode classification ────────────────────────────
         "visual_mode": _validate_visual_mode(raw_schema.get("visual_mode", "none")),
         "diagram_type": raw_schema.get("diagram_type", "none") if _validate_visual_mode(raw_schema.get("visual_mode", "none")) == "diagram" else "none",
+        # ── Diagram structured data ───────────────────────────────
+        "diagram_data": _build_diagram_data(raw_schema) if _validate_visual_mode(raw_schema.get("visual_mode", "none")) == "diagram" else None,
+        # ── Text highlights (inline accent colors) ────────────────
+        "text_highlights": _build_text_highlights(raw_schema.get("text_highlights", [])),
+        # ── Component blocks (cards, stats, icon grids) ───────────
+        "component_blocks": _build_component_blocks(raw_schema.get("component_blocks", [])),
+        # ── Decorative elements ───────────────────────────────────
+        "decorative_elements": _build_decorative(raw_schema.get("decorative_elements", {})),
+        # ── Branding info ─────────────────────────────────────────
+        "branding": _build_branding(raw_schema.get("branding", {})),
     }

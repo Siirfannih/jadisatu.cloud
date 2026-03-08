@@ -1248,6 +1248,7 @@
     <script src="js/font-registry.js"></script>
     <script src="js/icon-engine.js"></script>
     <script src="js/feedback-memory.js"></script>
+    <script src="js/visual-engine.js"></script>
     <script src="js/canvas-editor.js"></script>
     <script>
         var SUPABASE_URL = 'https://dwpkokavxjvtrltntjtn.supabase.co';
@@ -1631,7 +1632,14 @@
 
             // Update text — preserve contenteditable state
             var wasEditable = headlineEl.contentEditable === 'true';
-            headlineEl.innerHTML = esc(slide.headline || '').replace(/\n/g, '<br>');
+            // Apply text highlights if VisualEngine available
+                    var _th = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema
+                        && window._lastExtractedTemplate.template_schema.text_highlights) || [];
+                    if (_th.length > 0 && window.TextHighlighter) {
+                        headlineEl.innerHTML = TextHighlighter.apply(slide.headline || '', _th).replace(/\n/g, '<br>');
+                    } else {
+                        headlineEl.innerHTML = esc(slide.headline || '').replace(/\n/g, '<br>');
+                    }
             bodyEl.textContent = slide.body || '';
             if (wasEditable) {
                 headlineEl.contentEditable = 'true';
@@ -3290,34 +3298,116 @@
                 // Reset all visual elements
                 if (iconWrap) iconWrap.classList.add('hidden');
                 if (visualImg) visualImg.classList.add('hidden');
-                if (visualArea) visualArea.style.display = '';
+                if (visualArea) { visualArea.style.display = ''; visualArea.style.width = '100%'; }
                 var oldDiagram = document.getElementById('carousel-diagram-container');
                 if (oldDiagram) oldDiagram.remove();
+                var oldComponents = document.getElementById('carousel-component-blocks');
+                if (oldComponents) oldComponents.remove();
+                var oldDecorative = document.getElementById('carousel-decorative-bg');
+                if (oldDecorative) oldDecorative.remove();
+                var oldBranding = document.getElementById('carousel-branding-overlay');
+                if (oldBranding) oldBranding.remove();
+                var oldDivider = document.getElementById('carousel-divider-block');
+                if (oldDivider) oldDivider.remove();
 
                 console.log('[VisualMode] mode=' + mode + ' diagram_type=' + (schema.diagram_type || 'n/a'));
 
-                if (mode === 'diagram') {
-                    var cr = (schema.color_roles || {});
-                    var stroke = cr.line || '#ffffff';
-                    var muted = cr.muted_line || '#9ca3af';
-                    if (visualArea) {
-                        var el = document.createElement('div');
-                        el.id = 'carousel-diagram-container';
-                        el.className = 'flex items-center justify-center';
-                        el.style.minHeight = '160px';
-                        el.innerHTML = buildDiagramSVG(schema.diagram_type || 'flowchart', stroke, muted);
-                        visualArea.appendChild(el);
+                // Use VisualEngine if available
+                var ve = window._visualEngine || (window.VisualEngine ? new VisualEngine() : null);
+                if (!window._visualEngine && ve) window._visualEngine = ve;
+
+                var canvas = document.getElementById('carousel-live-canvas');
+
+                if (ve && schema) {
+                    var rendered = ve.renderAll(schema);
+
+                    // Diagram
+                    if (mode === 'diagram' && rendered.diagramHtml) {
+                        if (visualArea) {
+                            var el = document.createElement('div');
+                            el.id = 'carousel-diagram-container';
+                            el.style.cssText = 'display:flex; align-items:center; justify-content:center; width:100%; min-height:200px;';
+                            el.innerHTML = rendered.diagramHtml;
+                            visualArea.innerHTML = '';
+                            visualArea.appendChild(el);
+                            visualArea.style.display = 'flex';
+                            visualArea.style.justifyContent = 'center';
+                            visualArea.style.alignItems = 'center';
+                        }
+                    } else if (mode === 'illustration') {
+                        if (visualImg) {
+                            visualImg.classList.remove('hidden');
+                            visualImg.style.width = '200px';
+                            visualImg.style.height = '200px';
+                        }
+                    } else if (mode === 'icon') {
+                        if (iconWrap) iconWrap.classList.remove('hidden');
+                    } else { // none
+                        if (visualArea) visualArea.style.display = 'none';
                     }
-                } else if (mode === 'illustration') {
-                    if (visualImg) {
-                        visualImg.classList.remove('hidden');
-                        visualImg.style.width = '200px';
-                        visualImg.style.height = '200px';
+
+                    // Component blocks (icon cards, feature cards, etc.)
+                    if (rendered.componentHtml && canvas) {
+                        var compEl = document.createElement('div');
+                        compEl.id = 'carousel-component-blocks';
+                        compEl.style.cssText = 'position:relative; z-index:3; width:100%; display:flex; justify-content:center; padding:8px 0;';
+                        compEl.innerHTML = rendered.componentHtml;
+                        // Insert after visual area or at bottom of content wrapper
+                        var contentWrapper = document.getElementById('carousel-slide-content');
+                        if (contentWrapper) contentWrapper.appendChild(compEl);
                     }
-                } else if (mode === 'icon') {
-                    if (iconWrap) iconWrap.classList.remove('hidden');
-                } else { // none — typography only
-                    if (visualArea) visualArea.style.display = 'none';
+
+                    // Decorative background overlay
+                    if (rendered.decorativeHtml && canvas) {
+                        var decoEl = document.createElement('div');
+                        decoEl.id = 'carousel-decorative-bg';
+                        decoEl.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;';
+                        decoEl.innerHTML = rendered.decorativeHtml;
+                        canvas.appendChild(decoEl);
+                    }
+
+                    // Divider
+                    if (rendered.dividerHtml) {
+                        var divEl = document.createElement('div');
+                        divEl.id = 'carousel-divider-block';
+                        divEl.innerHTML = rendered.dividerHtml;
+                        var textGroup = canvas.querySelector('.slide-text-group');
+                        if (textGroup) {
+                            var headline = document.getElementById('carousel-preview-headline');
+                            if (headline && headline.nextSibling) {
+                                textGroup.insertBefore(divEl, headline.nextSibling);
+                            } else {
+                                textGroup.appendChild(divEl);
+                            }
+                        }
+                    }
+
+                    // Branding overlay
+                    if (rendered.brandingHtml && canvas) {
+                        var brandEl = document.createElement('div');
+                        brandEl.id = 'carousel-branding-overlay';
+                        brandEl.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:4;';
+                        brandEl.innerHTML = rendered.brandingHtml;
+                        canvas.appendChild(brandEl);
+                    }
+                } else {
+                    // Fallback without VisualEngine
+                    if (mode === 'diagram') {
+                        if (visualArea) {
+                            var el = document.createElement('div');
+                            el.id = 'carousel-diagram-container';
+                            el.className = 'flex items-center justify-center';
+                            el.style.minHeight = '160px';
+                            el.innerHTML = buildDiagramSVG(schema.diagram_type || 'flowchart', '#fff', '#9ca3af');
+                            visualArea.appendChild(el);
+                        }
+                    } else if (mode === 'icon') {
+                        if (iconWrap) iconWrap.classList.remove('hidden');
+                    } else if (mode === 'illustration') {
+                        if (visualImg) visualImg.classList.remove('hidden');
+                    } else {
+                        if (visualArea) visualArea.style.display = 'none';
+                    }
                 }
 
                 if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
@@ -3549,6 +3639,7 @@
                 if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 
                 // Hook: notify editing layer that template was applied
+                window._lastExtractedTemplate = templateData;
                 if (typeof window._afterTemplateApplied === 'function') {
                     try { window._afterTemplateApplied(templateData); } catch (e) { console.warn('[EditingLayer] hook error:', e); }
                 }
@@ -4019,6 +4110,8 @@
             // ═══════════════════════════════════════════════════════════════
 
             // ── Initialize modules ──────────────────────────────────────
+            var _visualEngine  = window.VisualEngine ? new VisualEngine() : null;
+            window._visualEngine = _visualEngine;
             var _fontRegistry  = new FontRegistry();
             var _iconEngine    = new IconEngine();
             var _feedbackMemory = new FeedbackMemory(supabaseClient, currentUserId);
