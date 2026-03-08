@@ -153,7 +153,7 @@ CREATE INDEX idx_leads_status ON leads(status);
 ### Environment Variables (Already Set):
 - `NEXT_PUBLIC_SUPABASE_URL`: https://dwpkokavxjvtrltntjtn.supabase.co
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1
-- `SUPABASE_SERVICE_KEY`: sb_secret_eGoO9OanI0Pd7DTk7_sd6g_KwKwFzf2
+- `SUPABASE_SERVICE_KEY`: your-service-key-here
 
 ### Hunter Agent Credentials:
 Same credentials hardcoded in `/root/hunter-agent/backend/database.py`
