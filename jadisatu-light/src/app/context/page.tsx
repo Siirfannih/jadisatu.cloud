@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-browser";
 import { Edit3, Save, Brain, FileText, Database } from "lucide-react";
 
 export default function ContextHub() {
+  const supabase = createClient();
   const [profile, setProfile] = useState<any[]>([]);
   const [decisions, setDecisions] = useState<any[]>([]);
   const [memory, setMemory] = useState<any[]>([]);

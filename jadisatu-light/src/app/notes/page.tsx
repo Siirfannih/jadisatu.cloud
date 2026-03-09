@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-browser";
 import { Search, Plus, LayoutGrid, List, Tag, Hash, Type, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ export default function NotesPage() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [searchQuery, setSearchQuery] = useState("");
+  const supabase = createClient();
   const [newIdea, setNewIdea] = useState("");
   const [selected, setSelected] = useState<Idea | null>(null);
 

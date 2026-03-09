@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-browser";
 import { Bot, Cpu, Activity, Power, Zap } from "lucide-react";
 
 interface Agent {
@@ -15,6 +15,8 @@ interface AgentLog { id: string; agent_id: string; action: string; created_at: s
 export default function AIAgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [logs, setLogs] = useState<AgentLog[]>([]);
+
+  const supabase = createClient();
 
   useEffect(() => { loadData(); }, []);
 

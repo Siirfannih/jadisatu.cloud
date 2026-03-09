@@ -5,7 +5,6 @@ export async function GET() {
   try {
     const supabase = await createClient()
     
-    // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
@@ -14,13 +13,15 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("projects")
-      .select("id, name, description, status")
-      .eq("user_id", user.id)  // Filter by user_id
+      .select("id, title, description, status, created_at")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       
     if (error) throw error
     
-    return NextResponse.json(data ?? [])
+    const mapped = (data ?? []).map(p => ({ ...p, name: p.title }))
+    
+    return NextResponse.json(mapped)
   } catch (e) {
     console.error("Error fetching projects:", e)
     return NextResponse.json({ error: "Failed to fetch projects" }, { status: 500 })
@@ -31,7 +32,6 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     
-    // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
@@ -39,26 +39,27 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, description, status } = body
+    const { name, title, description, status } = body
     
-    if (!name) {
-      return NextResponse.json({ error: "name required" }, { status: 400 })
+    const projectTitle = title || name
+    if (!projectTitle) {
+      return NextResponse.json({ error: "name or title required" }, { status: 400 })
     }
     
     const { data, error } = await supabase
       .from("projects")
       .insert({
-        name,
+        title: projectTitle,
         description: description || null,
         status: status || "active",
-        user_id: user.id,  // Set user_id from authenticated user
+        user_id: user.id,
       })
       .select()
       .single()
       
     if (error) throw error
     
-    return NextResponse.json(data)
+    return NextResponse.json({ ...data, name: data.title })
   } catch (error) {
     console.error("Error creating project:", error)
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 })
