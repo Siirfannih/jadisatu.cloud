@@ -876,6 +876,51 @@ Balas HANYA JSON array. Tanpa markdown fences. Tanpa penjelasan.
         raise HTTPException(status_code=500, detail=f"Compose failed: {str(e)}")
 
 
+# ── Visual Engine Proxy ──────────────────────────────────────────────
+# Forward /api/visual/* to the visual-engine service on port 8100.
+# This allows the frontend to reach the visual-engine through the existing
+# nginx /api/ → port 8000 proxy, even if the dedicated nginx /api/visual/
+# proxy block is not yet configured.
+
+import httpx
+from fastapi import Request
+from fastapi.responses import StreamingResponse, Response
+
+VISUAL_ENGINE_BASE = os.getenv("VISUAL_ENGINE_URL", "http://127.0.0.1:8100")
+
+@app.api_route("/api/visual/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_visual_engine(path: str, request: Request):
+    """Reverse-proxy all /api/visual/* requests to the visual-engine service."""
+    target_url = f"{VISUAL_ENGINE_BASE}/api/visual/{path}"
+
+    headers = dict(request.headers)
+    headers.pop("host", None)
+
+    body = await request.body()
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        try:
+            resp = await client.request(
+                method=request.method,
+                url=target_url,
+                headers=headers,
+                content=body,
+                params=dict(request.query_params),
+            )
+        except httpx.ConnectError:
+            raise HTTPException(
+                status_code=502,
+                detail="Visual Engine service is not running. Start it with: pm2 start ecosystem.config.js --only visual-engine"
+            )
+
+    return Response(
+        content=resp.content,
+        status_code=resp.status_code,
+        headers=dict(resp.headers),
+        media_type=resp.headers.get("content-type"),
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
