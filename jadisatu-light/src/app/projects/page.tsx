@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { createClient } from "@/lib/supabase-browser";
+import Link from "next/link";
 import { Plus, Folder, CheckCircle2, MoreVertical, Loader2 } from "lucide-react";
 
 interface Project {
@@ -126,7 +127,7 @@ export default function ProjectsPage() {
                 const c = colors[i % colors.length];
                 const count = taskCounts[project.id] || 0;
                 return (
-                  <div key={project.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer group flex flex-col">
+                  <Link href={`/projects/${project.id}`} key={project.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer group flex flex-col">
                     <div className="flex items-start justify-between mb-4">
                       <div className={`w-12 h-12 rounded-2xl ${c.bgColor} flex items-center justify-center ${c.textColor}`}>
                         <Folder className="w-6 h-6" />
@@ -149,7 +150,7 @@ export default function ProjectsPage() {
                       </span>
                       <span className="text-xs text-slate-400">{new Date(project.created_at).toLocaleDateString()}</span>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
 

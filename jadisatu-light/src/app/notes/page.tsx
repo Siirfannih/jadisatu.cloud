@@ -4,38 +4,53 @@ import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { createClient } from "@/lib/supabase-browser";
-import { Search, Plus, LayoutGrid, List, Tag, Hash, Type, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
+import { Search, Plus, LayoutGrid, List, Hash, ChevronDown, ChevronUp, Trash2, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface Idea { id: string; title: string; content: string; tags: string[]; source: string; status: string; created_at: string; }
+interface Note {
+  id: string; title: string; content: string; tags: string[]; source: string; status: string; created_at: string;
+}
 
 export default function NotesPage() {
-  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const supabase = createClient();
+  const [notes, setNotes] = useState<Note[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [searchQuery, setSearchQuery] = useState("");
-  const supabase = createClient();
-  const [newIdea, setNewIdea] = useState("");
-  const [selected, setSelected] = useState<Idea | null>(null);
+  const [newNote, setNewNote] = useState("");
+  const [expandedNote, setExpandedNote] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => { loadIdeas(); }, []);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) { setUserId(data.user.id); loadNotes(data.user.id); }
+    });
+  }, []);
 
-  async function loadIdeas() {
-    const { data } = await supabase.from("ideas").select("*").eq("status", "active").order("created_at", { ascending: false });
-    if (data) { setIdeas(data); if (data.length > 0 && !selected) setSelected(data[0]); }
+  async function loadNotes(uid?: string) {
+    const id = uid || userId;
+    if (!id) return;
+    const { data } = await supabase.from("ideas").select("*").eq("user_id", id).eq("status", "active").order("created_at", { ascending: false });
+    if (data) setNotes(data);
   }
 
-  async function addIdea() {
-    if (!newIdea.trim()) return;
-    const tags = newIdea.match(/#\w+/g)?.map((t) => t.slice(1)) || [];
-    const title = newIdea.replace(/#\w+/g, "").trim();
-    await supabase.from("ideas").insert({ title, tags, source: "manual", status: "active" });
-    setNewIdea("");
-    loadIdeas();
+  async function addNote() {
+    if (!newNote.trim() || !userId) return;
+    const tags = newNote.match(/#\w+/g)?.map(t => t.slice(1)) || [];
+    const title = newNote.replace(/#\w+/g, "").trim();
+    await supabase.from("ideas").insert({ title: title || newNote.trim(), tags, source: "notes", status: "active", user_id: userId });
+    setNewNote("");
+    await loadNotes();
   }
 
-  const filtered = ideas.filter((i) =>
-    i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    i.tags?.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
+  async function deleteNote(id: string) {
+    await supabase.from("ideas").update({ status: "deleted" }).eq("id", id);
+    if (expandedNote === id) setExpandedNote(null);
+    await loadNotes();
+  }
+
+  const filtered = notes.filter(n =>
+    n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    n.tags?.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -43,97 +58,81 @@ export default function NotesPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TopNav />
-        <main className="flex-1 overflow-hidden flex flex-col p-8">
-          <div className="max-w-7xl mx-auto w-full h-full flex flex-col">
-            <div className="flex items-center justify-between mb-6 shrink-0">
-              <div><h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">Ideas & Notes</h1><p className="text-slate-500">Capture everything, organize later.</p></div>
+        <main className="flex-1 overflow-y-auto p-8 scrollbar-hide">
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">Notes</h1>
+                <p className="text-slate-500">Capture ideas and thoughts quickly.</p>
+              </div>
               <div className="flex items-center gap-2 bg-white border border-slate-200 p-1 rounded-xl">
-                <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg transition-colors", viewMode === "grid" ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:text-slate-600")}><LayoutGrid className="w-4 h-4" /></button>
                 <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg transition-colors", viewMode === "list" ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:text-slate-600")}><List className="w-4 h-4" /></button>
+                <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg transition-colors", viewMode === "grid" ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:text-slate-600")}><LayoutGrid className="w-4 h-4" /></button>
               </div>
             </div>
 
-            {/* Quick Add */}
-            <div className="relative mb-6 shrink-0">
-              <div className="bg-white border border-slate-200 rounded-2xl p-2 flex items-center gap-3 shadow-sm focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-                <Plus className="text-slate-400 ml-2 shrink-0" size={20} />
-                <input type="text" value={newIdea} onChange={(e) => setNewIdea(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addIdea()} placeholder="Capture a quick idea... (Press Enter to save, use #tags)" className="flex-1 bg-transparent border-none outline-none py-3 text-base placeholder:text-slate-400" />
-              </div>
+            {/* Quick Capture */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-2 flex items-center gap-3 shadow-sm focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+              <Plus className="text-slate-400 ml-3 shrink-0" size={20} />
+              <input type="text" value={newNote} onChange={e => setNewNote(e.target.value)} onKeyDown={e => e.key === "Enter" && addNote()} placeholder="Capture a quick note... (Press Enter, use #tags)" className="flex-1 bg-transparent border-none outline-none py-3 text-base placeholder:text-slate-400" />
             </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search notes or #tags..." className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+            </div>
+
+            {/* Notes */}
+            {filtered.length === 0 && (
+              <div className="bg-white rounded-3xl p-12 border border-slate-100 shadow-sm text-center">
+                <StickyNote className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No notes yet</h3>
+                <p className="text-sm text-slate-500">Capture your first thought above!</p>
+              </div>
+            )}
 
             {viewMode === "list" ? (
-              <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
-                {/* Notes List */}
-                <div className="w-80 flex flex-col bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden shrink-0">
-                  <div className="p-4 border-b border-slate-100">
-                    <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search ideas..." className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                    {filtered.map((idea) => (
-                      <div key={idea.id} onClick={() => setSelected(idea)} className={`p-4 rounded-2xl cursor-pointer transition-colors ${selected?.id === idea.id ? "bg-blue-50 border border-blue-100" : "hover:bg-slate-50 border border-transparent"}`}>
-                        <h3 className={`font-semibold text-sm mb-1 line-clamp-1 ${selected?.id === idea.id ? "text-blue-900" : "text-slate-900"}`}>{idea.title}</h3>
-                        {idea.tags && idea.tags.length > 0 && (
-                          <div className="flex gap-1 mb-2 flex-wrap">{idea.tags.slice(0, 3).map((tag) => (<span key={tag} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-bold uppercase">#{tag}</span>))}</div>
-                        )}
-                        <span className={`text-[10px] font-medium ${selected?.id === idea.id ? "text-blue-600" : "text-slate-400"}`}>{new Date(idea.created_at).toLocaleDateString()}</span>
+              <div className="space-y-3">
+                {filtered.map(note => (
+                  <div key={note.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all hover:border-blue-100">
+                    <div className="flex items-center gap-4 p-4 cursor-pointer" onClick={() => setExpandedNote(expandedNote === note.id ? null : note.id)}>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-slate-900 mb-1">{note.title}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {note.tags?.map(tag => <span key={tag} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold">#{tag}</span>)}
+                          <span className="text-xs text-slate-400">{new Date(note.created_at).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                    ))}
-                    {filtered.length === 0 && <p className="text-center text-sm text-slate-400 py-8">No ideas yet. Capture one above!</p>}
-                  </div>
-                </div>
-
-                {/* Editor */}
-                <div className="flex-1 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
-                  <div className="h-14 border-b border-slate-100 flex items-center justify-between px-6 shrink-0">
-                    <div className="flex items-center gap-1">
-                      <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg"><Type className="w-4 h-4" /></button>
-                      <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg"><ImageIcon className="w-4 h-4" /></button>
-                      <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg"><LinkIcon className="w-4 h-4" /></button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={e => { e.stopPropagation(); deleteNote(note.id); }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        {expandedNote === note.id ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                      </div>
                     </div>
+                    {expandedNote === note.id && (
+                      <div className="px-4 pb-4 border-t border-slate-50">
+                        <p className="text-slate-600 text-sm leading-relaxed pt-3 whitespace-pre-wrap">{note.content || "No content"}</p>
+                        <div className="mt-3 text-xs text-slate-400">Source: {note.source} · {new Date(note.created_at).toLocaleString()}</div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 overflow-y-auto p-10">
-                    <div className="max-w-2xl mx-auto">
-                      {selected ? (
-                        <>
-                          {selected.tags && selected.tags.length > 0 && (
-                            <div className="flex items-center gap-2 mb-6 flex-wrap">{selected.tags.map((tag) => (<span key={tag} className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"><Hash className="w-3 h-3" />{tag}</span>))}</div>
-                          )}
-                          <h1 className="text-4xl font-bold text-slate-900 mb-6">{selected.title}</h1>
-                          <div className="prose prose-slate prose-blue max-w-none">
-                            <p className="text-slate-600 text-lg leading-relaxed">{selected.content || "Start writing..."}</p>
-                          </div>
-                          <div className="mt-6 text-xs text-slate-400">Source: {selected.source || "manual"} • {new Date(selected.created_at).toLocaleString()}</div>
-                        </>
-                      ) : (
-                        <p className="text-slate-400 text-center py-20">Select a note or create a new one</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             ) : (
-              /* Grid View */
-              <div className="flex-1 overflow-y-auto">
-                <div className="relative mb-4">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search ideas..." className="w-full max-w-xs pl-9 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filtered.map((idea) => (
-                    <div key={idea.id} onClick={() => { setSelected(idea); setViewMode("list"); }} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer">
-                      <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2">{idea.title}</h3>
-                      {idea.content && <p className="text-sm text-slate-500 mb-3 line-clamp-3">{idea.content}</p>}
-                      <div className="flex items-center justify-between">
-                        <div className="flex gap-1 flex-wrap">{(idea.tags || []).slice(0, 3).map((tag) => (<span key={tag} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-bold">#{tag}</span>))}</div>
-                        <span className="text-[10px] text-slate-400">{new Date(idea.created_at).toLocaleDateString()}</span>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filtered.map(note => (
+                  <div key={note.id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all group">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-slate-900 line-clamp-2">{note.title}</h3>
+                      <button onClick={() => deleteNote(note.id)} className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
-                  ))}
-                  {filtered.length === 0 && <div className="col-span-3 py-12 text-center text-slate-400">No ideas yet</div>}
-                </div>
+                    {note.content && <p className="text-sm text-slate-500 mb-3 line-clamp-3">{note.content}</p>}
+                    <div className="flex items-center justify-between mt-auto">
+                      <div className="flex gap-1 flex-wrap">{(note.tags || []).slice(0, 3).map(tag => <span key={tag} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-bold">#{tag}</span>)}</div>
+                      <span className="text-[10px] text-slate-400">{new Date(note.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

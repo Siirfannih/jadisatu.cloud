@@ -128,7 +128,7 @@ export default function DashboardPage() {
                 <h1 className="text-4xl font-bold text-slate-900 tracking-tight mb-2">Welcome back, {userName}! 👋</h1>
                 <p className="text-slate-500 text-lg">{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
               </div>
-              <a href="/projects" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-medium transition-colors shadow-sm">
+              <a href="/projects" className="hidden sm:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-medium transition-colors shadow-sm">
                 <Plus className="w-5 h-5" /><span>New Project</span>
               </a>
             </div>
