@@ -7,15 +7,16 @@ import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Check, Rocket, Clock, PenTool, Plus, Play, Pause, RotateCcw,
+  Check, Rocket, Clock, PenTool, Plus, Calendar as CalendarIcon,
   MessageSquare, GitCommit, FileEdit, CheckCircle2, Circle,
-  ArrowRight, Trash2
+  ArrowRight, Trash2, ChevronLeft, ChevronRight as ChevronRightIcon
 } from "lucide-react";
 
 type Task = { id: string; title: string; status: string; domain: string; priority: string; created_at: string; };
 type Project = { id: string; name: string; description: string | null; status: string; };
 type ActivityItem = { id: string; type?: string; action?: string; description: string; created_at: string; };
 type Idea = { id: string; title: string; tags?: string[]; source: string; status: string; created_at: string; };
+type ScheduleBlock = { id: string; title: string; start_time: string; end_time: string; domain: string | null; type: string; date: string; };
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -30,20 +31,10 @@ export default function DashboardPage() {
   const [taskFilter, setTaskFilter] = useState<"all" | "pending">("pending");
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
-
-  // Pomodoro
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [timerActive, setTimerActive] = useState(false);
+  const [schedule, setSchedule] = useState<ScheduleBlock[]>([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => { checkUser(); }, []);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timerActive && timeLeft > 0) {
-      interval = setInterval(() => setTimeLeft(t => { if (t <= 1) { setTimerActive(false); return 0; } return t - 1; }), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, timeLeft]);
 
   async function checkUser() {
     const { data: { user: u }, error } = await supabase.auth.getUser();
@@ -55,16 +46,18 @@ export default function DashboardPage() {
 
   async function loadData() {
     setLoading(true);
-    const [tRes, pRes, aRes] = await Promise.all([
+    const todayStr = new Date().toISOString().split("T")[0];
+    const [tRes, pRes, aRes, sRes] = await Promise.all([
       fetch("/api/tasks?status=active&limit=100"),
       fetch("/api/projects"),
       fetch("/api/activities?limit=5"),
+      fetch(`/api/schedule?date=${todayStr}`),
     ]);
     if (tRes.ok) { const d = await tRes.json(); setTasks(Array.isArray(d) ? d : []); }
     if (pRes.ok) { const d = await pRes.json(); setProjects(Array.isArray(d) ? d : []); }
     if (aRes.ok) { const d = await aRes.json(); setActivities(Array.isArray(d) ? d : []); }
+    if (sRes.ok) { const d = await sRes.json(); setSchedule(Array.isArray(d) ? d : []); }
 
-    // Load ideas for creative preview
     const { data: { user: u } } = await supabase.auth.getUser();
     if (u) {
       const { data: ideasData } = await supabase.from("ideas").select("*").eq("user_id", u.id).neq("status", "deleted").order("created_at", { ascending: false }).limit(3);
@@ -105,7 +98,6 @@ export default function DashboardPage() {
     setSavingNote(false);
   }
 
-  const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
   const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Creator";
   const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; };
   const completedCount = tasks.filter(t => t.status === "done").length;
@@ -243,19 +235,59 @@ export default function DashboardPage() {
 
               {/* Right Sidebar Widgets */}
               <div className="space-y-8">
-                {/* Focus Widget */}
-                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-6"><h2 className="text-lg font-bold text-slate-900">Focus Mode</h2><span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold tracking-wide uppercase">Pomodoro</span></div>
-                    <div className="flex flex-col items-center justify-center py-6 relative">
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-48 h-48 rounded-full border-[3px] border-slate-50"></div><div className="absolute w-48 h-48 rounded-full border-[3px] border-blue-500 border-t-transparent border-l-transparent rotate-45 opacity-20"></div></div>
-                      <div className="text-5xl font-bold tracking-tight text-slate-900 mb-2 relative z-10">{formatTime(timeLeft)}</div>
-                      <p className="text-slate-500 text-sm font-medium relative z-10">Deep work session</p>
-                    </div>
-                    <div className="flex items-center justify-center gap-4 mt-4">
-                      <button onClick={() => setTimerActive(!timerActive)} className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 hover:scale-105 transition-all shadow-md shadow-blue-200">{timerActive ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}</button>
-                      <button onClick={() => { setTimerActive(false); setTimeLeft(25 * 60); }} className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-colors"><RotateCcw className="w-5 h-5" /></button>
-                    </div>
+                {/* Calendar Widget */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-slate-900">Calendar</h2>
+                    <Link href="/calendar" className="text-sm font-medium text-blue-600 hover:text-blue-700">Full View</Link>
+                  </div>
+                  {/* Mini Calendar Header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <button onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded-lg"><ChevronLeft className="w-4 h-4 text-slate-400" /></button>
+                    <span className="text-sm font-semibold text-slate-900">{selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+                    <button onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 rounded-lg"><ChevronRightIcon className="w-4 h-4 text-slate-400" /></button>
+                  </div>
+                  {/* Day Headers */}
+                  <div className="grid grid-cols-7 gap-1 mb-1">
+                    {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                      <div key={i} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>
+                    ))}
+                  </div>
+                  {/* Calendar Grid */}
+                  {(() => {
+                    const year = selectedDate.getFullYear();
+                    const month = selectedDate.getMonth();
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const todayDate = new Date();
+                    const isToday = (d: number) => todayDate.getFullYear() === year && todayDate.getMonth() === month && todayDate.getDate() === d;
+                    const cells = [];
+                    for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
+                    for (let d = 1; d <= daysInMonth; d++) {
+                      cells.push(
+                        <button key={d} className={`text-xs py-1.5 rounded-lg transition-colors ${isToday(d) ? "bg-blue-600 text-white font-bold" : "text-slate-700 hover:bg-slate-100"}`}>{d}</button>
+                      );
+                    }
+                    return <div className="grid grid-cols-7 gap-1">{cells}</div>;
+                  })()}
+                  {/* Today's Schedule */}
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Today&apos;s Schedule</p>
+                    {schedule.length > 0 ? (
+                      <div className="space-y-2">
+                        {schedule.map(s => (
+                          <div key={s.id} className="flex items-center gap-3 p-2 rounded-xl bg-slate-50">
+                            <div className="w-1 h-8 rounded-full bg-blue-500 shrink-0"></div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-slate-900 line-clamp-1">{s.title}</p>
+                              <p className="text-[10px] text-slate-400">{s.start_time} – {s.end_time}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 text-center py-2">No events today</p>
+                    )}
                   </div>
                 </div>
 
