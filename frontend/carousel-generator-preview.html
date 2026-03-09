@@ -629,6 +629,18 @@
                 </button>
             </div>
 
+            <!-- Render Engine Toggle -->
+            <div class="glass-panel p-1 rounded-lg flex gap-1 border border-glass h-9">
+                <button onclick="setRenderEngine('classic')" id="btn-engine-classic"
+                    class="px-3 py-1 rounded text-[11px] font-medium text-white bg-white/10 transition-all flex items-center gap-1.5 pointer">
+                    Classic
+                </button>
+                <button onclick="setRenderEngine('fabric')" id="btn-engine-fabric"
+                    class="px-3 py-1 rounded text-[11px] font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1.5 pointer">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Fabric
+                </button>
+            </div>
+
             <div class="h-6 w-px bg-white/10"></div>
 
             <div class="flex items-center gap-3">
@@ -963,7 +975,13 @@
                                     class="flex-1 flex items-center justify-center overflow-hidden z-10 w-full min-h-0">
                                     <!-- size-frame: JS sets width/height = canvas*scale so layout respects it -->
                                     <div id="carousel-preview-size-frame" style="position:relative; flex-shrink:0;">
-                                        <!-- inner canvas positioned absolute top-left, scaled from top-left -->
+                                        <!-- Fabric.js Canvas (hidden by default, shown when Fabric engine active) -->
+                                        <div id="fabric-canvas-wrapper"
+                                            style="position:absolute; top:0; left:0; transform-origin: top left; transition: transform 0.2s; display:none; z-index:20;">
+                                            <canvas id="fabric-slide-canvas" width="1080" height="1080"
+                                                style="border-radius:8px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);"></canvas>
+                                        </div>
+                                        <!-- inner canvas positioned absolute top-left, scaled from top-left (Classic engine) -->
                                         <div id="carousel-preview-scale-inner"
                                             style="position:absolute; top:0; left:0; transform-origin: top left; transition: transform 0.2s;">
                                             <div id="carousel-live-canvas"
@@ -1420,6 +1438,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/dom-to-image-more@3.7.2/dist/dom-to-image-more.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="js/composition-engine.js"></script>
+    <script src="js/fabric-renderer.js"></script>
     <script src="js/creative-content-service.js"></script>
     <script src="js/app-settings-service.js"></script>
     <script src="js/font-registry.js"></script>
@@ -1442,6 +1463,61 @@
         var slidesData = [];
         var currentSlideIndex = 0;
         var platformRules = { platform: 'instagram', maxSlides: 10, canvasSize: '1080x1080' };
+
+        // ─── Render Engine Toggle (Classic HTML vs Fabric.js) ───────────────
+        var _renderEngine = 'classic';   // 'classic' or 'fabric'
+        var _fabricInitialized = false;
+
+        function setRenderEngine(engine) {
+            _renderEngine = engine;
+            var btnClassic = document.getElementById('btn-engine-classic');
+            var btnFabric = document.getElementById('btn-engine-fabric');
+            var classicWrapper = document.getElementById('carousel-preview-scale-inner');
+            var fabricWrapper = document.getElementById('fabric-canvas-wrapper');
+
+            if (engine === 'fabric') {
+                // Initialize Fabric.js if not done
+                if (!_fabricInitialized && typeof FabricRenderer !== 'undefined') {
+                    _fabricInitialized = FabricRenderer.init('fabric-slide-canvas', 1080, 1080);
+                }
+                if (classicWrapper) classicWrapper.style.display = 'none';
+                if (fabricWrapper) fabricWrapper.style.display = 'block';
+                if (btnClassic) { btnClassic.className = 'px-3 py-1 rounded text-[11px] font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1.5 pointer'; }
+                if (btnFabric) { btnFabric.className = 'px-3 py-1 rounded text-[11px] font-medium text-white bg-white/10 transition-all flex items-center gap-1.5 pointer'; }
+                // Render current slide in Fabric
+                renderSlideFabric(currentSlideIndex);
+                // Apply same scale as classic
+                syncFabricScale();
+            } else {
+                if (classicWrapper) classicWrapper.style.display = '';
+                if (fabricWrapper) fabricWrapper.style.display = 'none';
+                if (btnClassic) { btnClassic.className = 'px-3 py-1 rounded text-[11px] font-medium text-white bg-white/10 transition-all flex items-center gap-1.5 pointer'; }
+                if (btnFabric) { btnFabric.className = 'px-3 py-1 rounded text-[11px] font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1.5 pointer'; }
+                renderSlideClean(currentSlideIndex);
+            }
+        }
+
+        function syncFabricScale() {
+            var fabricWrapper = document.getElementById('fabric-canvas-wrapper');
+            var classicWrapper = document.getElementById('carousel-preview-scale-inner');
+            if (fabricWrapper && classicWrapper) {
+                // Copy the transform from classic wrapper
+                fabricWrapper.style.transform = classicWrapper.style.transform;
+            }
+        }
+
+        function renderSlideFabric(slideIndex) {
+            if (!_fabricInitialized || typeof CompositionEngine === 'undefined' || typeof FabricRenderer === 'undefined') return;
+            var slide = slidesData[slideIndex];
+            if (!slide) return;
+
+            var tpl = getActiveTemplate();
+            tpl._presetName = _activePreset;
+            var composition = CompositionEngine.compose(slide, slideIndex, tpl, slidesData.length);
+            FabricRenderer.renderComposition(composition, function() {
+                console.log('[renderSlideFabric] slide=' + slideIndex + ' rendered');
+            });
+        }
 
         // ─── Template Folder System (per-slide styles) ────────────────────
         var templateFolder = null;       // { name, shared_brand, styles: [{index, name, schema}] }
@@ -2705,6 +2781,11 @@
                 + ' icon=' + (slide._iconName || 'default')
                 + ' bg=' + bgVariant
                 + ' template=' + _activePreset);
+
+            // ── 11. FABRIC.JS SYNC — render to Fabric canvas if active ──
+            if (_renderEngine === 'fabric' && typeof renderSlideFabric === 'function') {
+                renderSlideFabric(slideIndex);
+            }
         }
 
 
@@ -3382,8 +3463,35 @@
             }
         }
 
+        // Render a single slide to PNG data URL via Fabric.js (higher quality, no dom-to-image quirks)
+        async function renderSlideToDataUrlFabric(slideIndex) {
+            if (!_fabricInitialized && typeof FabricRenderer !== 'undefined') {
+                _fabricInitialized = FabricRenderer.init('fabric-slide-canvas', 1080, 1080);
+            }
+            if (!_fabricInitialized) return null;
+
+            var slide = slidesData[slideIndex];
+            if (!slide) return null;
+
+            var tpl = getActiveTemplate();
+            tpl._presetName = _activePreset;
+            var composition = CompositionEngine.compose(slide, slideIndex, tpl, slidesData.length);
+
+            return new Promise(function(resolve) {
+                FabricRenderer.renderComposition(composition, function() {
+                    var dataUrl = FabricRenderer.exportPNG(1); // already 1080x1080
+                    resolve(dataUrl);
+                });
+            });
+        }
+
         // Render a single slide to PNG data URL (invisible — just sets data and captures)
         async function renderSlideToDataUrl(slideIndex) {
+            // If Fabric engine active, use Fabric export (cleaner, no CORS issues)
+            if (_renderEngine === 'fabric') {
+                var fabricUrl = await renderSlideToDataUrlFabric(slideIndex);
+                if (fabricUrl) return fabricUrl;
+            }
             // Render slide cleanly before capture
             var origIndex = currentSlideIndex;
             currentSlideIndex = slideIndex;
@@ -5381,6 +5489,12 @@
 
                 // Apply transform to inner canvas
                 scaleInner.style.transform = 'scale(' + scale + ')';
+
+                // Also scale Fabric.js canvas wrapper
+                var fabricWrapper = document.getElementById('fabric-canvas-wrapper');
+                if (fabricWrapper) {
+                    fabricWrapper.style.transform = 'scale(' + scale + ')';
+                }
 
                 // Set size-frame dimensions = canvas * scale so layout respects scaled footprint
                 sizeFrame.style.width = (canvasWidth * scale) + 'px';
