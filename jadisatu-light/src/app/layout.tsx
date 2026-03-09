@@ -1,17 +1,30 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
-  title: 'JadiSatu Light',
-  description: 'JadiSatu OS - Light Mode',
-}
+  title: "Jadisatu - Creator OS",
+  description: "Operating system for solo founders and creators",
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
-      <body className="antialiased bg-white text-gray-900">
+    <html lang="en" className={`${inter.variable} font-sans`}>
+      <body
+        className="bg-[#F8FAFC] text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900"
+        suppressHydrationWarning
+      >
         {children}
       </body>
     </html>
-  )
+  );
 }
