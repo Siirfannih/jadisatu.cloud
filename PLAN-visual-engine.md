@@ -338,36 +338,50 @@ jadisatu.cloud/
 
 ## 7. IMPLEMENTASI — TAHAPAN
 
-### Phase 1: Foundation (Core Engine)
+### Phase 1: Foundation (Core Engine) ✅ DONE
 **Deliverables:**
-- [ ] `visual-engine/renderer/template_engine.py` — Jinja2 template renderer
-- [ ] `visual-engine/renderer/render.py` — Playwright screenshot engine
-- [ ] `visual-engine/templates/carousel-modern/` — 3 template files (cover, content, cta)
-- [ ] `visual-engine/templates/shared/` — CSS reset, icon SVGs
-- [ ] Test: render 1 slide dari JSON → PNG
+- [x] `visual-engine/renderer/template_engine.py` — Jinja2 template renderer
+- [x] `visual-engine/renderer/render.py` — Playwright screenshot engine
+- [x] `visual-engine/templates/default-modern/` — 3 template files (cover, content, cta)
+- [x] `visual-engine/templates/shared/` — CSS reset, utilities
+- [x] `visual-engine/templates/base.html` — Base template with CSS variables
 
-**Dependensi:** Playwright install di VPS (`pip install playwright && playwright install chromium`)
-
-### Phase 2: AI Content Generation
+### Phase 1B: Smart Extractor v2 ✅ DONE
 **Deliverables:**
-- [ ] `visual-engine/api/app.py` — FastAPI app
-- [ ] `visual-engine/api/generate.py` — POST /api/visual/generate endpoint
-- [ ] 1 clean Gemini prompt (menggantikan 5 prompt lama)
-- [ ] Test: topic input → AI JSON → rendered slides PNG
+- [x] `visual-engine/renderer/smart_extractor.py` — Multi-image → HTML/CSS templates
+  - Single image → 1 template (direct Gemini Vision → HTML)
+  - Multiple images → N templates (1 per image, in folder)
+  - Icon support via Lucide CDN
+  - Illustration areas as CSS gradient placeholders
+  - Decorative elements recreated in CSS
+- [x] `visual-engine/renderer/template_store.py` — Template folder system
+  - TemplateFolder: stores multiple template styles
+  - TemplateStore: Supabase + local file storage
+  - SlideStyleSelector: per-slide template style assignment
 
-### Phase 3: Frontend (Content Studio)
+### Phase 2: API Endpoints ✅ DONE
+**Deliverables:**
+- [x] `visual-engine/api/app.py` — FastAPI app (port 8100)
+  - `POST /api/visual/extract-templates` — Smart Extractor v2 (image → HTML/CSS)
+  - `POST /api/visual/generate` — Full pipeline (topic → slides → PNG)
+  - `POST /api/visual/render-slide` — Render single slide from template
+  - `GET /api/visual/templates` — List template folders
+  - `GET /api/visual/templates/{id}` — Get folder details
+  - `DELETE /api/visual/templates/{id}` — Delete folder
+
+### Phase 3: Frontend (Content Studio) — NEXT
 **Deliverables:**
 - [ ] `frontend/content-studio.html` — Clean UI: form + preview
 - [ ] `frontend/js/content-studio.js` — API calls + image display
-- [ ] Features: input form, template picker, preview gallery, download
+- [ ] Features: input form, template folder picker, preview gallery, download
+- [ ] Per-slide style selector (drag & drop template assignment)
 - [ ] Edit: click slide → edit text via form → re-render 1 slide
 
 ### Phase 4: Template Expansion
 **Deliverables:**
-- [ ] `carousel-minimal/` — template family #2
-- [ ] `carousel-bold/` — template family #3
-- [ ] Template picker UI di frontend
-- [ ] Brand config persistence (Supabase)
+- [ ] More built-in templates (minimal, bold, editorial)
+- [ ] Template marketplace / community sharing
+- [ ] Import template from external paste (HTML/CSS dari Gemini/Claude chat)
 
 ### Phase 5: Integration & Polish
 **Deliverables:**
@@ -378,31 +392,97 @@ jadisatu.cloud/
 
 ---
 
-## 8. MIGRASI — APA YANG TERJADI DENGAN KODE LAMA?
+## 8. SMART EXTRACTOR v2 — ARSITEKTUR
 
-| File Lama | Keputusan |
-|-----------|-----------|
-| `carousel-generator-preview.html` (6,424 lines) | **TETAP ADA** sebagai "Advanced Editor" tapi bukan flow utama |
-| `frontend/js/fabric-renderer.js` (1,213 lines) | **TETAP ADA** tapi opsional |
-| `hunter-agent/backend/api.py` — carousel endpoints | **TETAP ADA** untuk backward compatibility |
-| `hunter-agent/backend/carousel_processor.py` | **DEPRECATED** — diganti visual-engine |
+### Perbedaan v1 vs v2:
 
-**Prinsip**: Tidak menghapus apapun. Sistem baru berjalan paralel. Setelah proven, baru migrate sepenuhnya.
+| Aspek | v1 (Lama) | v2 (Baru) |
+|-------|-----------|-----------|
+| Output dari Gemini | JSON Schema 50+ fields | HTML/CSS langsung |
+| Rendering | Fabric.js interpret JSON | Playwright screenshot HTML |
+| Multi-image | Gabung jadi 1 schema | 1 template per image → folder |
+| Icons | Lucide via JS lookup | Lucide CDN langsung di HTML |
+| Illustrations | Tidak ada | CSS gradient + SVG placeholders |
+| Debug | Cek 50+ JSON fields | Buka HTML di browser |
+
+### Flow Multi-Image → Template Folder:
+
+```
+User uploads 3 reference images
+            ↓
+POST /api/visual/extract-templates
+{ images: [base64_1, base64_2, base64_3], folder_name: "My Styles" }
+            ↓
+SmartExtractorV2.extract_multiple()
+  → Sends 3 images + prompt to Gemini Vision
+  → Gemini returns JSON array with 3 HTML templates
+            ↓
+TemplateStore saves to folder:
+  My Styles/
+  ├── style 1: "dark-editorial"    (HTML/CSS)
+  ├── style 2: "minimal-clean"     (HTML/CSS)
+  └── style 3: "bold-gradient"     (HTML/CSS)
+            ↓
+Playwright generates preview thumbnails for each
+            ↓
+Response:
+{
+  folder_id: "abc-123",
+  template_count: 3,
+  templates: [
+    { name: "dark-editorial", preview_url: "...", html: "..." },
+    { name: "minimal-clean", preview_url: "...", html: "..." },
+    { name: "bold-gradient", preview_url: "...", html: "..." }
+  ]
+}
+```
+
+### Per-Slide Style Selection:
+
+```
+User creates 7-slide carousel from folder "My Styles":
+
+Slide 0 (cover)   → uses "bold-gradient"
+Slide 1 (content) → uses "dark-editorial"
+Slide 2 (content) → uses "dark-editorial"
+Slide 3 (content) → uses "minimal-clean"
+Slide 4 (content) → uses "dark-editorial"
+Slide 5 (content) → uses "minimal-clean"
+Slide 6 (cta)     → uses "bold-gradient"
+
+POST /api/visual/generate {
+  folder_id: "abc-123",
+  style_assignments: { "0": 2, "1": 0, "2": 0, "3": 1, "4": 0, "5": 1, "6": 2 }
+}
+```
 
 ---
 
-## 9. KEUNTUNGAN vs SISTEM SAAT INI
+## 9. VISUAL ASSET HANDLING
 
-| Aspek | Saat Ini | Visual Engine Baru |
-|-------|----------|-------------------|
-| Kompleksitas frontend | 6,424 lines monolith | ~300 lines (form + preview) |
-| AI pipeline | 5 endpoint tumpang tindih | 1 endpoint clean |
-| Rendering | 3 engine (DOM/Fabric/Compose) | 1 engine (Playwright) |
-| Template editing | Edit code JS/HTML yang complex | Edit file HTML/CSS biasa |
-| Tambah template baru | Modifikasi monolith | Copy folder, edit CSS |
-| Output consistency | Beda di tiap browser | Server-render, selalu sama |
-| Debugging | DevTools 6,400 lines | File terpisah, testable |
-| State management | 5 tempat | Stateless (input → output) |
+### Icons
+- Lucide CDN: `<script src="https://unpkg.com/lucide@latest"></script>`
+- In HTML: `<i data-lucide="icon-name"></i>` → `<script>lucide.createIcons()</script>`
+- AI selects icon names based on content context
+
+### Illustrations & Images
+- **CSS gradient placeholders**: For areas that need illustrations
+  ```html
+  <div class="illustration-area"
+       style="background: linear-gradient(135deg, var(--primary), var(--accent));">
+    <i data-lucide="image" style="opacity:0.4"></i>
+  </div>
+  ```
+- **Future**: Integration with AI image generation (Gemini Imagen)
+- **User upload**: Allow users to replace placeholder with own image
+
+### Decorative Elements
+- All recreated in pure CSS (no JS needed):
+  - Geometric shapes → CSS `::before`/`::after` pseudo-elements
+  - Gradient overlays → CSS `linear-gradient`/`radial-gradient`
+  - Dot/grid patterns → CSS `radial-gradient` repeating
+  - Lines/dividers → CSS borders
+  - Circles/blobs → `border-radius: 50%`
 
 ---
 
@@ -413,17 +493,36 @@ jadisatu.cloud/
 - Playwright + Chromium (`pip install playwright && playwright install chromium`)
 - Jinja2 (`pip install jinja2`)
 - FastAPI + Uvicorn (sudah ada)
+- google-generativeai (`pip install google-generativeai`)
 
 ### Port:
-- Visual Engine API: port 8100 (atau lainnya yang available)
+- Visual Engine API: port 8100
 - Existing Hunter Agent API: port tetap
 
----
-
-## KEPUTUSAN YANG PERLU DIAMBIL
-
-1. **Template style pertama**: Modern? Minimal? Bold? → Tentukan 1 untuk Phase 1
-2. **Platform target utama**: Instagram (1080x1080)? LinkedIn? Multi? → Tentukan ukuran default
-3. **Font**: Plus Jakarta Sans? Inter? Poppins? → Tentukan font default
-4. **Playwright vs Puppeteer**: Playwright (Python native) recommended
-5. **Port untuk Visual Engine API**: 8100?
+### File Structure (Implemented):
+```
+visual-engine/
+├── api/
+│   ├── __init__.py
+│   └── app.py                    # FastAPI endpoints
+├── renderer/
+│   ├── __init__.py
+│   ├── render.py                 # Playwright screenshot engine
+│   ├── template_engine.py        # Jinja2 template renderer
+│   ├── smart_extractor.py        # Gemini Vision → HTML/CSS
+│   └── template_store.py         # Template folder management
+├── templates/
+│   ├── base.html                 # Base template (fonts, CSS vars)
+│   ├── default-modern/           # Built-in template family
+│   │   ├── slide-cover.html
+│   │   ├── slide-content.html
+│   │   └── slide-cta.html
+│   └── shared/
+│       ├── css/
+│       │   ├── reset.css
+│       │   └── utilities.css
+│       ├── fonts/
+│       └── icons/
+├── output/                       # Generated images & stored templates
+└── requirements.txt
+```
