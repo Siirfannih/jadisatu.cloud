@@ -323,6 +323,28 @@
             cursor: text;
             min-height: 1em;
         }
+        /* Hide ALL editing outlines/borders during export */
+        #carousel-live-canvas.exporting {
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        #carousel-live-canvas.exporting [contenteditable],
+        #carousel-live-canvas.exporting [contenteditable="true"],
+        #carousel-live-canvas.exporting [contenteditable="false"],
+        #carousel-live-canvas.exporting [data-color-editable],
+        #carousel-live-canvas.exporting [data-color-editable]:hover,
+        #carousel-live-canvas.exporting .color-active {
+            outline: none !important;
+            outline-offset: 0 !important;
+            cursor: default !important;
+        }
+        #carousel-live-canvas.exporting #carousel-component-overlay,
+        #carousel-live-canvas.exporting #carousel-branding-overlay,
+        #carousel-live-canvas.exporting #canvas-blur-primary,
+        #carousel-live-canvas.exporting #canvas-blur-secondary {
+            display: none !important;
+        }
         [contenteditable="true"]:focus {
             outline-color: rgba(139,92,246,0.8);
         }
@@ -478,8 +500,8 @@
         .layout-hero-center #carousel-preview-body { display: none !important; }
 
         .layout-card-detail #carousel-preview-body {
-            background: rgba(255,255,255,0.06); border-radius: 12px;
-            padding: 16px; border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(128,128,128,0.06); border-radius: 12px;
+            padding: 16px; border: 1px solid rgba(128,128,128,0.12);
             font-size: 0.85rem; line-height: 1.6;
         }
 
@@ -614,6 +636,14 @@
                         </h2>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                                    <div class="mb-5">
+                                        <h3 class="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                                            <i data-lucide="palette" class="w-4 h-4"></i> Template Preset
+                                        </h3>
+                                        <div id="template-preset-grid" class="grid grid-cols-3 gap-2">
+                                        </div>
+                                    </div>
                             <!-- Smart Extractor -->
                             <div id="smart-extractor-card"
                                 class="glass-card bg-surface/40 hover:bg-surface rounded-xl p-5 cursor-pointer hover:border-secondary/50 group relative transition-all overflow-hidden">
@@ -1572,8 +1602,15 @@
             console.log('[TemplateFolders] Applying Style ' + (styleIdx + 1) + ' (' + (style.schema.template_family || 'unknown') + ') to slide ' + (slideIndex + 1));
 
             // Apply visual mode from this style's schema (defined inside DOMContentLoaded)
-            if (typeof window.applyVisualMode === 'function') {
-                window.applyVisualMode(style.schema);
+            // Style schema applied via renderSlideClean (no direct applyVisualMode call)
+            // Template folder styles override template preset colors if available
+            if (style.schema && style.schema.color_palette) {
+                var cp = style.schema.color_palette;
+                var slide = slidesData[slideIndex];
+                if (slide && cp.primary) {
+                    // Store template folder colors for renderSlideClean to use
+                    slide._templateColors = cp;
+                }
             }
 
             // Update style indicator dots
@@ -1946,6 +1983,114 @@
         // ─── Content Strategist Integration ──────────────────────
         var _strategistData = null; // Per-slide decisions from AI
 
+        // ═══════════════════════════════════════════════════════════
+        // TEMPLATE PRESETS — Hardcoded, guaranteed-correct templates
+        // ═══════════════════════════════════════════════════════════
+        var TEMPLATE_PRESETS = {
+            'minimal-dark': {
+                name: 'Minimal Dark',
+                preview: '#0f0f11',
+                bg: '#0f0f11',
+                text: '#ffffff',
+                headline_color: '#ffffff',
+                body_color: 'rgba(255,255,255,0.7)',
+                accent: '#8b5cf6',
+                accent_light: 'rgba(139,92,246,0.15)',
+                accent_border: 'rgba(139,92,246,0.3)',
+                font: "'Inter', sans-serif",
+                icon_style: 'glass',        // glass circle bg
+                blur_primary: 'rgba(139,92,246,0.08)',
+                blur_secondary: 'rgba(99,102,241,0.06)',
+                footer_opacity: 0.5
+            },
+            'minimal-light': {
+                name: 'Minimal Light',
+                preview: '#f5f0eb',
+                bg: '#f5f0eb',
+                text: '#1a1a1a',
+                headline_color: '#1a1a1a',
+                body_color: 'rgba(0,0,0,0.6)',
+                accent: '#2dd4a8',
+                accent_light: 'rgba(45,212,168,0.1)',
+                accent_border: 'rgba(45,212,168,0.3)',
+                font: "'IBM Plex Mono', monospace",
+                icon_style: 'solid',         // solid rounded squares
+                blur_primary: 'rgba(45,212,168,0.05)',
+                blur_secondary: 'rgba(200,200,180,0.08)',
+                footer_opacity: 0.4
+            },
+            'bold-gradient': {
+                name: 'Bold Gradient',
+                preview: 'linear-gradient(135deg, #1e1b4b, #312e81)',
+                bg: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)',
+                text: '#ffffff',
+                headline_color: '#ffffff',
+                body_color: 'rgba(255,255,255,0.8)',
+                accent: '#f59e0b',
+                accent_light: 'rgba(245,158,11,0.15)',
+                accent_border: 'rgba(245,158,11,0.4)',
+                font: "'Plus Jakarta Sans', sans-serif",
+                icon_style: 'glow',          // glowing icon, no bg
+                blur_primary: 'rgba(245,158,11,0.06)',
+                blur_secondary: 'rgba(139,92,246,0.1)',
+                footer_opacity: 0.5
+            },
+            'professional': {
+                name: 'Professional',
+                preview: '#ffffff',
+                bg: '#ffffff',
+                text: '#111827',
+                headline_color: '#111827',
+                body_color: '#4b5563',
+                accent: '#2563eb',
+                accent_light: 'rgba(37,99,235,0.08)',
+                accent_border: 'rgba(37,99,235,0.2)',
+                font: "'Manrope', sans-serif",
+                icon_style: 'outline',       // outlined circle
+                blur_primary: 'rgba(37,99,235,0.03)',
+                blur_secondary: 'rgba(37,99,235,0.02)',
+                footer_opacity: 0.3
+            },
+            'warm-earth': {
+                name: 'Warm Earth',
+                preview: '#fef7ed',
+                bg: '#fef7ed',
+                text: '#292524',
+                headline_color: '#292524',
+                body_color: '#78716c',
+                accent: '#ea580c',
+                accent_light: 'rgba(234,88,12,0.1)',
+                accent_border: 'rgba(234,88,12,0.25)',
+                font: "'Lora', serif",
+                icon_style: 'warm',          // warm rounded bg
+                blur_primary: 'rgba(234,88,12,0.04)',
+                blur_secondary: 'rgba(251,191,36,0.06)',
+                footer_opacity: 0.4
+            },
+            'neon-dark': {
+                name: 'Neon Dark',
+                preview: '#0a0a0a',
+                bg: '#0a0a0a',
+                text: '#ffffff',
+                headline_color: '#ffffff',
+                body_color: 'rgba(255,255,255,0.7)',
+                accent: '#22d3ee',
+                accent_light: 'rgba(34,211,238,0.1)',
+                accent_border: 'rgba(34,211,238,0.3)',
+                font: "'JetBrains Mono', monospace",
+                icon_style: 'neon',          // neon glow border
+                blur_primary: 'rgba(34,211,238,0.06)',
+                blur_secondary: 'rgba(168,85,247,0.05)',
+                footer_opacity: 0.5
+            }
+        };
+        var _activePreset = 'minimal-dark'; // default
+
+        function getActiveTemplate() {
+            return TEMPLATE_PRESETS[_activePreset] || TEMPLATE_PRESETS['minimal-dark'];
+        }
+
+
         async function runContentStrategist(fullScript, designSchema) {
             if (!fullScript || fullScript.length < 30) return null;
             try {
@@ -2049,6 +2194,354 @@
             // 6. Re-create lucide icons
             if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
             console.log('[Strategist] Slide ' + (slideIndex+1) + ': layout=' + decision.layout_type + ' visual=' + decision.visual_mode + ' icon=' + (decision.icon_name || 'n/a') + ' bg=' + decision.bg_variant);
+        }
+
+
+        // ═══════════════════════════════════════════════════════════
+        // renderSlideClean() — THE single rendering function
+        // Replaces: applyVisualMode, applyStrategistToSlide,
+        //           applyLayoutVariant, applyBgVariant, applySlideIcon
+        // ═══════════════════════════════════════════════════════════
+        function renderSlideClean(slideIndex) {
+            var slide = slidesData[slideIndex];
+            if (!slide) return;
+
+            var tpl = getActiveTemplate();
+            var canvas = document.getElementById('carousel-live-canvas');
+            var headline = document.getElementById('carousel-preview-headline');
+            var body = document.getElementById('carousel-preview-body');
+            var iconWrap = document.getElementById('carousel-preview-icon-wrap');
+            var visualArea = document.getElementById('carousel-preview-visual-area');
+            var visualImg = document.getElementById('carousel-preview-visual-img');
+            var numberBadge = document.getElementById('carousel-preview-number-badge');
+            var blurPrimary = document.getElementById('canvas-blur-primary');
+            var blurSecondary = document.getElementById('canvas-blur-secondary');
+
+            if (!canvas) return;
+
+            // ── 1. TEMPLATE: Background & Colors ──
+            var bgVariant = slide._bgVariant || 'default';
+            var _invertedToLight = false;
+            var _invertedToDark = false;
+
+            // Determine which templates are dark vs light
+            var _darkTemplates = ['minimal-dark', 'bold-gradient', 'neon-dark'];
+            var _lightTemplates = ['minimal-light', 'professional', 'warm-earth'];
+            var _isDarkTpl = _darkTemplates.indexOf(_activePreset) !== -1;
+            var _isLightTpl = _lightTemplates.indexOf(_activePreset) !== -1;
+
+            if (bgVariant === 'dark' && _isLightTpl) {
+                // Light template but strategist wants dark bg → invert
+                canvas.style.background = '#0f0f11';
+                canvas.style.color = '#ffffff';
+                _invertedToDark = true;
+            } else if (bgVariant === 'light' && _isDarkTpl) {
+                // Dark template but strategist wants light bg → invert
+                canvas.style.background = '#f5f5f0';
+                canvas.style.color = '#1a1a1a';
+                _invertedToLight = true;
+            } else {
+                // Default: use template's own colors
+                canvas.style.background = tpl.bg;
+                canvas.style.color = tpl.text;
+            }
+            canvas.style.fontFamily = tpl.font;
+            canvas.style.border = 'none';
+
+            // Calculate effective text colors based on bg inversion
+            var _effHeadline = tpl.headline_color;
+            var _effBody = tpl.body_color;
+            var _effAccent = tpl.accent;
+
+            if (_invertedToLight) {
+                _effHeadline = '#1a1a1a';
+                _effBody = 'rgba(26,26,26,0.7)';
+            } else if (_invertedToDark) {
+                _effHeadline = '#ffffff';
+                _effBody = 'rgba(255,255,255,0.7)';
+            }
+
+            // Blur overlays — hide on light bg (designed for dark bg only)
+            if (_invertedToLight) {
+                if (blurPrimary) blurPrimary.style.background = 'transparent';
+                if (blurSecondary) blurSecondary.style.background = 'transparent';
+            } else {
+                if (blurPrimary) blurPrimary.style.background = tpl.blur_primary;
+                if (blurSecondary) blurSecondary.style.background = tpl.blur_secondary;
+            }
+
+            // ── 2. LAYOUT: Apply layout class ──
+            var LAYOUT_CLASSES = ['layout-hero-center', 'layout-card-detail', 'layout-text-heavy', 'layout-dramatic-closer'];
+            LAYOUT_CLASSES.forEach(function(cls) { canvas.classList.remove(cls); });
+
+            var layoutType = slide._layoutType || 'default';
+            if (layoutType !== 'default') {
+                canvas.classList.add('layout-' + layoutType);
+            }
+
+            // dramatic-closer layout always needs dark bg for impact
+            if (layoutType === 'dramatic-closer' && _invertedToLight) {
+                canvas.style.background = tpl.bg;
+                canvas.style.color = tpl.text;
+                _invertedToLight = false;
+                _effHeadline = tpl.headline_color;
+                _effBody = tpl.body_color;
+            }
+
+            // ── 3. TEXT: Set headline & body ──
+            var headlineText = slide.headline || '';
+            var bodyText = slide.body || '';
+
+            if (headline) {
+                // Check for text highlights
+                try {
+                    headline.textContent = headlineText;
+                } catch(e) {
+                    headline.textContent = headlineText;
+                }
+                headline.style.color = _effHeadline;
+                headline.style.display = '';
+            }
+            if (body) {
+                body.textContent = bodyText;
+                body.style.color = _effBody;
+                body.style.display = bodyText ? '' : 'none';
+            }
+
+            // ── 4. VISUAL: Icon / Diagram / None ──
+            // Clean up old diagram/component/branding elements
+            ['carousel-diagram-container', 'carousel-component-blocks',
+             'carousel-decorative-bg', 'carousel-branding-overlay',
+             'carousel-divider-block'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.remove();
+            });
+            var oldSvg = visualArea ? visualArea.querySelector('.slide-svg-visual') : null;
+            if (oldSvg) oldSvg.remove();
+
+            // Reset visual elements
+            if (iconWrap) iconWrap.classList.add('hidden');
+            if (visualImg) visualImg.classList.add('hidden');
+            if (visualArea) { visualArea.style.display = ''; }
+
+            var visualMode = slide._visualMode || 'icon';
+
+            if (visualMode === 'icon') {
+                // Determine icon name
+                var iconName = slide._iconName || 'sparkles';
+
+                if (iconWrap) {
+                    iconWrap.classList.remove('hidden');
+                    // Style icon based on template
+                    var iconStyle = tpl.icon_style;
+                    if (iconStyle === 'glass') {
+                        iconWrap.style.background = tpl.accent_light;
+                        iconWrap.style.border = '1px solid ' + tpl.accent_border;
+                        iconWrap.style.borderRadius = '16px';
+                        iconWrap.style.boxShadow = '0 8px 32px ' + tpl.accent_light;
+                    } else if (iconStyle === 'solid') {
+                        iconWrap.style.background = tpl.accent_light;
+                        iconWrap.style.border = '2px solid ' + tpl.accent_border;
+                        iconWrap.style.borderRadius = '12px';
+                        iconWrap.style.boxShadow = 'none';
+                    } else if (iconStyle === 'glow') {
+                        iconWrap.style.background = 'transparent';
+                        iconWrap.style.border = 'none';
+                        iconWrap.style.borderRadius = '50%';
+                        iconWrap.style.boxShadow = '0 0 40px ' + tpl.accent_light + ', 0 0 80px ' + tpl.accent_light;
+                    } else if (iconStyle === 'outline') {
+                        iconWrap.style.background = 'transparent';
+                        iconWrap.style.border = '2px solid ' + tpl.accent_border;
+                        iconWrap.style.borderRadius = '50%';
+                        iconWrap.style.boxShadow = 'none';
+                    } else if (iconStyle === 'warm') {
+                        iconWrap.style.background = tpl.accent_light;
+                        iconWrap.style.border = 'none';
+                        iconWrap.style.borderRadius = '20px';
+                        iconWrap.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
+                    } else if (iconStyle === 'neon') {
+                        iconWrap.style.background = 'rgba(0,0,0,0.3)';
+                        iconWrap.style.border = '1px solid ' + tpl.accent;
+                        iconWrap.style.borderRadius = '50%';
+                        iconWrap.style.boxShadow = '0 0 20px ' + tpl.accent_light + ', inset 0 0 20px ' + tpl.accent_light;
+                    }
+                    iconWrap.style.width = '120px';
+                    iconWrap.style.height = '120px';
+
+                    // Boost icon visibility on inverted backgrounds
+                    if (_invertedToLight) {
+                        iconWrap.style.background = tpl.accent_light.replace('0.15', '0.2').replace('0.1', '0.2');
+                        iconWrap.style.border = '1px solid ' + tpl.accent;
+                    }
+
+                    // Remove Tailwind default border that conflicts with template styling
+                    iconWrap.classList.remove('border', 'border-white/10');
+                    iconWrap.innerHTML = '<i data-lucide="' + iconName + '" style="color:' + _effAccent + '" class="w-14 h-14"></i>';
+                }
+                if (visualArea) visualArea.style.display = '';
+            } else if (visualMode === 'diagram') {
+                // Use VisualEngine for diagrams if available
+                var ve = window._visualEngine || (window.VisualEngine ? new VisualEngine() : null);
+                if (!window._visualEngine && ve) window._visualEngine = ve;
+
+                if (ve && slide.body) {
+                    // Build diagram from slide content via ContentDiagramMapper
+                    var _contentDiagram = null;
+                    if (window.ContentDiagramMapper) {
+                        _contentDiagram = ContentDiagramMapper.map(slide, 'hub_spoke', {});
+                    }
+                    if (_contentDiagram) {
+                        var _diagSchema = {
+                            diagram_type: _contentDiagram.diagram_type,
+                            diagram_data: _contentDiagram.diagram_data,
+                            color_palette: { primary: tpl.accent, background: tpl.bg, text: tpl.text }
+                        };
+                        var rendered = ve.renderAll(_diagSchema);
+                        if (rendered.diagramHtml && visualArea) {
+                            var diagEl = document.createElement('div');
+                            diagEl.id = 'carousel-diagram-container';
+                            diagEl.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;min-height:200px;';
+                            diagEl.innerHTML = rendered.diagramHtml;
+                            visualArea.innerHTML = '';
+                            visualArea.appendChild(diagEl);
+                            visualArea.style.display = 'flex';
+                        }
+                    } else {
+                        // Not enough content for diagram — fall back to icon
+                        visualMode = 'icon';
+                        if (iconWrap) {
+                            iconWrap.classList.remove('hidden');
+                            iconWrap.style.background = tpl.accent_light;
+                            iconWrap.style.border = '1px solid ' + tpl.accent_border;
+                            iconWrap.style.borderRadius = '16px';
+                            iconWrap.style.width = '120px';
+                            iconWrap.style.height = '120px';
+                            iconWrap.innerHTML = '<i data-lucide="' + (slide._iconName || 'sparkles') + '" style="color:' + tpl.accent + '" class="w-14 h-14"></i>';
+                        }
+                    }
+                }
+            } else if (visualMode === 'none') {
+                if (visualArea) visualArea.style.display = 'none';
+            }
+
+            // Handle pre-fetched visual assets (SVG/Base64/URL)
+            if (slide.svgContent && visualMode !== 'diagram') {
+                if (typeof renderSvgVisual === 'function') renderSvgVisual(slide.svgContent);
+            } else if (slide.assetBase64 && visualMode !== 'diagram') {
+                if (typeof renderBase64Visual === 'function') renderBase64Visual(slide.assetBase64);
+            } else if (slide._base64Cache && visualMode !== 'diagram') {
+                if (typeof renderBase64Visual === 'function') renderBase64Visual(slide._base64Cache);
+            }
+
+            // ── 5. NUMBER BADGE ──
+            if (numberBadge) {
+                numberBadge.textContent = slideIndex + 1;
+                numberBadge.style.color = _effAccent;
+            }
+
+            // ── 6. FOOTER ──
+            var footer = canvas.querySelector('.absolute.bottom-16');
+            if (footer) {
+                footer.style.opacity = tpl.footer_opacity;
+            }
+            var footerAccent = canvas.querySelector('[data-color-editable="footer-accent"]');
+            if (footerAccent) {
+                footerAccent.style.backgroundColor = tpl.accent;
+            }
+
+            // ── 7. NAV BUTTONS ──
+            var prevBtn = document.getElementById('carousel-prev-btn');
+            var nextBtn = document.getElementById('carousel-next-btn');
+            if (prevBtn) prevBtn.disabled = (slideIndex === 0);
+            if (nextBtn) nextBtn.disabled = (slideIndex >= slidesData.length - 1);
+
+            // ── 8. AUTO-FIT TEXT ──
+            requestAnimationFrame(function() {
+                if (typeof autoFitText === 'function') autoFitText();
+            });
+
+            // ── 9. SYNC INSPECTOR ──
+            document.querySelectorAll('.visual-mode-btn').forEach(function(b) {
+                b.classList.toggle('active', b.getAttribute('data-mode') === visualMode);
+            });
+
+            // ── 10. RENDER ICONS ──
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+
+            console.log('[renderSlideClean] slide=' + slideIndex
+                + ' layout=' + layoutType
+                + ' visual=' + visualMode
+                + ' icon=' + (slide._iconName || 'default')
+                + ' bg=' + bgVariant
+                + ' template=' + _activePreset);
+        }
+
+
+        // ─── Template Picker Logic ───────────────────────────────
+        function buildTemplatePicker() {
+            var grid = document.getElementById('template-preset-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            Object.keys(TEMPLATE_PRESETS).forEach(function(key) {
+                var tpl = TEMPLATE_PRESETS[key];
+                var btn = document.createElement('button');
+                btn.className = 'template-preset-btn rounded-lg p-2 border text-center text-xs transition-all cursor-pointer';
+                btn.setAttribute('data-preset', key);
+                btn.style.cssText = 'border-color: rgba(255,255,255,0.1);';
+
+                // Preview swatch
+                var swatch = document.createElement('div');
+                swatch.className = 'rounded-md mb-1 mx-auto';
+                swatch.style.cssText = 'width:100%;height:40px;background:' + tpl.preview + ';border:1px solid rgba(128,128,128,0.2);position:relative;overflow:hidden;';
+
+                // Mini accent dot
+                var dot = document.createElement('div');
+                dot.style.cssText = 'position:absolute;bottom:4px;right:4px;width:10px;height:10px;border-radius:50%;background:' + tpl.accent + ';';
+                swatch.appendChild(dot);
+
+                // Mini text preview
+                var textPreview = document.createElement('div');
+                textPreview.style.cssText = 'position:absolute;top:6px;left:8px;font-size:7px;font-weight:700;color:' + tpl.headline_color + ';font-family:' + tpl.font + ';';
+                textPreview.textContent = 'Headline';
+                swatch.appendChild(textPreview);
+
+                btn.appendChild(swatch);
+
+                var label = document.createElement('div');
+                label.textContent = tpl.name;
+                label.className = 'text-gray-400 truncate';
+                label.style.fontSize = '10px';
+                btn.appendChild(label);
+
+                // Active state
+                if (key === _activePreset) {
+                    btn.style.borderColor = tpl.accent;
+                    btn.style.boxShadow = '0 0 12px ' + tpl.accent_light;
+                }
+
+                btn.addEventListener('click', function() {
+                    _activePreset = key;
+                    // Update active states
+                    grid.querySelectorAll('.template-preset-btn').forEach(function(b) {
+                        var k = b.getAttribute('data-preset');
+                        var t = TEMPLATE_PRESETS[k];
+                        if (k === key) {
+                            b.style.borderColor = t.accent;
+                            b.style.boxShadow = '0 0 12px ' + t.accent_light;
+                        } else {
+                            b.style.borderColor = 'rgba(255,255,255,0.1)';
+                            b.style.boxShadow = 'none';
+                        }
+                    });
+                    // Re-render current slide with new template
+                    renderSlideClean(currentSlideIndex);
+                    renderSlideStrip();
+                    if (window._carouselToast) window._carouselToast('Template: ' + TEMPLATE_PRESETS[key].name);
+                });
+                grid.appendChild(btn);
+            });
         }
 
         function renderMainPreview() {
@@ -2303,47 +2796,23 @@
             }
         }
 
+
         function goToSlide(delta) {
             var next = currentSlideIndex + delta;
             if (next < 0 || next >= slidesData.length) return;
             currentSlideIndex = next;
+
             // Restore per-slide layout if saved
             var slide = slidesData[currentSlideIndex];
             if (slide && slide._layout) applyLayout(slide._layout);
-            renderSlideStrip();
-            renderMainPreview();
-            // Apply per-slide style from template folder
-            applySlideStyle(currentSlideIndex);
-            // Apply per-slide rendering
-            var _vmo = slidesData[currentSlideIndex] && slidesData[currentSlideIndex]._visualModeOverride;
 
-            if (_vmo) {
-                // User manually overrode visual mode — respect it
-                applyLayoutVariant('default');
-                var _sch = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
-                _sch = Object.assign({}, _sch);
-                _sch.visual_mode = _vmo;
-                if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch);
-            } else if (_strategistData && _strategistData[currentSlideIndex]) {
-                // Strategist has decisions for this slide — use them (DON'T run applyVisualMode after)
-                applyStrategistToSlide(currentSlideIndex);
-            } else {
-                // No strategist, no override — default rendering
-                applyLayoutVariant('default');
-                var _sch2 = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
-                _sch2 = Object.assign({}, _sch2);
-                if (typeof window.applyVisualMode === 'function') window.applyVisualMode(_sch2);
-            }
-            // Sync inspector buttons
-            var _slide = slidesData[currentSlideIndex] || {};
-            var _activeMode = _vmo || _slide._visualMode || 'icon';
-            document.querySelectorAll('.visual-mode-btn').forEach(function(b) {
-                b.classList.toggle('active', b.getAttribute('data-mode') === _activeMode);
-            });
+            // Render everything via single clean function
+            renderSlideStrip();
+            renderSlideClean(currentSlideIndex);
+
             // Hide tweak/reject panels and update feedback on slide change
             if (typeof window._hideTweakAndReject === 'function') window._hideTweakAndReject();
             if (typeof window._updateFeedbackUI === 'function') window._updateFeedbackUI();
-            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
         }
 
         function getAppSettings() {
@@ -2604,15 +3073,10 @@
                             slidesData[si]._visualMode = d.visual_mode;
                             slidesData[si]._emotionalTone = d.emotional_tone;
                         }
-                        // Re-render current slide with strategist data
-                        // Re-render with strategist data
+                        // Re-render with strategist data via clean renderer
                         renderSlideStrip();
-                        renderMainPreview();
-                        // Apply strategist to current slide (handles layout + visual + text)
-                        applyStrategistToSlide(currentSlideIndex);
+                        renderSlideClean(currentSlideIndex);
                         updateValuesCount();
-                        // Update slide strip thumbnails with new headlines
-                        renderSlideStrip();
                         if (window._carouselToast) window._carouselToast('AI Strategist: ' + result.length + ' slide dioptimalkan!');
                     }
                 });
@@ -2627,9 +3091,8 @@
             }
             // Values & count sidebar: from slidesData
             updateValuesCount();
-            applyBrandToPreview();
             renderSlideStrip();
-            renderMainPreview();
+            renderSlideClean(currentSlideIndex);
 
             var brandConfig = getAppSettings().brand_config || {};
             for (var i = 0; i < slidesData.length; i++) {
@@ -2641,7 +3104,7 @@
                         slide.assetUrl = result;
                     }
                     renderSlideStrip();
-                    renderMainPreview();
+                    if (i === currentSlideIndex) renderSlideClean(currentSlideIndex);
                 }
                 if (i < slidesData.length - 1) await new Promise(function (r) { setTimeout(r, 300); });
             }
@@ -2664,10 +3127,7 @@
 
         // Render a single slide to PNG data URL (invisible — just sets data and captures)
         async function renderSlideToDataUrl(slideIndex) {
-            // Apply layout variant for this slide before capture
-            if (_strategistData && _strategistData[slideIndex]) {
-                applyStrategistToSlide(slideIndex);
-            }
+            // Render slide cleanly before capture
             var origIndex = currentSlideIndex;
             currentSlideIndex = slideIndex;
 
@@ -2675,9 +3135,7 @@
             var slide = slidesData[slideIndex];
             if (slide && slide._layout) applyLayout(slide._layout);
 
-            renderMainPreview();
-            // Apply per-slide style for export
-            applySlideStyle(slideIndex);
+            renderSlideClean(slideIndex);
             autoFitText(); // ensure text fits before capture
             if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 
@@ -2690,15 +3148,30 @@
             if (headlineEl) headlineEl.classList.remove('text-overflow-warning');
             if (bodyEl) bodyEl.classList.remove('text-overflow-warning');
 
-            // Wait for DOM to settle
-            await new Promise(function(r) { setTimeout(r, 200); });
-
+            // Hide editing outlines and blur overlays for clean export
             var node = document.getElementById('carousel-live-canvas');
+            node.classList.add('exporting');
+            var _bp = document.getElementById('canvas-blur-primary');
+            var _bs = document.getElementById('canvas-blur-secondary');
+            if (_bp) _bp.style.display = 'none';
+            if (_bs) _bs.style.display = 'none';
+
+            // Deselect any CanvasEditor selection
+            if (window._canvasEditor && typeof window._canvasEditor.deselect === 'function') {
+                window._canvasEditor.deselect();
+            }
+
+            // Wait for DOM to settle
+            await new Promise(function(r) { setTimeout(r, 300); });
+
             var dataUrl = await window.domtoimage.toPng(node, { scale: 3, cacheBust: true });
 
-            // Restore contenteditable
+            // Restore editing state
+            node.classList.remove('exporting');
             if (headlineEl) headlineEl.contentEditable = 'true';
             if (bodyEl) bodyEl.contentEditable = 'true';
+            if (_bp) _bp.style.display = '';
+            if (_bs) _bs.style.display = '';
 
             // Restore original
             currentSlideIndex = origIndex;
@@ -4034,6 +4507,15 @@
 
             // ─── Visual Mode Renderer ──────────────────────────────────────────
             function applyVisualMode(schema) {
+                // DEPRECATED: renderSlideClean handles all visual rendering now.
+                // This function is kept for backwards compatibility.
+                console.log('[applyVisualMode] DEPRECATED — delegating to renderSlideClean');
+                if (typeof renderSlideClean === 'function' && typeof currentSlideIndex !== 'undefined') {
+                    renderSlideClean(currentSlideIndex);
+                }
+                return;
+            }
+            function _legacyApplyVisualMode(schema) {
                 var mode = (schema && schema.visual_mode) || 'icon';
                 var iconWrap = document.getElementById('carousel-preview-icon-wrap');
                 var visualImg = document.getElementById('carousel-preview-visual-img');
@@ -4601,6 +5083,7 @@
                 }
             }
 
+            if (typeof buildTemplatePicker === 'function') buildTemplatePicker();
             loadGeneratorItem().then(function () {
                 applyBrandToPreview();
                 loadTemplateGallery();
@@ -5212,7 +5695,7 @@
                     var schema = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
                     schema = Object.assign({}, schema); // clone so we don't mutate original
                     schema.visual_mode = mode;
-                    window.applyVisualMode(schema);
+                    renderSlideClean(currentSlideIndex);
                     // Update button states
                     document.querySelectorAll('.visual-mode-btn').forEach(function (b) {
                         b.classList.toggle('active', b.getAttribute('data-mode') === mode);
@@ -5405,6 +5888,7 @@
         });
 
         lucide.createIcons();
+        if (typeof buildTemplatePicker === 'function') buildTemplatePicker();
 
         // UI State management for layout modes
         function setMode(mode) {
