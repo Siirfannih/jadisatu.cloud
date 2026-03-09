@@ -54,21 +54,17 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session if expired
   const { data: { session } } = await supabase.auth.getSession()
 
   const { pathname } = request.nextUrl
 
-  // Allow access to login and auth callback routes
   if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
-    // If already logged in, redirect to dashboard
     if (session && pathname === '/login') {
       return NextResponse.redirect(new URL('/', request.url))
     }
     return response
   }
 
-  // Protect all other routes - require authentication
   if (!session) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
@@ -78,13 +74,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (public assets)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

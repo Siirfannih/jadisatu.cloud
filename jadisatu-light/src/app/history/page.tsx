@@ -3,25 +3,20 @@
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
-import { Filter, Calendar, FileEdit, CheckCircle2, MessageSquare, GitCommit } from "lucide-react";
+import { FileEdit, CheckCircle2, MessageSquare, GitCommit, BarChart3, Bot, User } from "lucide-react";
 
-interface Activity {
-  id: string;
-  action: string;
-  description: string;
-  created_at: string;
-  type?: string;
-}
+interface Activity { id: string; action: string; description: string; created_at: string; type?: string; actor?: string; }
 
 export default function HistoryPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
-    fetch("/api/activities?limit=50")
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setActivities(data); })
-      .catch(() => {});
+    fetch("/api/activities?limit=50").then((r) => r.json()).then((data) => { if (Array.isArray(data)) setActivities(data); }).catch(() => {});
   }, []);
+
+  const total = activities.length;
+  const agentActions = activities.filter((a) => a.actor === "agent" || a.type === "agent").length;
+  const userActions = total - agentActions;
 
   const iconMap: Record<string, { icon: typeof FileEdit; color: string; bg: string }> = {
     comment: { icon: MessageSquare, color: "text-blue-500", bg: "bg-blue-50" },
@@ -44,17 +39,28 @@ export default function HistoryPage() {
         <TopNav />
         <main className="flex-1 overflow-y-auto p-8 scrollbar-hide">
           <div className="max-w-5xl mx-auto space-y-8">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">History</h1>
-                <p className="text-slate-500">A timeline of all your activities and updates.</p>
+            <div><h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">History</h1><p className="text-slate-500">A timeline of all your activities and updates.</p></div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mb-3"><BarChart3 className="w-5 h-5 text-blue-600" /></div>
+                <p className="text-sm text-slate-500 font-medium">Total Actions</p>
+                <h3 className="text-3xl font-bold text-slate-900">{total}</h3>
+              </div>
+              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mb-3"><Bot className="w-5 h-5 text-purple-600" /></div>
+                <p className="text-sm text-slate-500 font-medium">Agent Actions</p>
+                <h3 className="text-3xl font-bold text-slate-900">{agentActions}</h3>
+              </div>
+              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-3"><User className="w-5 h-5 text-emerald-600" /></div>
+                <p className="text-sm text-slate-500 font-medium">Your Actions</p>
+                <h3 className="text-3xl font-bold text-slate-900">{userActions}</h3>
               </div>
             </div>
 
             {Object.keys(grouped).length === 0 && (
-              <div className="bg-white rounded-3xl p-12 border border-slate-100 shadow-sm text-center">
-                <p className="text-slate-400">No activity recorded yet</p>
-              </div>
+              <div className="bg-white rounded-3xl p-12 border border-slate-100 shadow-sm text-center"><p className="text-slate-400">No activity recorded yet</p></div>
             )}
 
             {Object.entries(grouped).map(([date, acts]) => (
@@ -67,9 +73,7 @@ export default function HistoryPage() {
                       return (
                         <div key={activity.id} className="relative flex items-start gap-4">
                           <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-white shrink-0 relative z-10">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${bg}`}>
-                              <Icon className={`w-4 h-4 ${color}`} />
-                            </div>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${bg}`}><Icon className={`w-4 h-4 ${color}`} /></div>
                           </div>
                           <div className="flex-1 pt-1.5">
                             <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">{activity.action}</span> {activity.description}</p>

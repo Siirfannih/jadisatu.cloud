@@ -14,6 +14,7 @@ import {
   Users,
   StickyNote,
   History,
+  Brain,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -34,6 +35,7 @@ const navItems = [
   { icon: Users, label: "CRM", href: "/crm" },
   { icon: StickyNote, label: "Notes", href: "/notes" },
   { icon: History, label: "History", href: "/history" },
+  { icon: Brain, label: "Context Hub", href: "/context" },
 ];
 
 export function Sidebar() {
