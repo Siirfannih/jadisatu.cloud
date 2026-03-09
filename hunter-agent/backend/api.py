@@ -39,7 +39,8 @@ async def health_check():
             "/api/health",
             "/api/carousel/extract-template",
             "/api/carousel/map-to-slides",
-            "/api/carousel/template-families"
+            "/api/carousel/template-families",
+            "/api/carousel/resolve-icons"
         ]
     }
 
@@ -426,7 +427,7 @@ async def strategize_content(req: StrategistRequest):
     """
     Phase 2 of Gemini's ideal pipeline: Content Strategist Agent.
     Analyzes full_script and design_schema, returns per-slide decisions:
-    - layout_type: hero-center | card-detail | text-heavy | dramatic-closer
+    - layout_type: hero-center | card-detail | text-heavy | dramatic-closer | split-visual | quote-highlight | list-bullets
     - visual_mode: diagram | icon | illustration | none
     - headline & body (cleaned, optimized)
     - emotional_tone: impact | educational | reflective | dramatic
@@ -472,12 +473,17 @@ ATURAN PENTING:
 4. Slide tengah = VALUE (edukasi/insight)
 5. Headline MAKSIMAL 8-10 kata (potong jika terlalu panjang)
 6. Body mendukung headline, bukan mengulang
+7. ICON HARUS BERBEDA untuk setiap slide — jangan gunakan icon yang sama dua kali!
+8. Konten bahasa Indonesia — terjemahkan konsep ke icon yang tepat (misal "uang" → banknote, "waktu" → clock)
 
-LAYOUT TYPES:
-- "hero-center": Headline besar di tengah, tanpa body. Untuk kalimat pendek & impactful.
-- "card-detail": Headline + body dalam card. Untuk slide dengan penjelasan.
+LAYOUT TYPES (7 opsi):
+- "hero-center": Headline besar di tengah, tanpa body. Untuk kalimat pendek & impactful. Cocok untuk hook.
+- "card-detail": Headline + body dalam card bergaris. Untuk slide dengan penjelasan detail.
 - "text-heavy": Multi-paragraf bertumpuk. Untuk narasi panjang (pecah jadi poin-poin).
-- "dramatic-closer": Background gelap, teks besar centered. Untuk penutup/punchline.
+- "dramatic-closer": Background gelap, teks besar centered. Untuk penutup/punchline/CTA.
+- "split-visual": Icon/visual di kiri, teks di kanan. Untuk keseimbangan visual-teks. Bagus untuk value slides.
+- "quote-highlight": Teks besar gaya kutipan dengan tanda kutip dekoratif. Untuk insight, wisdom, atau quote powerful.
+- "list-bullets": Headline + poin-poin list (pakai • atau nomor di body). Untuk tips, langkah-langkah, checklist.
 
 VISUAL MODES:
 - "icon": Icon tunggal yang relevan dengan konten
@@ -507,7 +513,8 @@ Balas HANYA dalam format JSON array berikut (tanpa markdown, tanpa penjelasan):
 ]
 
 bg_variant: "light" (latar terang) atau "dark" (latar gelap) — variasikan untuk ritme visual.
-icon_name: gunakan nama icon dari Lucide icons (alert-triangle, heart, target, zap, compass, brain, lightbulb, shield, star, sparkles, flame, eye, hand, users, clock, map-pin, award, trending-up, check-circle, x-circle, dll).
+icon_name: WAJIB UNIK per slide — jangan ulangi icon yang sama! Gunakan nama icon dari Lucide icons.
+Contoh icon: alert-triangle, heart, target, zap, compass, brain, lightbulb, shield, star, sparkles, flame, eye, hand, users, clock, map-pin, award, trending-up, check-circle, x-circle, rocket, send, key, lock, globe, bar-chart-3, layers, code, briefcase, wallet, banknote, book-open, graduation-cap, wrench, search, filter, crown, diamond, gem, thumbs-up, message-circle, camera, play-circle, megaphone, palette, pen-tool, cpu, bot, shopping-cart, tag, calculator, calendar, bell, bookmark, clipboard.
 """
 
     try:
@@ -606,6 +613,96 @@ Hal 2:
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+
+
+# ────────────────────────────────────────────────────
+# Icon Resolver (Gemini-powered icon selection)
+# ────────────────────────────────────────────────────
+class ResolveIconsRequest(BaseModel):
+    slides: list  # [{ "headline": "...", "body": "...", "slide_type": "hook" }, ...]
+
+@app.post("/api/carousel/resolve-icons")
+async def resolve_icons(req: ResolveIconsRequest):
+    """
+    Resolve the best Lucide icon for each slide using Gemini.
+    Used as fallback when Content Strategist is skipped,
+    or when user edits slide text and needs icon refresh.
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    if not req.slides:
+        return {"success": True, "icons": []}
+
+    import google.generativeai as genai
+    genai.configure(api_key=gemini_key)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+    slides_text = ""
+    for i, s in enumerate(req.slides[:15]):
+        headline = s.get("headline", "")
+        body = s.get("body", "")
+        slide_type = s.get("slide_type", "value")
+        slides_text += f"Slide {i+1} ({slide_type}): {headline} — {body}\n"
+
+    prompt = f"""Kamu adalah icon specialist. Pilih 1 Lucide icon yang PALING COCOK untuk setiap slide carousel.
+
+SLIDES:
+{slides_text}
+
+ATURAN:
+1. Icon harus RELEVAN dengan makna/konteks headline & body
+2. Gunakan HANYA nama icon dari Lucide icons (lowercase-kebab-case)
+3. Jangan ulangi icon yang sama — setiap slide harus icon berbeda
+4. Konten dalam bahasa Indonesia — terjemahkan konteksnya ke konsep visual yang tepat
+5. Untuk slide hook: pilih icon yang eye-catching (zap, flame, sparkles, eye, alert-triangle)
+6. Untuk slide CTA: pilih icon yang action-oriented (arrow-right, send, mouse-pointer-click, rocket)
+7. Untuk slide value: pilih icon yang match topik spesifik
+
+CONTOH ICON YANG TERSEDIA:
+lightbulb, brain, target, compass, map, trophy, shield, heart, users, clock,
+trending-up, bar-chart-3, pie-chart, workflow, git-branch, layers, palette,
+pen-tool, code, terminal, database, globe, monitor, camera, play-circle,
+megaphone, briefcase, wallet, banknote, book-open, graduation-cap, wrench,
+settings, search, filter, check-circle, x-circle, alert-triangle, info,
+star, award, badge, crown, diamond, gem, flame, zap, sparkles, eye,
+hand, thumbs-up, message-circle, mail, phone, share-2, link, download,
+upload, cloud, lock, unlock, key, cpu, bot, rocket, plane, map-pin,
+home, building, store, shopping-cart, tag, percent, calculator, calendar,
+timer, bell, flag, bookmark, clipboard, file-text, folder, image, film,
+mic, headphones, speaker, music, heart-pulse, activity, footprints,
+arrow-right, arrow-up-right, mouse-pointer-click, send, external-link
+
+Balas HANYA dalam format JSON array (tanpa markdown):
+[
+  {{"slide": 1, "icon": "nama-icon", "reason": "alasan singkat"}}
+]"""
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+
+        if raw_text.startswith("```"):
+            raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text)
+            raw_text = re.sub(r'```\s*$', '', raw_text)
+
+        icons = json.loads(raw_text)
+        if not isinstance(icons, list):
+            raise ValueError("Response is not a JSON array")
+
+        return {
+            "success": True,
+            "icons": icons
+        }
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "error": f"JSON parse failed: {str(e)}",
+            "icons": []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Icon resolver failed: {str(e)}")
 
 
 if __name__ == "__main__":

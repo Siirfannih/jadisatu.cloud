@@ -524,6 +524,76 @@
             font-size: 1rem; opacity: 0.8; margin-top: 12px;
         }
         .layout-dramatic-closer .slide-visual-group { display: none !important; }
+
+        /* Layout 5: Split Visual — icon left, text right */
+        .layout-split-visual #carousel-slide-content {
+            display: flex; flex-direction: row; align-items: center;
+            gap: 24px;
+        }
+        .layout-split-visual .slide-visual-group {
+            flex: 0 0 140px; display: flex !important;
+            align-items: center; justify-content: center;
+        }
+        .layout-split-visual .slide-text-group {
+            flex: 1; text-align: left;
+        }
+        .layout-split-visual #carousel-preview-headline {
+            font-size: 1.4rem !important; line-height: 1.3; font-weight: 700;
+        }
+        .layout-split-visual #carousel-preview-body {
+            font-size: 0.85rem; line-height: 1.6; margin-top: 8px;
+        }
+
+        /* Layout 6: Quote Highlight — large italic quote text */
+        .layout-quote-highlight #carousel-slide-content {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; text-align: center; padding: 32px 24px;
+        }
+        .layout-quote-highlight #carousel-preview-headline {
+            font-size: 1.6rem !important; line-height: 1.4; font-weight: 600;
+            font-style: italic; max-width: 85%;
+            position: relative; padding: 0 20px;
+        }
+        .layout-quote-highlight #carousel-preview-headline::before {
+            content: '\201C'; position: absolute; left: -8px; top: -12px;
+            font-size: 3rem; opacity: 0.25; font-style: normal; font-weight: 800;
+        }
+        .layout-quote-highlight #carousel-preview-body {
+            font-size: 0.85rem; opacity: 0.7; margin-top: 16px;
+            font-style: normal; letter-spacing: 0.02em;
+        }
+        .layout-quote-highlight .slide-visual-group { display: none !important; }
+
+        /* Layout 7: List Bullets — numbered/bulleted points */
+        .layout-list-bullets #carousel-preview-headline {
+            font-size: 1.3rem !important; font-weight: 700;
+            margin-bottom: 12px; line-height: 1.2;
+        }
+        .layout-list-bullets #carousel-preview-body {
+            font-size: 0.85rem; line-height: 2; white-space: pre-line;
+            padding-left: 8px;
+        }
+        .layout-list-bullets .slide-visual-group { display: none !important; }
+
+        /* AI Progress Overlay */
+        @keyframes ai-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .ai-spin { animation: ai-spin 2s linear infinite; }
+        .ai-step[data-status="done"] .ai-step-dot {
+            background: #8b5cf6; border-color: #8b5cf6;
+        }
+        .ai-step[data-status="done"] .ai-step-dot::after {
+            content: '\2713'; color: white; font-size: 10px; font-weight: bold;
+        }
+        .ai-step[data-status="active"] .ai-step-dot {
+            border-color: #8b5cf6; position: relative;
+        }
+        .ai-step[data-status="active"] .ai-step-dot::after {
+            content: ''; position: absolute; inset: 3px; border-radius: 50%;
+            background: #8b5cf6; animation: ai-pulse 1s ease-in-out infinite;
+        }
+        @keyframes ai-pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+        .ai-step[data-status="active"] span:last-child { color: #e2e8f0; font-weight: 500; }
+        .ai-step[data-status="done"] span:last-child { color: #a78bfa; }
     </style>
 </head>
 
@@ -1056,6 +1126,44 @@
         class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-white text-sm z-40">
     </div>
 
+    <!-- AI Progress Overlay — shows during strategist + icon resolution -->
+    <div id="ai-progress-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);">
+        <div class="bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 w-[380px] shadow-2xl">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-white ai-spin"></i>
+                </div>
+                <div>
+                    <div class="text-sm font-semibold text-white">AI Content Engine</div>
+                    <div id="ai-progress-subtitle" class="text-[11px] text-gray-400">Mempersiapkan...</div>
+                </div>
+            </div>
+            <!-- Progress steps -->
+            <div id="ai-progress-steps" class="space-y-2 mb-4">
+                <div class="ai-step flex items-center gap-2.5 text-xs" data-step="slides">
+                    <span class="ai-step-dot w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0"></span>
+                    <span class="text-gray-400">Membangun slide dari script...</span>
+                </div>
+                <div class="ai-step flex items-center gap-2.5 text-xs" data-step="strategist">
+                    <span class="ai-step-dot w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0"></span>
+                    <span class="text-gray-400">AI Strategist menganalisis layout & visual...</span>
+                </div>
+                <div class="ai-step flex items-center gap-2.5 text-xs" data-step="icons">
+                    <span class="ai-step-dot w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0"></span>
+                    <span class="text-gray-400">Memilih icon unik per slide...</span>
+                </div>
+                <div class="ai-step flex items-center gap-2.5 text-xs" data-step="render">
+                    <span class="ai-step-dot w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0"></span>
+                    <span class="text-gray-400">Rendering preview carousel...</span>
+                </div>
+            </div>
+            <!-- Progress bar -->
+            <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div id="ai-progress-bar" class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-500 ease-out" style="width:0%"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Object-Level Color Popover -->
     <div id="element-color-popover" class="hidden">
         <span class="popover-label" id="popover-element-label">Element</span>
@@ -1315,7 +1423,7 @@
     <script src="js/creative-content-service.js"></script>
     <script src="js/app-settings-service.js"></script>
     <script src="js/font-registry.js"></script>
-    <script src="js/icon-engine.js"></script>
+    <!-- IconEngine removed — icons resolved by Gemini Strategist + /api/carousel/resolve-icons -->
     <script src="js/feedback-memory.js"></script>
     <script src="js/visual-engine.js"></script>
     <script src="js/canvas-editor.js"></script>
@@ -2091,6 +2199,79 @@
         }
 
 
+        // ═══════════════════════════════════════════════════════════
+        // AI Progress Overlay — visual feedback during generation
+        // ═══════════════════════════════════════════════════════════
+        var _aiProgressSteps = ['slides', 'strategist', 'icons', 'render'];
+
+        function aiProgressShow() {
+            var overlay = document.getElementById('ai-progress-overlay');
+            if (overlay) {
+                overlay.classList.remove('hidden');
+                // Reset all steps
+                _aiProgressSteps.forEach(function(step) {
+                    var el = overlay.querySelector('[data-step="' + step + '"]');
+                    if (el) { el.removeAttribute('data-status'); }
+                });
+                var bar = document.getElementById('ai-progress-bar');
+                if (bar) bar.style.width = '0%';
+                var sub = document.getElementById('ai-progress-subtitle');
+                if (sub) sub.textContent = 'Mempersiapkan...';
+                if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                    requestAnimationFrame(function() { lucide.createIcons(); });
+                }
+            }
+        }
+
+        function aiProgressStep(stepName, subtitle) {
+            var overlay = document.getElementById('ai-progress-overlay');
+            if (!overlay || overlay.classList.contains('hidden')) return;
+
+            // Mark previous steps as done
+            var reached = false;
+            _aiProgressSteps.forEach(function(step) {
+                var el = overlay.querySelector('[data-step="' + step + '"]');
+                if (!el) return;
+                if (step === stepName) {
+                    el.setAttribute('data-status', 'active');
+                    reached = true;
+                } else if (!reached) {
+                    el.setAttribute('data-status', 'done');
+                }
+            });
+
+            // Update progress bar
+            var idx = _aiProgressSteps.indexOf(stepName);
+            var pct = Math.round(((idx + 0.5) / _aiProgressSteps.length) * 100);
+            var bar = document.getElementById('ai-progress-bar');
+            if (bar) bar.style.width = pct + '%';
+
+            // Update subtitle
+            var sub = document.getElementById('ai-progress-subtitle');
+            if (sub && subtitle) sub.textContent = subtitle;
+        }
+
+        function aiProgressDone() {
+            var overlay = document.getElementById('ai-progress-overlay');
+            if (!overlay) return;
+
+            // Mark all done
+            _aiProgressSteps.forEach(function(step) {
+                var el = overlay.querySelector('[data-step="' + step + '"]');
+                if (el) el.setAttribute('data-status', 'done');
+            });
+            var bar = document.getElementById('ai-progress-bar');
+            if (bar) bar.style.width = '100%';
+            var sub = document.getElementById('ai-progress-subtitle');
+            if (sub) sub.textContent = 'Selesai!';
+
+            // Auto-hide after brief delay
+            setTimeout(function() {
+                overlay.classList.add('hidden');
+            }, 800);
+        }
+
+
         async function runContentStrategist(fullScript, designSchema) {
             if (!fullScript || fullScript.length < 30) return null;
             try {
@@ -2114,6 +2295,40 @@
             } catch (e) {
                 console.warn('[Strategist] Request failed:', e);
                 return null;
+            }
+        }
+
+        /**
+         * Resolve icons for slides via Gemini when Strategist was skipped
+         * or when user edits slide text and needs icon refresh.
+         */
+        async function resolveSlideIcons(slides) {
+            if (!slides || slides.length === 0) return;
+            try {
+                var payload = slides.map(function(s) {
+                    return {
+                        headline: s.headline || '',
+                        body: s.body || '',
+                        slide_type: s.type || s._slideType || 'value'
+                    };
+                });
+                var res = await fetch('/api/carousel/resolve-icons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ slides: payload })
+                });
+                var data = await res.json();
+                if (data.success && data.icons) {
+                    data.icons.forEach(function(iconData) {
+                        var idx = (iconData.slide || 1) - 1;
+                        if (slides[idx]) {
+                            slides[idx]._iconName = iconData.icon;
+                            console.log('[IconResolver] Slide ' + (idx+1) + ': ' + iconData.icon + ' (' + (iconData.reason || '') + ')');
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('[IconResolver] Failed:', e);
             }
         }
 
@@ -2191,8 +2406,10 @@
                 slidesData[slideIndex]._emotionalTone = decision.emotional_tone;
             }
 
-            // 6. Re-create lucide icons
-            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+            // 6. Re-create lucide icons — defer to next frame
+            requestAnimationFrame(function() {
+                if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+            });
             console.log('[Strategist] Slide ' + (slideIndex+1) + ': layout=' + decision.layout_type + ' visual=' + decision.visual_mode + ' icon=' + (decision.icon_name || 'n/a') + ' bg=' + decision.bg_variant);
         }
 
@@ -2271,7 +2488,7 @@
             }
 
             // ── 2. LAYOUT: Apply layout class ──
-            var LAYOUT_CLASSES = ['layout-hero-center', 'layout-card-detail', 'layout-text-heavy', 'layout-dramatic-closer'];
+            var LAYOUT_CLASSES = ['layout-hero-center', 'layout-card-detail', 'layout-text-heavy', 'layout-dramatic-closer', 'layout-split-visual', 'layout-quote-highlight', 'layout-list-bullets'];
             LAYOUT_CLASSES.forEach(function(cls) { canvas.classList.remove(cls); });
 
             var layoutType = slide._layoutType || 'default';
@@ -2279,8 +2496,8 @@
                 canvas.classList.add('layout-' + layoutType);
             }
 
-            // dramatic-closer layout always needs dark bg for impact
-            if (layoutType === 'dramatic-closer' && _invertedToLight) {
+            // dramatic-closer & quote-highlight always need dark bg for impact
+            if ((layoutType === 'dramatic-closer' || layoutType === 'quote-highlight') && _invertedToLight) {
                 canvas.style.background = tpl.bg;
                 canvas.style.color = tpl.text;
                 _invertedToLight = false;
@@ -2292,8 +2509,18 @@
             var headlineText = slide.headline || '';
             var bodyText = slide.body || '';
 
+            // For list-bullets layout: ensure body lines are formatted as bullet points
+            if (layoutType === 'list-bullets' && bodyText) {
+                var lines = bodyText.split('\n').filter(function(l) { return l.trim(); });
+                bodyText = lines.map(function(line) {
+                    var trimmed = line.trim();
+                    // Already has bullet/number prefix? Keep as-is
+                    if (/^[\u2022\u2023\u25E6•\-\d]+[\.\)\s]/.test(trimmed)) return trimmed;
+                    return '• ' + trimmed;
+                }).join('\n');
+            }
+
             if (headline) {
-                // Check for text highlights
                 try {
                     headline.textContent = headlineText;
                 } catch(e) {
@@ -2465,10 +2692,12 @@
                 b.classList.toggle('active', b.getAttribute('data-mode') === visualMode);
             });
 
-            // ── 10. RENDER ICONS ──
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
+            // ── 10. RENDER ICONS — defer to next frame so DOM has settled ──
+            requestAnimationFrame(function() {
+                if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                    lucide.createIcons();
+                }
+            });
 
             console.log('[renderSlideClean] slide=' + slideIndex
                 + ' layout=' + layoutType
@@ -3035,71 +3264,96 @@
 
             document.getElementById('carousel-content-meta').textContent = 'Content ID: ' + esc(item.id) + ' | "' + esc((item.title || '').substring(0, 40)) + (item.title && item.title.length > 40 ? '…' : '') + '"';
 
-            // Build slides: Full Script FIRST (primary), then AI, then value_text fallback
+            // ══════════════════════════════════════════════════════════
+            // GENERATION PIPELINE — with progress overlay
+            // Step 1: Build slides from script
+            // Step 2: AI Strategist (layout + icon per slide)
+            // Step 3: Icon dedup check + resolve
+            // Step 4: Render preview
+            // ══════════════════════════════════════════════════════════
+            aiProgressShow();
+
+            // ── Step 1: Build slides ──
+            aiProgressStep('slides', 'Membangun slide dari script...');
             var _fsSlides = buildSlidesFromFullScript(item);
             if (_fsSlides && _fsSlides.length >= 2) {
                 slidesData = _fsSlides.slice(0, platformRules.maxSlides);
                 console.log('[Slides] Built ' + slidesData.length + ' slides from Full Script (primary)');
             } else {
-                // Full Script empty/unparseable — try AI slides
                 var aiSlides = await fetchAISlides(item);
                 if (aiSlides && aiSlides.length > 0) {
                     slidesData = aiSlides.slice(0, platformRules.maxSlides);
                     console.log('[Slides] Built ' + slidesData.length + ' slides from AI');
                 } else {
-                    // Last resort — parse value_text
                     slidesData = buildSlidesFromItem(item).slice(0, platformRules.maxSlides);
                     console.log('[Slides] Built ' + slidesData.length + ' slides from value_text (fallback)');
                 }
             }
-            // Run Content Strategist Agent (async — enriches slides with layout/visual decisions)
             currentSlideIndex = 0;
+
+            // ── Step 2: AI Strategist (AWAIT — not fire-and-forget) ──
             var _fsForStrategist = (item.full_script || '').trim();
             var _dsForStrategist = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
+
             if (_fsForStrategist.length > 30) {
-                // Show loading state
-                if (window._carouselToast) window._carouselToast('AI Strategist menganalisis konten...');
-                runContentStrategist(_fsForStrategist, _dsForStrategist).then(function(result) {
-                    if (result && result.length > 0) {
-                        _strategistData = result;
-                        // Apply strategist decisions to all slides
-                        for (var si = 0; si < Math.min(result.length, slidesData.length); si++) {
-                            var d = result[si];
-                            if (d.headline) slidesData[si].headline = d.headline;
-                            if (d.body !== undefined) slidesData[si].body = d.body;
-                            slidesData[si]._layoutType = d.layout_type;
-                            slidesData[si]._bgVariant = d.bg_variant;
-                            slidesData[si]._iconName = d.icon_name;
-                            slidesData[si]._visualMode = d.visual_mode;
-                            slidesData[si]._emotionalTone = d.emotional_tone;
-                        }
-                        // Re-render with strategist data via clean renderer
-                        renderSlideStrip();
-                        renderSlideClean(currentSlideIndex);
-                        updateValuesCount();
-                        if (window._carouselToast) window._carouselToast('AI Strategist: ' + result.length + ' slide dioptimalkan!');
+                aiProgressStep('strategist', 'AI Strategist menganalisis ' + slidesData.length + ' slide...');
+                var strategistResult = await runContentStrategist(_fsForStrategist, _dsForStrategist);
+
+                if (strategistResult && strategistResult.length > 0) {
+                    _strategistData = strategistResult;
+                    for (var si = 0; si < Math.min(strategistResult.length, slidesData.length); si++) {
+                        var d = strategistResult[si];
+                        if (d.headline) slidesData[si].headline = d.headline;
+                        if (d.body !== undefined) slidesData[si].body = d.body;
+                        slidesData[si]._layoutType = d.layout_type;
+                        slidesData[si]._bgVariant = d.bg_variant;
+                        slidesData[si]._iconName = d.icon_name;
+                        slidesData[si]._visualMode = d.visual_mode;
+                        slidesData[si]._emotionalTone = d.emotional_tone;
                     }
-                });
+                    console.log('[Strategist] Applied ' + strategistResult.length + ' slide decisions');
+                }
             }
 
-            // Populate sidebar from slidesData (Full Script is the source of truth)
-            // Hook sidebar: first slide
+            // ── Step 3: Icon dedup + resolve ──
+            aiProgressStep('icons', 'Memilih icon unik per slide...');
+
+            // Check for missing or duplicate icons
+            var _iconSet = {};
+            var _hasIconProblem = false;
+            for (var ci = 0; ci < slidesData.length; ci++) {
+                var _ic = slidesData[ci]._iconName;
+                if (!_ic || _ic === 'sparkles') { _hasIconProblem = true; break; }
+                if (_iconSet[_ic]) { _hasIconProblem = true; break; }
+                _iconSet[_ic] = true;
+            }
+
+            if (_hasIconProblem) {
+                console.log('[IconResolver] Icons missing or duplicated — resolving via Gemini...');
+                await resolveSlideIcons(slidesData);
+            } else {
+                console.log('[IconResolver] All ' + slidesData.length + ' slides have unique icons ✓');
+            }
+
+            // ── Step 4: Render ──
+            aiProgressStep('render', 'Rendering preview...');
+
+            // Populate sidebar
             var hookEl = document.getElementById('carousel-sidebar-hook');
             if (hookEl && slidesData.length > 0) {
                 var _hookSlide = slidesData[0];
                 hookEl.value = (_hookSlide.headline || '') + (_hookSlide.body ? '\n' + _hookSlide.body : '');
             }
-            // Values & count sidebar: from slidesData
             updateValuesCount();
             renderSlideStrip();
             renderSlideClean(currentSlideIndex);
 
+            // Fetch visual assets (SVG/images) per slide
             var brandConfig = getAppSettings().brand_config || {};
             for (var i = 0; i < slidesData.length; i++) {
                 var slide = slidesData[i];
                 var result = await fetchVisualForSlide(slide, brandConfig);
                 if (result) {
-                    // If result is base64 or SVG signal, the slide object already has the data
                     if (result !== '__svg__' && !slide.assetBase64) {
                         slide.assetUrl = result;
                     }
@@ -3108,6 +3362,9 @@
                 }
                 if (i < slidesData.length - 1) await new Promise(function (r) { setTimeout(r, 300); });
             }
+
+            // Done — hide progress overlay
+            aiProgressDone();
             if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
         }
 
@@ -5421,19 +5678,18 @@
             });
 
             // ═══════════════════════════════════════════════════════════════
-            // EDITING LAYER — Font Registry, Icon Engine, Canvas Editor,
+            // EDITING LAYER — Font Registry, Canvas Editor,
             //                  Feedback Memory, Inspector Panel wiring
+            // Icons: resolved by Gemini Strategist or /api/carousel/resolve-icons
             // ═══════════════════════════════════════════════════════════════
 
             // ── Initialize modules ──────────────────────────────────────
             var _visualEngine  = window.VisualEngine ? new VisualEngine() : null;
             window._visualEngine = _visualEngine;
             var _fontRegistry  = new FontRegistry();
-            var _iconEngine    = new IconEngine();
             var _feedbackMemory = new FeedbackMemory(supabaseClient, currentUserId);
             var _canvasEditor  = new CanvasEditor({
                 fontRegistry:   _fontRegistry,
-                iconEngine:     _iconEngine,
                 feedbackMemory: _feedbackMemory,
                 onUpdate: function () {
                     _canvasEditor.applyToDOM();
@@ -5447,7 +5703,6 @@
 
             // Expose globally for Smart Extractor integration
             window._fontRegistry   = _fontRegistry;
-            window._iconEngine     = _iconEngine;
             window._feedbackMemory = _feedbackMemory;
             window._canvasEditor   = _canvasEditor;
 
@@ -5566,12 +5821,30 @@
             }
 
             // ── Icon select population ──────────────────────────────────
+            // Curated Lucide icon list for manual icon picker
+            var PICKER_ICONS = [
+                'arrow-right','arrow-up-right','activity','alert-triangle','award','badge',
+                'banknote','bar-chart-3','bell','book-open','bookmark','bot','brain',
+                'briefcase','building','calculator','calendar','camera','check-circle',
+                'clipboard','clock','cloud','code','coffee','compass','cpu','crown',
+                'database','diamond','download','eye','external-link','file-text',
+                'film','filter','flag','flame','folder','footprints','gem','globe',
+                'graduation-cap','hand','headphones','heart','heart-pulse','home',
+                'image','info','key','layers','lightbulb','link','lock','mail',
+                'map','map-pin','megaphone','message-circle','mic','monitor',
+                'mouse-pointer-click','music','palette','pen-tool','percent',
+                'phone','pie-chart','plane','play-circle','rocket','search','send',
+                'settings','share-2','shield','shopping-cart','speaker','sparkles',
+                'star','store','tag','target','terminal','thumbs-up','timer',
+                'trending-up','trophy','unlock','upload','users','utensils',
+                'wallet','workflow','wrench','x-circle','zap'
+            ];
+
             function _populateIconSelect(currentIcon) {
                 var sel = document.getElementById('inspector-icon-select');
                 if (!sel) return;
-                var icons = _iconEngine.getPickerIcons();
                 var html = '';
-                icons.forEach(function (ic) {
+                PICKER_ICONS.forEach(function (ic) {
                     var selected = ic === currentIcon ? ' selected' : '';
                     html += '<option value="' + ic + '"' + selected + '>' + ic + '</option>';
                 });
@@ -5820,8 +6093,7 @@
                     presetName
                 );
 
-                // Reset icon engine for fresh generation
-                _iconEngine.reset();
+                // IconEngine removed — icons from Gemini Strategist
 
                 // Build editor elements from schema + current slide
                 _canvasEditor.buildFromCanvas(schema, slide);
@@ -5884,7 +6156,7 @@
                 });
             }
 
-            console.log('[EditingLayer] Initialized — FontRegistry, IconEngine, CanvasEditor, FeedbackMemory');
+            console.log('[EditingLayer] Initialized — FontRegistry, CanvasEditor, FeedbackMemory');
         });
 
         lucide.createIcons();
