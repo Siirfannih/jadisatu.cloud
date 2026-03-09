@@ -42,19 +42,44 @@ export default function TasksPage() {
     loadTasks();
   };
 
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+  const [fadingIds, setFadingIds] = useState<Set<string>>(new Set());
+
   const toggleTask = async (task: Task) => {
     const newStatus = task.status === "done" ? "todo" : "done";
-    await fetch("/api/tasks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: task.id, status: newStatus }),
-    });
-    loadTasks();
+
+    if (newStatus === "done") {
+      setCompletingIds((prev) => new Set(prev).add(task.id));
+      setTimeout(() => {
+        setFadingIds((prev) => new Set(prev).add(task.id));
+      }, 800);
+      setTimeout(async () => {
+        await fetch("/api/tasks", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: task.id, status: newStatus }),
+        });
+        setCompletingIds((prev) => { const s = new Set(prev); s.delete(task.id); return s; });
+        setFadingIds((prev) => { const s = new Set(prev); s.delete(task.id); return s; });
+        loadTasks();
+      }, 1400);
+    } else {
+      await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: task.id, status: newStatus }),
+      });
+      loadTasks();
+    }
   };
 
   const deleteTask = async (id: string) => {
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-    loadTasks();
+    setFadingIds((prev) => new Set(prev).add(id));
+    setTimeout(async () => {
+      await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      setFadingIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
+      loadTasks();
+    }, 600);
   };
 
   const filtered = tab === "all" ? tasks :
@@ -122,17 +147,25 @@ export default function TasksPage() {
               </div>
 
               <div className="space-y-3">
-                {filtered.map((task) => (
-                  <div key={task.id} className="group flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-100 hover:shadow-sm transition-all bg-white">
+                {filtered.map((task) => {
+                  const isCompleting = completingIds.has(task.id);
+                  const isFading = fadingIds.has(task.id);
+                  return (
+                  <div key={task.id} className={`group flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-100 hover:shadow-sm transition-all bg-white ${isCompleting ? "task-completing bg-emerald-50/50 border-emerald-100" : ""} ${isFading ? "task-fade-out" : ""}`}>
                     <button
                       onClick={() => toggleTask(task)}
-                      className={`mt-1 w-5 h-5 rounded flex items-center justify-center border transition-colors shrink-0 ${task.status === "done" ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300 hover:border-blue-500"}`}
+                      className={`mt-1 w-5 h-5 rounded flex items-center justify-center border transition-colors shrink-0 ${task.status === "done" || isCompleting ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 hover:border-blue-500"} ${isCompleting ? "check-pop" : ""}`}
                     >
-                      {task.status === "done" && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                      {(task.status === "done" || isCompleting) && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
                     </button>
+                    {isCompleting && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-8 h-8 rounded-full bg-emerald-400/20 confetti-burst" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4 mb-1">
-                        <h4 className={`text-base font-semibold ${task.status === "done" ? "text-slate-500 line-through" : "text-slate-900"}`}>
+                        <h4 className={`task-title text-base font-semibold ${task.status === "done" ? "text-slate-500 line-through" : isCompleting ? "text-slate-500" : "text-slate-900"}`}>
                           {task.title}
                         </h4>
                         <button onClick={() => deleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
@@ -162,7 +195,8 @@ export default function TasksPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 {filtered.length === 0 && (
                   <p className="text-center text-slate-400 py-8 text-sm">No tasks in this category.</p>
                 )}

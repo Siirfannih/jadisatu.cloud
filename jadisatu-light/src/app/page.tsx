@@ -73,16 +73,34 @@ export default function DashboardPage() {
     await loadData();
   }
 
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+  const [fadingIds, setFadingIds] = useState<Set<string>>(new Set());
+
   async function toggleTask(id: string, status: string) {
     const ns = status === "done" ? "todo" : "done";
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: ns } : t));
-    await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: ns }) });
-    await loadData();
+    if (ns === "done") {
+      setCompletingIds(prev => new Set(prev).add(id));
+      setTimeout(() => setFadingIds(prev => new Set(prev).add(id)), 800);
+      setTimeout(async () => {
+        await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: ns }) });
+        setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+        setFadingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+        await loadData();
+      }, 1400);
+    } else {
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: ns } : t));
+      await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: ns }) });
+      await loadData();
+    }
   }
 
   async function deleteTask(id: string) {
-    setTasks(prev => prev.filter(t => t.id !== id));
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    setFadingIds(prev => new Set(prev).add(id));
+    setTimeout(async () => {
+      await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      setFadingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+      setTasks(prev => prev.filter(t => t.id !== id));
+    }, 600);
   }
 
   async function saveNote() {
@@ -181,21 +199,26 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    {displayTasks.slice(0, 6).map(task => (
-                      <div key={task.id} className="group flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-100 transition-colors bg-white">
-                        <button onClick={() => toggleTask(task.id, task.status)} className={`w-5 h-5 rounded flex items-center justify-center border transition-colors shrink-0 ${task.status === "done" ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300 hover:border-blue-500"}`}>
-                          {task.status === "done" && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                    {displayTasks.slice(0, 6).map(task => {
+                      const isC = completingIds.has(task.id);
+                      const isF = fadingIds.has(task.id);
+                      return (
+                      <div key={task.id} className={`group flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-100 transition-colors bg-white relative ${isC ? "task-completing bg-emerald-50/50 border-emerald-100" : ""} ${isF ? "task-fade-out" : ""}`}>
+                        <button onClick={() => toggleTask(task.id, task.status)} className={`w-5 h-5 rounded flex items-center justify-center border transition-colors shrink-0 ${task.status === "done" || isC ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 hover:border-blue-500"} ${isC ? "check-pop" : ""}`}>
+                          {(task.status === "done" || isC) && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
                         </button>
+                        {isC && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-8 h-8 rounded-full bg-emerald-400/20 confetti-burst" /></div>}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3 mb-1">
                             <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide ${task.priority === "high" ? "bg-red-50 text-red-600" : task.priority === "medium" ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-blue-600"}`}>{task.priority}</span>
-                            <h4 className={`text-sm font-semibold ${task.status === "done" ? "text-slate-900 line-through opacity-70" : "text-slate-900"}`}>{task.title}</h4>
+                            <h4 className={`task-title text-sm font-semibold ${task.status === "done" ? "text-slate-500 line-through" : isC ? "text-slate-500" : "text-slate-900"}`}>{task.title}</h4>
                           </div>
                           <div className="text-xs text-slate-500 flex items-center gap-1.5"><span>{task.domain}</span><span>•</span><span>{task.status}</span></div>
                         </div>
                         <button onClick={() => deleteTask(task.id)} className="p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
                       </div>
-                    ))}
+                      );
+                    })}
                     {displayTasks.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No tasks yet</p>}
                     <div className="flex gap-2 mt-2">
                       <input type="text" value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} placeholder="Add a new task..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-400" />
