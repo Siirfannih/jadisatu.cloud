@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { JuruWrapper } from "@/components/juru/JuruWrapper";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,7 +24,7 @@ export default function RootLayout({
         className="bg-[#F8FAFC] text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900"
         suppressHydrationWarning
       >
-        {children}
+        <JuruWrapper>{children}</JuruWrapper>
       </body>
     </html>
   );
