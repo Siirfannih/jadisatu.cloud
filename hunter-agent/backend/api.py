@@ -427,7 +427,7 @@ async def strategize_content(req: StrategistRequest):
     """
     Phase 2 of Gemini's ideal pipeline: Content Strategist Agent.
     Analyzes full_script and design_schema, returns per-slide decisions:
-    - layout_type: hero-center | card-detail | text-heavy | dramatic-closer
+    - layout_type: hero-center | card-detail | text-heavy | dramatic-closer | split-visual | quote-highlight | list-bullets
     - visual_mode: diagram | icon | illustration | none
     - headline & body (cleaned, optimized)
     - emotional_tone: impact | educational | reflective | dramatic
@@ -474,11 +474,14 @@ ATURAN PENTING:
 5. Headline MAKSIMAL 8-10 kata (potong jika terlalu panjang)
 6. Body mendukung headline, bukan mengulang
 
-LAYOUT TYPES:
-- "hero-center": Headline besar di tengah, tanpa body. Untuk kalimat pendek & impactful.
-- "card-detail": Headline + body dalam card. Untuk slide dengan penjelasan.
+LAYOUT TYPES (7 opsi):
+- "hero-center": Headline besar di tengah, tanpa body. Untuk kalimat pendek & impactful. Cocok untuk hook.
+- "card-detail": Headline + body dalam card bergaris. Untuk slide dengan penjelasan detail.
 - "text-heavy": Multi-paragraf bertumpuk. Untuk narasi panjang (pecah jadi poin-poin).
-- "dramatic-closer": Background gelap, teks besar centered. Untuk penutup/punchline.
+- "dramatic-closer": Background gelap, teks besar centered. Untuk penutup/punchline/CTA.
+- "split-visual": Icon/visual di kiri, teks di kanan. Untuk keseimbangan visual-teks. Bagus untuk value slides.
+- "quote-highlight": Teks besar gaya kutipan dengan tanda kutip dekoratif. Untuk insight, wisdom, atau quote powerful.
+- "list-bullets": Headline + poin-poin list (pakai • atau nomor di body). Untuk tips, langkah-langkah, checklist.
 
 VISUAL MODES:
 - "icon": Icon tunggal yang relevan dengan konten

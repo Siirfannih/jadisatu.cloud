@@ -524,6 +524,56 @@
             font-size: 1rem; opacity: 0.8; margin-top: 12px;
         }
         .layout-dramatic-closer .slide-visual-group { display: none !important; }
+
+        /* Layout 5: Split Visual — icon left, text right */
+        .layout-split-visual #carousel-slide-content {
+            display: flex; flex-direction: row; align-items: center;
+            gap: 24px;
+        }
+        .layout-split-visual .slide-visual-group {
+            flex: 0 0 140px; display: flex !important;
+            align-items: center; justify-content: center;
+        }
+        .layout-split-visual .slide-text-group {
+            flex: 1; text-align: left;
+        }
+        .layout-split-visual #carousel-preview-headline {
+            font-size: 1.4rem !important; line-height: 1.3; font-weight: 700;
+        }
+        .layout-split-visual #carousel-preview-body {
+            font-size: 0.85rem; line-height: 1.6; margin-top: 8px;
+        }
+
+        /* Layout 6: Quote Highlight — large italic quote text */
+        .layout-quote-highlight #carousel-slide-content {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; text-align: center; padding: 32px 24px;
+        }
+        .layout-quote-highlight #carousel-preview-headline {
+            font-size: 1.6rem !important; line-height: 1.4; font-weight: 600;
+            font-style: italic; max-width: 85%;
+            position: relative; padding: 0 20px;
+        }
+        .layout-quote-highlight #carousel-preview-headline::before {
+            content: '\201C'; position: absolute; left: -8px; top: -12px;
+            font-size: 3rem; opacity: 0.25; font-style: normal; font-weight: 800;
+        }
+        .layout-quote-highlight #carousel-preview-body {
+            font-size: 0.85rem; opacity: 0.7; margin-top: 16px;
+            font-style: normal; letter-spacing: 0.02em;
+        }
+        .layout-quote-highlight .slide-visual-group { display: none !important; }
+
+        /* Layout 7: List Bullets — numbered/bulleted points */
+        .layout-list-bullets #carousel-preview-headline {
+            font-size: 1.3rem !important; font-weight: 700;
+            margin-bottom: 12px; line-height: 1.2;
+        }
+        .layout-list-bullets #carousel-preview-body {
+            font-size: 0.85rem; line-height: 2; white-space: pre-line;
+            padding-left: 8px;
+        }
+        .layout-list-bullets .slide-visual-group { display: none !important; }
     </style>
 </head>
 
@@ -2311,7 +2361,7 @@
             }
 
             // ── 2. LAYOUT: Apply layout class ──
-            var LAYOUT_CLASSES = ['layout-hero-center', 'layout-card-detail', 'layout-text-heavy', 'layout-dramatic-closer'];
+            var LAYOUT_CLASSES = ['layout-hero-center', 'layout-card-detail', 'layout-text-heavy', 'layout-dramatic-closer', 'layout-split-visual', 'layout-quote-highlight', 'layout-list-bullets'];
             LAYOUT_CLASSES.forEach(function(cls) { canvas.classList.remove(cls); });
 
             var layoutType = slide._layoutType || 'default';
@@ -2319,8 +2369,8 @@
                 canvas.classList.add('layout-' + layoutType);
             }
 
-            // dramatic-closer layout always needs dark bg for impact
-            if (layoutType === 'dramatic-closer' && _invertedToLight) {
+            // dramatic-closer & quote-highlight always need dark bg for impact
+            if ((layoutType === 'dramatic-closer' || layoutType === 'quote-highlight') && _invertedToLight) {
                 canvas.style.background = tpl.bg;
                 canvas.style.color = tpl.text;
                 _invertedToLight = false;
@@ -2332,8 +2382,18 @@
             var headlineText = slide.headline || '';
             var bodyText = slide.body || '';
 
+            // For list-bullets layout: ensure body lines are formatted as bullet points
+            if (layoutType === 'list-bullets' && bodyText) {
+                var lines = bodyText.split('\n').filter(function(l) { return l.trim(); });
+                bodyText = lines.map(function(line) {
+                    var trimmed = line.trim();
+                    // Already has bullet/number prefix? Keep as-is
+                    if (/^[\u2022\u2023\u25E6•\-\d]+[\.\)\s]/.test(trimmed)) return trimmed;
+                    return '• ' + trimmed;
+                }).join('\n');
+            }
+
             if (headline) {
-                // Check for text highlights
                 try {
                     headline.textContent = headlineText;
                 } catch(e) {
