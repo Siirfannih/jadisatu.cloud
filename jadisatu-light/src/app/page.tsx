@@ -201,12 +201,12 @@ export default function DashboardPage() {
             </div>
 
             {/* Active Projects */}
-            {projects.length > 0 && (
-              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3"><Briefcase className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">Active Projects</h2></div>
-                  <a href="/projects" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium">View all<ChevronRight className="w-4 h-4" /></a>
-                </div>
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3"><Briefcase className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">Active Projects</h2></div>
+                <a href="/projects" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium">View all<ChevronRight className="w-4 h-4" /></a>
+              </div>
+              {projects.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projects.slice(0, 3).map((project) => (
                     <div key={project.id} className="p-4 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 rounded-2xl transition-all cursor-pointer">
@@ -216,13 +216,22 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-6">
+                  <Briefcase className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                  <p className="text-sm text-slate-500">No projects yet.</p>
+                  <a href="/projects" className="text-sm text-blue-600 hover:text-blue-700 font-medium mt-1 inline-block">Create your first project →</a>
+                </div>
+              )}
+            </div>
 
             {/* Recent Activity */}
-            {activities.length > 0 && (
-              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                <div className="flex items-center gap-3 mb-4"><Activity className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">Recent Activity</h2></div>
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3"><Activity className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">Recent Activity</h2></div>
+                <a href="/history" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium">View all<ChevronRight className="w-4 h-4" /></a>
+              </div>
+              {activities.length > 0 ? (
                 <div className="space-y-3">
                   {activities.map((activity) => (
                     <div key={activity.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
@@ -234,16 +243,21 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-6">
+                  <Activity className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                  <p className="text-sm text-slate-500">No activity recorded yet. Actions you take will appear here.</p>
+                </div>
+              )}
+            </div>
 
             {/* All Active Tasks */}
-            {tasks.length > 3 && (
-              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3"><CheckCircle2 className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">All Active Tasks</h2></div>
-                  <span className="text-sm text-slate-500">{tasks.filter(t => t.status !== "done").length} remaining</span>
-                </div>
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3"><CheckCircle2 className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">All Active Tasks</h2></div>
+                <span className="text-sm text-slate-500">{tasks.filter(t => t.status !== "done").length} remaining</span>
+              </div>
+              {tasks.filter(t => t.status !== "done" && t.status !== "completed").length > 0 ? (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {tasks.filter(t => t.status !== "done" && t.status !== "completed").map((task) => (
                     <div key={task.id} className="group flex items-center gap-3 p-3 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 rounded-xl transition-all">
@@ -254,8 +268,13 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-6">
+                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                  <p className="text-sm text-slate-500">All caught up! Add tasks from Today&apos;s Focus above.</p>
+                </div>
+              )}
+            </div>
           </div>
         </main>
       </div>
