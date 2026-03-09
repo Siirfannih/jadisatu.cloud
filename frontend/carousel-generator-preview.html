@@ -574,6 +574,26 @@
             padding-left: 8px;
         }
         .layout-list-bullets .slide-visual-group { display: none !important; }
+
+        /* AI Progress Overlay */
+        @keyframes ai-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .ai-spin { animation: ai-spin 2s linear infinite; }
+        .ai-step[data-status="done"] .ai-step-dot {
+            background: #8b5cf6; border-color: #8b5cf6;
+        }
+        .ai-step[data-status="done"] .ai-step-dot::after {
+            content: '\2713'; color: white; font-size: 10px; font-weight: bold;
+        }
+        .ai-step[data-status="active"] .ai-step-dot {
+            border-color: #8b5cf6; position: relative;
+        }
+        .ai-step[data-status="active"] .ai-step-dot::after {
+            content: ''; position: absolute; inset: 3px; border-radius: 50%;
+            background: #8b5cf6; animation: ai-pulse 1s ease-in-out infinite;
+        }
+        @keyframes ai-pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+        .ai-step[data-status="active"] span:last-child { color: #e2e8f0; font-weight: 500; }
+        .ai-step[data-status="done"] span:last-child { color: #a78bfa; }
     </style>
 </head>
 
@@ -1104,6 +1124,44 @@
 
     <div id="carousel-toast"
         class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-white text-sm z-40">
+    </div>
+
+    <!-- AI Progress Overlay — shows during strategist + icon resolution -->
+    <div id="ai-progress-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);">
+        <div class="bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 w-[380px] shadow-2xl">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-white ai-spin"></i>
+                </div>
+                <div>
+                    <div class="text-sm font-semibold text-white">AI Content Engine</div>
+                    <div id="ai-progress-subtitle" class="text-[11px] text-gray-400">Mempersiapkan...</div>
+                </div>
+            </div>
+            <!-- Progress steps -->
+            <div id="ai-progress-steps" class="space-y-2 mb-4">
+                <div class="ai-step flex items-center gap-2.5 text-xs" data-step="slides">
+                    <span class="ai-step-dot w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0"></span>
+                    <span class="text-gray-400">Membangun slide dari script...</span>
+                </div>
+                <div class="ai-step flex items-center gap-2.5 text-xs" data-step="strategist">
+                    <span class="ai-step-dot w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0"></span>
+                    <span class="text-gray-400">AI Strategist menganalisis layout & visual...</span>
+                </div>
+                <div class="ai-step flex items-center gap-2.5 text-xs" data-step="icons">
+                    <span class="ai-step-dot w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0"></span>
+                    <span class="text-gray-400">Memilih icon unik per slide...</span>
+                </div>
+                <div class="ai-step flex items-center gap-2.5 text-xs" data-step="render">
+                    <span class="ai-step-dot w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0"></span>
+                    <span class="text-gray-400">Rendering preview carousel...</span>
+                </div>
+            </div>
+            <!-- Progress bar -->
+            <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div id="ai-progress-bar" class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-500 ease-out" style="width:0%"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Object-Level Color Popover -->
@@ -2141,6 +2199,79 @@
         }
 
 
+        // ═══════════════════════════════════════════════════════════
+        // AI Progress Overlay — visual feedback during generation
+        // ═══════════════════════════════════════════════════════════
+        var _aiProgressSteps = ['slides', 'strategist', 'icons', 'render'];
+
+        function aiProgressShow() {
+            var overlay = document.getElementById('ai-progress-overlay');
+            if (overlay) {
+                overlay.classList.remove('hidden');
+                // Reset all steps
+                _aiProgressSteps.forEach(function(step) {
+                    var el = overlay.querySelector('[data-step="' + step + '"]');
+                    if (el) { el.removeAttribute('data-status'); }
+                });
+                var bar = document.getElementById('ai-progress-bar');
+                if (bar) bar.style.width = '0%';
+                var sub = document.getElementById('ai-progress-subtitle');
+                if (sub) sub.textContent = 'Mempersiapkan...';
+                if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                    requestAnimationFrame(function() { lucide.createIcons(); });
+                }
+            }
+        }
+
+        function aiProgressStep(stepName, subtitle) {
+            var overlay = document.getElementById('ai-progress-overlay');
+            if (!overlay || overlay.classList.contains('hidden')) return;
+
+            // Mark previous steps as done
+            var reached = false;
+            _aiProgressSteps.forEach(function(step) {
+                var el = overlay.querySelector('[data-step="' + step + '"]');
+                if (!el) return;
+                if (step === stepName) {
+                    el.setAttribute('data-status', 'active');
+                    reached = true;
+                } else if (!reached) {
+                    el.setAttribute('data-status', 'done');
+                }
+            });
+
+            // Update progress bar
+            var idx = _aiProgressSteps.indexOf(stepName);
+            var pct = Math.round(((idx + 0.5) / _aiProgressSteps.length) * 100);
+            var bar = document.getElementById('ai-progress-bar');
+            if (bar) bar.style.width = pct + '%';
+
+            // Update subtitle
+            var sub = document.getElementById('ai-progress-subtitle');
+            if (sub && subtitle) sub.textContent = subtitle;
+        }
+
+        function aiProgressDone() {
+            var overlay = document.getElementById('ai-progress-overlay');
+            if (!overlay) return;
+
+            // Mark all done
+            _aiProgressSteps.forEach(function(step) {
+                var el = overlay.querySelector('[data-step="' + step + '"]');
+                if (el) el.setAttribute('data-status', 'done');
+            });
+            var bar = document.getElementById('ai-progress-bar');
+            if (bar) bar.style.width = '100%';
+            var sub = document.getElementById('ai-progress-subtitle');
+            if (sub) sub.textContent = 'Selesai!';
+
+            // Auto-hide after brief delay
+            setTimeout(function() {
+                overlay.classList.add('hidden');
+            }, 800);
+        }
+
+
         async function runContentStrategist(fullScript, designSchema) {
             if (!fullScript || fullScript.length < 30) return null;
             try {
@@ -2195,10 +2326,6 @@
                             console.log('[IconResolver] Slide ' + (idx+1) + ': ' + iconData.icon + ' (' + (iconData.reason || '') + ')');
                         }
                     });
-                    // Re-render current slide if it was updated
-                    if (typeof renderSlideClean === 'function') {
-                        renderSlideClean(currentSlideIndex);
-                    }
                 }
             } catch (e) {
                 console.warn('[IconResolver] Failed:', e);
@@ -3137,87 +3264,96 @@
 
             document.getElementById('carousel-content-meta').textContent = 'Content ID: ' + esc(item.id) + ' | "' + esc((item.title || '').substring(0, 40)) + (item.title && item.title.length > 40 ? '…' : '') + '"';
 
-            // Build slides: Full Script FIRST (primary), then AI, then value_text fallback
+            // ══════════════════════════════════════════════════════════
+            // GENERATION PIPELINE — with progress overlay
+            // Step 1: Build slides from script
+            // Step 2: AI Strategist (layout + icon per slide)
+            // Step 3: Icon dedup check + resolve
+            // Step 4: Render preview
+            // ══════════════════════════════════════════════════════════
+            aiProgressShow();
+
+            // ── Step 1: Build slides ──
+            aiProgressStep('slides', 'Membangun slide dari script...');
             var _fsSlides = buildSlidesFromFullScript(item);
             if (_fsSlides && _fsSlides.length >= 2) {
                 slidesData = _fsSlides.slice(0, platformRules.maxSlides);
                 console.log('[Slides] Built ' + slidesData.length + ' slides from Full Script (primary)');
             } else {
-                // Full Script empty/unparseable — try AI slides
                 var aiSlides = await fetchAISlides(item);
                 if (aiSlides && aiSlides.length > 0) {
                     slidesData = aiSlides.slice(0, platformRules.maxSlides);
                     console.log('[Slides] Built ' + slidesData.length + ' slides from AI');
                 } else {
-                    // Last resort — parse value_text
                     slidesData = buildSlidesFromItem(item).slice(0, platformRules.maxSlides);
                     console.log('[Slides] Built ' + slidesData.length + ' slides from value_text (fallback)');
                 }
             }
-            // Run Content Strategist Agent (async — enriches slides with layout/visual decisions)
             currentSlideIndex = 0;
+
+            // ── Step 2: AI Strategist (AWAIT — not fire-and-forget) ──
             var _fsForStrategist = (item.full_script || '').trim();
             var _dsForStrategist = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
-            if (_fsForStrategist.length > 30) {
-                // Show loading state
-                if (window._carouselToast) window._carouselToast('AI Strategist menganalisis konten...');
-                runContentStrategist(_fsForStrategist, _dsForStrategist).then(function(result) {
-                    if (result && result.length > 0) {
-                        _strategistData = result;
-                        // Apply strategist decisions to all slides
-                        for (var si = 0; si < Math.min(result.length, slidesData.length); si++) {
-                            var d = result[si];
-                            if (d.headline) slidesData[si].headline = d.headline;
-                            if (d.body !== undefined) slidesData[si].body = d.body;
-                            slidesData[si]._layoutType = d.layout_type;
-                            slidesData[si]._bgVariant = d.bg_variant;
-                            slidesData[si]._iconName = d.icon_name;
-                            slidesData[si]._visualMode = d.visual_mode;
-                            slidesData[si]._emotionalTone = d.emotional_tone;
-                        }
-                        // Check if all slides got the same icon (Gemini sometimes repeats)
-                        var _iconSet = {};
-                        var _hasIconDupes = false;
-                        for (var ci = 0; ci < slidesData.length; ci++) {
-                            var _ic = slidesData[ci]._iconName;
-                            if (_ic && _iconSet[_ic]) { _hasIconDupes = true; break; }
-                            if (_ic) _iconSet[_ic] = true;
-                        }
-                        if (_hasIconDupes) {
-                            console.warn('[Strategist] Duplicate icons detected — calling resolveSlideIcons() as backup');
-                            resolveSlideIcons(slidesData);
-                        }
 
-                        // Re-render with strategist data via clean renderer
-                        renderSlideStrip();
-                        renderSlideClean(currentSlideIndex);
-                        updateValuesCount();
-                        if (window._carouselToast) window._carouselToast('AI Strategist: ' + result.length + ' slide dioptimalkan!');
+            if (_fsForStrategist.length > 30) {
+                aiProgressStep('strategist', 'AI Strategist menganalisis ' + slidesData.length + ' slide...');
+                var strategistResult = await runContentStrategist(_fsForStrategist, _dsForStrategist);
+
+                if (strategistResult && strategistResult.length > 0) {
+                    _strategistData = strategistResult;
+                    for (var si = 0; si < Math.min(strategistResult.length, slidesData.length); si++) {
+                        var d = strategistResult[si];
+                        if (d.headline) slidesData[si].headline = d.headline;
+                        if (d.body !== undefined) slidesData[si].body = d.body;
+                        slidesData[si]._layoutType = d.layout_type;
+                        slidesData[si]._bgVariant = d.bg_variant;
+                        slidesData[si]._iconName = d.icon_name;
+                        slidesData[si]._visualMode = d.visual_mode;
+                        slidesData[si]._emotionalTone = d.emotional_tone;
                     }
-                });
-            } else {
-                // Strategist skipped — resolve icons via Gemini fallback
-                resolveSlideIcons(slidesData);
+                    console.log('[Strategist] Applied ' + strategistResult.length + ' slide decisions');
+                }
             }
 
-            // Populate sidebar from slidesData (Full Script is the source of truth)
-            // Hook sidebar: first slide
+            // ── Step 3: Icon dedup + resolve ──
+            aiProgressStep('icons', 'Memilih icon unik per slide...');
+
+            // Check for missing or duplicate icons
+            var _iconSet = {};
+            var _hasIconProblem = false;
+            for (var ci = 0; ci < slidesData.length; ci++) {
+                var _ic = slidesData[ci]._iconName;
+                if (!_ic || _ic === 'sparkles') { _hasIconProblem = true; break; }
+                if (_iconSet[_ic]) { _hasIconProblem = true; break; }
+                _iconSet[_ic] = true;
+            }
+
+            if (_hasIconProblem) {
+                console.log('[IconResolver] Icons missing or duplicated — resolving via Gemini...');
+                await resolveSlideIcons(slidesData);
+            } else {
+                console.log('[IconResolver] All ' + slidesData.length + ' slides have unique icons ✓');
+            }
+
+            // ── Step 4: Render ──
+            aiProgressStep('render', 'Rendering preview...');
+
+            // Populate sidebar
             var hookEl = document.getElementById('carousel-sidebar-hook');
             if (hookEl && slidesData.length > 0) {
                 var _hookSlide = slidesData[0];
                 hookEl.value = (_hookSlide.headline || '') + (_hookSlide.body ? '\n' + _hookSlide.body : '');
             }
-            // Values & count sidebar: from slidesData
             updateValuesCount();
             renderSlideStrip();
             renderSlideClean(currentSlideIndex);
 
+            // Fetch visual assets (SVG/images) per slide
             var brandConfig = getAppSettings().brand_config || {};
             for (var i = 0; i < slidesData.length; i++) {
                 var slide = slidesData[i];
                 var result = await fetchVisualForSlide(slide, brandConfig);
                 if (result) {
-                    // If result is base64 or SVG signal, the slide object already has the data
                     if (result !== '__svg__' && !slide.assetBase64) {
                         slide.assetUrl = result;
                     }
@@ -3226,6 +3362,9 @@
                 }
                 if (i < slidesData.length - 1) await new Promise(function (r) { setTimeout(r, 300); });
             }
+
+            // Done — hide progress overlay
+            aiProgressDone();
             if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
         }
 
