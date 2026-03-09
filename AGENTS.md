@@ -13,7 +13,7 @@
 
 ### Key caveats
 
-- **Supabase credentials required:** The Next.js app and Hunter Agent both require Supabase credentials to function beyond the login page. Without them, the Next.js app will serve the login page but auth flows will fail. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_KEY` in `nextjs-app/.env.local`.
+- **Supabase credentials required:** Both `nextjs-app` and `jadisatu-light` require Supabase credentials. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_KEY` in each app's `.env.local`. **Important:** `NEXT_PUBLIC_SUPABASE_URL` must be the project URL (`https://xxxx.supabase.co`), NOT a key. The anon key starts with `eyJ...` (JWT) or `sb_publishable_...`, and the service key starts with `eyJ...` or `sb_secret_...`. If secrets are injected as env vars and contain wrong values, you must override them inline when starting the dev server (e.g., `NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co npm run dev`), because OS env vars take precedence over `.env.local`.
 - **Hunter Agent missing pip dependency:** `hunter-agent/backend/database.py` imports the `supabase` Python SDK but it is not listed in `requirements.txt`. Install it manually: `pip3 install supabase`.
 - **No ESLint config in nextjs-app:** The main Next.js app does not have ESLint configured. Use `npx tsc --noEmit` for type checking instead.
 - **Port conflict:** `nextjs-app` runs on 3000, `jadisatu-light` on 3001, and `hunter-agent/frontend` should use 3002 when running all simultaneously.
