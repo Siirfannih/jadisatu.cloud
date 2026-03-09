@@ -705,6 +705,155 @@ Balas HANYA dalam format JSON array (tanpa markdown):
         raise HTTPException(status_code=500, detail=f"Icon resolver failed: {str(e)}")
 
 
+# ────────────────────────────────────────────────────
+# AI Composition Engine — Gemini generates Fabric.js element positions
+# ────────────────────────────────────────────────────
+class ComposeRequest(BaseModel):
+    slides: list = []           # [{headline, body, slide_type, layout_type, icon_name, visual_mode, emotional_tone, bg_variant}]
+    design_schema: dict = {}    # From extract-template
+    template_preset: str = ""   # e.g. "minimal-dark", "bold-gradient"
+    canvas_size: str = "1080x1080"
+
+@app.post("/api/carousel/compose")
+async def compose_slides(req: ComposeRequest):
+    """
+    AI Composition Engine — generates pixel-level Fabric.js element positioning.
+    Input: slides with content + design context
+    Output: per-slide Composition JSON with exact x,y,w,h for every element
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    if not req.slides:
+        raise HTTPException(status_code=400, detail="slides array is required")
+
+    import google.generativeai as genai
+    genai.configure(api_key=gemini_key)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+    # Parse canvas dimensions
+    try:
+        cw, ch = req.canvas_size.split("x")
+        canvas_w, canvas_h = int(cw), int(ch)
+    except:
+        canvas_w, canvas_h = 1080, 1080
+
+    # Build design context
+    design_ctx = ""
+    if req.design_schema:
+        ds = req.design_schema
+        design_ctx = f"""
+DESIGN DNA:
+- Template family: {ds.get('template_family', 'unknown')}
+- Colors: {json.dumps(ds.get('color_palette', {}))}
+- Typography: {json.dumps(ds.get('typography', {}))}
+- Visual mode: {ds.get('visual_mode', 'icon')}
+- Decorative elements: {json.dumps(ds.get('decorative_elements', {}))}
+- Style traits: {ds.get('style_traits', [])}
+"""
+
+    slides_json = json.dumps(req.slides, ensure_ascii=False, indent=2)
+
+    prompt = f"""Kamu adalah AI Visual Composer untuk carousel sosial media.
+Canvas: {canvas_w}x{canvas_h} pixels.
+Template preset: {req.template_preset or 'minimal-dark'}
+
+{design_ctx}
+
+SLIDES DATA:
+{slides_json}
+
+TUGAS: Untuk SETIAP slide, generate Composition JSON yang berisi SEMUA elemen visual dengan posisi TEPAT dalam pixel.
+
+ELEMENT TYPES yang tersedia:
+1. "gradient-bg" — Background gradient
+   Properties: width, height, colorStops: [{{offset, color}}], direction: "to-bottom"|"to-bottom-right"|"to-right"
+
+2. "rect" — Rectangle/shape
+   Properties: left, top, width, height, fill, stroke, strokeWidth, rx, ry (rounded corners), opacity
+
+3. "circle" — Circle/ellipse
+   Properties: left, top, radius, fill, stroke, strokeWidth, opacity
+
+4. "textbox" — Text content
+   Properties: left, top, width, text, fontSize, fontWeight, fontStyle, fontFamily, fill (color), textAlign, lineHeight
+
+5. "lucide-icon" — Icon dari Lucide
+   Properties: iconName, left, top, size, color
+
+6. "line" — Garis dekoratif
+   Properties: x1, y1, x2, y2, stroke, strokeWidth
+
+7. "image" — Gambar/ilustrasi (placeholder area)
+   Properties: left, top, width, height, src (URL atau "placeholder"), opacity, rx (rounded)
+
+ATURAN DESAIN:
+1. Padding minimum dari edge: 64px
+2. Decorative elements WAJIB ada: minimal 2 blur circles + 1 accent line per slide
+3. Variasi posisi antar slide — jangan semua slide terlihat sama
+4. Hierarchy visual: headline paling besar (40-64px), body lebih kecil (20-28px)
+5. Icon dengan background shape (rounded rect atau circle di belakangnya)
+6. Footer di bottom: brand text kiri, progress dots kanan
+7. Sesuaikan posisi berdasarkan layout_type:
+   - hero-center: headline besar di tengah, tanpa body
+   - card-detail: card frame + headline + body di dalam
+   - split-visual: visual kiri 42%, text kanan 58%
+   - quote-highlight: tanda kutip dekoratif besar + teks centered
+   - list-bullets: headline atas + poin-poin list di bawah
+   - dramatic-closer: overlay gelap + teks besar centered
+   - text-heavy: headline + body panjang, tanpa visual
+8. Warna decorative elements: gunakan accent color dengan opacity rendah (0.05-0.15)
+9. Number badge (angka slide) di posisi yang sesuai layout
+
+Balas HANYA JSON array (tanpa markdown fences):
+[
+  {{
+    "slide_index": 0,
+    "canvas": {{"width": {canvas_w}, "height": {canvas_h}}},
+    "elements": [
+      {{"type": "gradient-bg", "id": "bg", "width": {canvas_w}, "height": {canvas_h}, "colorStops": [...], "direction": "..."}},
+      {{"type": "circle", "id": "deco-glow-1", "left": ..., "top": ..., "radius": ..., "fill": "rgba(...)"}},
+      {{"type": "rect", "id": "icon-bg", "left": ..., "top": ..., "width": ..., "height": ..., "fill": "...", "rx": ..., "ry": ...}},
+      {{"type": "lucide-icon", "id": "icon", "iconName": "...", "left": ..., "top": ..., "size": ..., "color": "..."}},
+      {{"type": "textbox", "id": "headline", "left": ..., "top": ..., "width": ..., "text": "...", "fontSize": ..., ...}},
+      {{"type": "textbox", "id": "body", "left": ..., "top": ..., "width": ..., "text": "...", "fontSize": ..., ...}},
+      ...
+    ]
+  }}
+]
+"""
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+
+        # Clean markdown fences if present
+        if raw_text.startswith("```"):
+            raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text)
+            raw_text = re.sub(r'```\s*$', '', raw_text)
+
+        compositions = json.loads(raw_text)
+        if not isinstance(compositions, list):
+            raise ValueError("Response is not a JSON array")
+
+        return {
+            "success": True,
+            "compositions": compositions,
+            "slide_count": len(compositions),
+            "canvas": {"width": canvas_w, "height": canvas_h}
+        }
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "error": f"JSON parse failed: {str(e)}",
+            "raw": raw_text[:2000] if 'raw_text' in dir() else "",
+            "compositions": []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Compose failed: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -240,21 +240,52 @@ Export PNG per-slide → Download ZIP
 ## Current Progress
 
 - [x] Plan documented
-- [ ] Phase 1: Fabric.js integration (foundation)
-- [ ] Phase 2: Composition engine (convert existing data → Fabric)
-- [ ] Phase 3: AI-powered composition (Gemini generates element positions)
-- [ ] Phase 4: Rich visual elements (images, SVG icons, patterns)
-- [ ] Phase 5: Export & polish
+- [x] Phase 1: Fabric.js integration (foundation) — CDN, canvas element, toggle
+- [x] Phase 2: Composition engine (convert existing data → Fabric) — 7 layouts, decorations
+- [x] Phase 3: AI-powered composition (Gemini generates element positions) — `/api/carousel/compose`
+- [x] Phase 4: Rich visual elements (images, SVG icons, patterns, lines)
+- [x] Phase 5: Export & polish (undo/redo, interactive editing, clean export)
+
+---
+
+## What Was Built
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `frontend/js/composition-engine.js` | Converts slide data + template → Composition JSON with pixel positioning |
+| `frontend/js/fabric-renderer.js` | Renders Composition JSON to Fabric.js canvas |
+| `docs/agent-log/README.md` | Agent log index |
+| `docs/agent-log/001-fabricjs-auto-design-engine.md` | This plan document |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `frontend/carousel-generator-preview.html` | Fabric.js CDN, canvas element, toggle buttons, AI compose UI, undo/redo, Fabric export path |
+| `hunter-agent/backend/api.py` | New `/api/carousel/compose` endpoint for AI composition |
+
+### Features Implemented
+1. **Classic/Fabric toggle** — switch between HTML and Fabric.js rendering
+2. **7 layout types** with pixel-level positioning (hero-center, card-detail, split-visual, etc.)
+3. **Decorative elements** — glow blobs, accent lines, dot patterns, card frames, corner clusters
+4. **Pattern backgrounds** — grid dots (even slides), diagonal lines (odd slides)
+5. **Icon rendering** — 6 icon styles (glass, solid, glow, outline, warm, neon) with Lucide SVG
+6. **Image/illustration support** — base64, URL, and SVG content rendering
+7. **AI Compose endpoint** — Gemini generates full composition JSON per slide
+8. **AI Compose button** in toolbar — triggers AI auto-design for all slides
+9. **Undo/redo** — Ctrl+Z / Ctrl+Y with 30-step history
+10. **Interactive editing** — drag, resize, double-click text edit, delete elements
+11. **Clean export** — deselects objects before PNG export, Fabric-native export path
+12. **Serialize/load** — save and restore canvas state as JSON
 
 ---
 
 ## Notes for Next Agent
 
-- File `carousel-generator-preview.html` adalah 6194 baris — sangat besar, hati-hati saat edit
-- Template presets ada di sekitar line 2097-2194
-- `renderSlideClean()` adalah main render function (line 2422-2708)
-- Content Strategist endpoint di `api.py` line 425-546
-- Existing rendering pakai HTML div, JANGAN hapus dulu — buat toggle classic/fabric
-- Fabric.js v5.3.1 recommended (stable, well-documented)
-- Canvas size: 1080x1080 (Instagram square) atau 1080x1350 (portrait)
-- Pastikan font yang sudah di-load di Google Fonts tetap bisa dipakai di Fabric.js
+- `carousel-generator-preview.html` is now ~6500 lines — be careful when editing
+- `CAROUSEL_AI_BACKEND_URL` must be set for AI Compose to work (currently empty)
+- Google Fonts loaded in `<head>` work in Fabric.js via CSS font loading
+- Template presets around line 2150+, `renderSlideClean()` around line 2500+
+- AI compose stores result in `slide._aiComposition` — persists until page reload
+- Pattern overlay dots limited to 80 per slide to avoid performance issues
+- Fabric.js v5.3.1 loaded from cdnjs CDN

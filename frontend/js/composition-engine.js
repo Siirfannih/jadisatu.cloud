@@ -493,6 +493,115 @@ var CompositionEngine = (function() {
         return elements;
     }
 
+    // ─── Pattern Overlay Generator ──────────────────────
+    function generatePatternOverlay(colors, layoutType, slideIndex) {
+        var elements = [];
+        var isDark = colors.isDark;
+        var dotColor = isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.02)';
+
+        // Grid dots pattern — subtle background texture
+        // Only add on even slides for variety
+        if (slideIndex % 2 === 0) {
+            var spacing = 60;
+            var startX = 40;
+            var startY = 40;
+            var cols = Math.floor((CANVAS_W - startX * 2) / spacing);
+            var rows = Math.floor((CANVAS_H - startY * 2) / spacing);
+            // Limit to avoid too many objects
+            var maxDots = 80;
+            var dotCount = 0;
+            for (var row = 0; row < rows && dotCount < maxDots; row++) {
+                for (var col = 0; col < cols && dotCount < maxDots; col++) {
+                    elements.push({
+                        type: 'circle',
+                        id: 'pattern-dot-' + row + '-' + col,
+                        left: startX + col * spacing,
+                        top: startY + row * spacing,
+                        radius: 1.5,
+                        fill: dotColor,
+                        selectable: false,
+                        evented: false
+                    });
+                    dotCount++;
+                }
+            }
+        } else {
+            // Cross-hatch lines for odd slides
+            var lineColor = isDark ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.012)';
+            // Diagonal lines top-right corner only (subtle)
+            for (var i = 0; i < 5; i++) {
+                elements.push({
+                    type: 'line',
+                    id: 'pattern-line-' + i,
+                    x1: CANVAS_W - 300 + i * 40,
+                    y1: 0,
+                    x2: CANVAS_W,
+                    y2: 300 - i * 40,
+                    stroke: lineColor,
+                    strokeWidth: 1,
+                    selectable: false,
+                    evented: false
+                });
+            }
+        }
+
+        return elements;
+    }
+
+    // ─── Image Element Builder ──────────────────────────
+    function buildImageElement(slide, layoutType, colors) {
+        var elements = [];
+
+        // Check for illustration/image assets
+        var imgSrc = slide.assetBase64 || slide._base64Cache || slide.assetUrl || null;
+        if (!imgSrc && slide.svgContent) imgSrc = 'svg:' + slide.svgContent;
+        if (!imgSrc) return elements;
+
+        var imgPos;
+        if (layoutType === 'split-visual') {
+            // Image in the left visual area
+            var splitX = CANVAS_W * 0.42;
+            imgPos = {
+                left: 40,
+                top: CANVAS_H * 0.25,
+                width: splitX - 80,
+                height: CANVAS_H * 0.5
+            };
+        } else if (layoutType === 'hero-center') {
+            // Small image above headline
+            imgPos = {
+                left: CANVAS_W / 2 - 120,
+                top: CANVAS_H * 0.15,
+                width: 240,
+                height: 200
+            };
+        } else {
+            // Default: small image in visual area
+            imgPos = {
+                left: PAD,
+                top: PAD + 20,
+                width: 180,
+                height: 180
+            };
+        }
+
+        elements.push({
+            type: 'image',
+            id: 'visual-image',
+            left: imgPos.left,
+            top: imgPos.top,
+            width: imgPos.width,
+            height: imgPos.height,
+            src: imgSrc,
+            rx: 16,
+            opacity: 1,
+            selectable: true,
+            evented: true
+        });
+
+        return elements;
+    }
+
     // ─── Main Compose Function ──────────────────────────
     function compose(slide, slideIndex, tpl, totalSlides) {
         var colors = resolveColors(tpl, slide);
@@ -537,7 +646,11 @@ var CompositionEngine = (function() {
         // 1. Background
         elements.push(bgElement);
 
-        // 2. Decorative elements
+        // 2. Pattern overlay (subtle grid/dots)
+        var patternEls = generatePatternOverlay(colors, layoutType, slideIndex);
+        elements = elements.concat(patternEls);
+
+        // 3. Decorative elements
         var decos = generateDecorations(colors, layoutType, tpl, slideIndex);
         elements = elements.concat(decos);
 
@@ -572,6 +685,12 @@ var CompositionEngine = (function() {
         if (hasIcon && positions.icon) {
             var iconEls = buildIconElements(positions.icon, slide._iconName, colors, tpl);
             elements = elements.concat(iconEls);
+        }
+
+        // 4b. Image/illustration (if available)
+        if (visualMode === 'illustration' || slide.assetBase64 || slide._base64Cache || slide.assetUrl) {
+            var imgEls = buildImageElement(slide, layoutType, colors);
+            elements = elements.concat(imgEls);
         }
 
         // 5. Headline
@@ -652,11 +771,35 @@ var CompositionEngine = (function() {
         };
     }
 
+    /**
+     * composeFromAI — Use AI-generated composition JSON directly
+     * Validates and normalizes the AI output for FabricRenderer
+     */
+    function composeFromAI(aiComposition) {
+        if (!aiComposition || !aiComposition.elements) return null;
+
+        // Normalize: ensure all elements have required fields
+        var elements = aiComposition.elements.map(function(el, i) {
+            el.id = el.id || (el.type + '-' + i);
+            if (el.selectable === undefined) el.selectable = false;
+            if (el.evented === undefined) el.evented = false;
+            return el;
+        });
+
+        return {
+            canvas: aiComposition.canvas || { width: CANVAS_W, height: CANVAS_H },
+            colors: null, // AI provides its own colors inline
+            elements: elements
+        };
+    }
+
     // Public API
     return {
         compose: compose,
+        composeFromAI: composeFromAI,
         resolveColors: resolveColors,
         hexToRgba: hexToRgba,
+        generatePatternOverlay: generatePatternOverlay,
         CANVAS_W: CANVAS_W,
         CANVAS_H: CANVAS_H
     };

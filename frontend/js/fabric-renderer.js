@@ -215,6 +215,95 @@ var FabricRenderer = (function() {
         });
     }
 
+    // ─── Render Line ──────────────────────────────────
+    function renderLine(element) {
+        return new fabric.Line(
+            [element.x1 || 0, element.y1 || 0, element.x2 || 100, element.y2 || 0],
+            {
+                stroke: element.stroke || '#ffffff',
+                strokeWidth: element.strokeWidth || 1,
+                selectable: element.selectable || false,
+                evented: element.evented || false,
+                opacity: element.opacity || 1
+            }
+        );
+    }
+
+    // ─── Render Image ───────────────────────────────────
+    function renderImage(element, callback) {
+        var src = element.src || '';
+
+        // Handle SVG content inline
+        if (src.indexOf('svg:') === 0) {
+            var svgStr = src.substring(4);
+            fabric.loadSVGFromString(svgStr, function(objects, options) {
+                var svgGroup = fabric.util.groupSVGElements(objects, options);
+                svgGroup.set({
+                    left: element.left || 0,
+                    top: element.top || 0,
+                    scaleX: (element.width || 200) / (svgGroup.width || 200),
+                    scaleY: (element.height || 200) / (svgGroup.height || 200),
+                    selectable: element.selectable !== false,
+                    evented: element.evented !== false,
+                    opacity: element.opacity || 1
+                });
+                if (callback) callback(svgGroup);
+            });
+            return;
+        }
+
+        // Handle base64 or URL images
+        if (src && src !== 'placeholder') {
+            fabric.Image.fromURL(src, function(img) {
+                if (!img) { if (callback) callback(null); return; }
+                img.set({
+                    left: element.left || 0,
+                    top: element.top || 0,
+                    selectable: element.selectable !== false,
+                    evented: element.evented !== false,
+                    opacity: element.opacity || 1
+                });
+                // Scale to fit requested dimensions
+                if (element.width && img.width) {
+                    img.scaleToWidth(element.width);
+                }
+                if (element.height && img.height) {
+                    var currentScaleH = element.height / img.height;
+                    if (img.scaleY > currentScaleH) img.scaleToHeight(element.height);
+                }
+                // Apply rounded corners via clipPath
+                if (element.rx) {
+                    img.set('clipPath', new fabric.Rect({
+                        width: img.width,
+                        height: img.height,
+                        rx: element.rx / (img.scaleX || 1),
+                        ry: element.rx / (img.scaleY || 1),
+                        originX: 'center',
+                        originY: 'center'
+                    }));
+                }
+                if (callback) callback(img);
+            }, { crossOrigin: 'anonymous' });
+        } else {
+            // Placeholder rect
+            var placeholder = new fabric.Rect({
+                left: element.left || 0,
+                top: element.top || 0,
+                width: element.width || 200,
+                height: element.height || 200,
+                fill: 'rgba(139,92,246,0.08)',
+                stroke: 'rgba(139,92,246,0.2)',
+                strokeWidth: 2,
+                strokeDashArray: [8, 4],
+                rx: element.rx || 12,
+                ry: element.rx || 12,
+                selectable: false,
+                evented: false
+            });
+            if (callback) callback(placeholder);
+        }
+    }
+
     // ─── Render Full Composition ────────────────────────
     function renderComposition(composition, onComplete) {
         if (!_canvas || !_isReady) {
@@ -252,9 +341,19 @@ var FabricRenderer = (function() {
                     if (fabricObj) _canvas.add(fabricObj);
                     break;
 
+                case 'line':
+                    fabricObj = renderLine(el);
+                    if (fabricObj) _canvas.add(fabricObj);
+                    break;
+
                 case 'lucide-icon':
                     // Async — SVG loading
-                    asyncItems.push(el);
+                    asyncItems.push({ _asyncType: 'icon', _el: el });
+                    break;
+
+                case 'image':
+                    // Async — image loading
+                    asyncItems.push({ _asyncType: 'image', _el: el });
                     break;
 
                 default:
@@ -262,28 +361,117 @@ var FabricRenderer = (function() {
             }
         });
 
-        // Handle async icon loading
+        // Handle async items (icons + images)
         if (asyncItems.length === 0) {
             _canvas.requestRenderAll();
             if (onComplete) onComplete();
         } else {
             var loaded = 0;
-            asyncItems.forEach(function(el) {
-                renderLucideIcon(el, function(obj) {
-                    if (obj) _canvas.add(obj);
-                    loaded++;
-                    if (loaded === asyncItems.length) {
-                        _canvas.requestRenderAll();
-                        if (onComplete) onComplete();
-                    }
-                });
+            var total = asyncItems.length;
+            function onAsyncDone(obj) {
+                if (obj) _canvas.add(obj);
+                loaded++;
+                if (loaded === total) {
+                    _canvas.requestRenderAll();
+                    if (onComplete) onComplete();
+                }
+            }
+            asyncItems.forEach(function(item) {
+                if (item._asyncType === 'icon') {
+                    renderLucideIcon(item._el, onAsyncDone);
+                } else if (item._asyncType === 'image') {
+                    renderImage(item._el, onAsyncDone);
+                }
             });
         }
+    }
+
+    // ─── Undo/Redo System ─────────────────────────────────
+    var _undoStack = [];
+    var _redoStack = [];
+    var _maxHistory = 30;
+
+    function saveState() {
+        if (!_canvas) return;
+        var json = JSON.stringify(_canvas.toJSON());
+        _undoStack.push(json);
+        if (_undoStack.length > _maxHistory) _undoStack.shift();
+        _redoStack = []; // clear redo on new action
+    }
+
+    function undo() {
+        if (!_canvas || _undoStack.length === 0) return;
+        _redoStack.push(JSON.stringify(_canvas.toJSON()));
+        var prevState = _undoStack.pop();
+        _canvas.loadFromJSON(prevState, function() {
+            _canvas.requestRenderAll();
+        });
+    }
+
+    function redo() {
+        if (!_canvas || _redoStack.length === 0) return;
+        _undoStack.push(JSON.stringify(_canvas.toJSON()));
+        var nextState = _redoStack.pop();
+        _canvas.loadFromJSON(nextState, function() {
+            _canvas.requestRenderAll();
+        });
+    }
+
+    // ─── Enable Interactive Editing ─────────────────────
+    function enableEditing() {
+        if (!_canvas) return;
+        _canvas.selection = true;
+
+        // Save state on object modification
+        _canvas.on('object:modified', function() {
+            saveState();
+        });
+
+        // Double-click to edit text
+        _canvas.on('mouse:dblclick', function(e) {
+            if (e.target && e.target.type === 'textbox') {
+                e.target.enterEditing();
+                e.target.selectAll();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Only handle when fabric canvas is focused/active
+            if (_renderEngineRef && _renderEngineRef() !== 'fabric') return;
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undo();
+            } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                redo();
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                var active = _canvas.getActiveObject();
+                if (active && !active.isEditing) {
+                    e.preventDefault();
+                    saveState();
+                    _canvas.remove(active);
+                    _canvas.requestRenderAll();
+                }
+            }
+        });
+
+        console.log('[FabricRenderer] Interactive editing enabled');
+    }
+
+    // Reference to check render engine state (set from outside)
+    var _renderEngineRef = null;
+    function setRenderEngineRef(fn) {
+        _renderEngineRef = fn;
     }
 
     // ─── Export to PNG Data URL ──────────────────────────
     function exportPNG(scale) {
         if (!_canvas) return null;
+        // Deselect all before export for clean output
+        _canvas.discardActiveObject();
+        _canvas.requestRenderAll();
         return _canvas.toDataURL({
             format: 'png',
             quality: 1,
@@ -294,9 +482,26 @@ var FabricRenderer = (function() {
     // ─── Export to Blob ─────────────────────────────────
     function exportBlob(scale, callback) {
         if (!_canvas) { callback(null); return; }
+        _canvas.discardActiveObject();
+        _canvas.requestRenderAll();
         _canvas.toBlob(function(blob) {
             callback(blob);
         }, 'image/png', { multiplier: scale || 1 });
+    }
+
+    // ─── Serialize Current State ────────────────────────
+    function serialize() {
+        if (!_canvas) return null;
+        return _canvas.toJSON();
+    }
+
+    // ─── Load From Serialized State ─────────────────────
+    function loadFromJSON(json, onComplete) {
+        if (!_canvas) return;
+        _canvas.loadFromJSON(json, function() {
+            _canvas.requestRenderAll();
+            if (onComplete) onComplete();
+        });
     }
 
     // ─── Clear Canvas ───────────────────────────────────
@@ -325,12 +530,24 @@ var FabricRenderer = (function() {
         return _isReady;
     }
 
+    function canUndo() { return _undoStack.length > 0; }
+    function canRedo() { return _redoStack.length > 0; }
+
     // Public API
     return {
         init: init,
         renderComposition: renderComposition,
         exportPNG: exportPNG,
         exportBlob: exportBlob,
+        serialize: serialize,
+        loadFromJSON: loadFromJSON,
+        enableEditing: enableEditing,
+        setRenderEngineRef: setRenderEngineRef,
+        saveState: saveState,
+        undo: undo,
+        redo: redo,
+        canUndo: canUndo,
+        canRedo: canRedo,
         clear: clear,
         dispose: dispose,
         getCanvas: getCanvas,
