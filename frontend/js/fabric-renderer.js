@@ -97,35 +97,83 @@ var FabricRenderer = (function() {
         return obj;
     }
 
+    // ─── Convert kebab-case to PascalCase ─────────────
+    // Lucide stores icons as PascalCase keys (e.g., "Sparkles", "ArrowRight")
+    // but composition data uses kebab-case (e.g., "sparkles", "arrow-right")
+    function kebabToPascal(str) {
+        return str.split('-').map(function(part) {
+            return part.charAt(0).toUpperCase() + part.slice(1);
+        }).join('');
+    }
+
+    // ─── Build SVG children from Lucide node array ──────
+    function buildSvgChildren(nodes) {
+        var html = '';
+        if (!Array.isArray(nodes)) return html;
+        nodes.forEach(function(node) {
+            if (!Array.isArray(node) || node.length < 2) return;
+            var tag = node[0];
+            var attrs = node[1] || {};
+            html += '<' + tag;
+            Object.keys(attrs).forEach(function(k) {
+                html += ' ' + k + '="' + attrs[k] + '"';
+            });
+            html += '/>';
+        });
+        return html;
+    }
+
     // ─── Get Lucide SVG path ────────────────────────────
     function getLucideSvg(iconName, size, color) {
-        if (typeof lucide !== 'undefined' && lucide.icons && lucide.icons[iconName]) {
-            var iconData = lucide.icons[iconName];
-            var svgStr = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
-            if (Array.isArray(iconData)) {
-                iconData.forEach(function(node) {
-                    if (Array.isArray(node) && node.length >= 2) {
-                        var tag = node[0];
-                        var attrs = node[1];
-                        svgStr += '<' + tag;
-                        Object.keys(attrs).forEach(function(k) {
-                            svgStr += ' ' + k + '="' + attrs[k] + '"';
-                        });
-                        svgStr += '/>';
+        if (typeof lucide === 'undefined') return '';
+
+        // Try to find icon in lucide.icons (PascalCase keys)
+        var icons = lucide.icons;
+        var iconData = null;
+
+        if (icons) {
+            // Try PascalCase lookup first (e.g., "sparkles" → "Sparkles")
+            var pascalName = kebabToPascal(iconName);
+            iconData = icons[pascalName] || icons[iconName] || icons[iconName.toLowerCase()];
+
+            // Fallback: scan all icon keys case-insensitively
+            if (!iconData) {
+                var lowerName = iconName.toLowerCase().replace(/-/g, '');
+                var allKeys = Object.keys(icons);
+                for (var i = 0; i < allKeys.length; i++) {
+                    if (allKeys[i].toLowerCase() === lowerName) {
+                        iconData = icons[allKeys[i]];
+                        break;
                     }
-                });
+                }
             }
+        }
+
+        if (iconData && Array.isArray(iconData)) {
+            var svgStr = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+
+            // Lucide format: ["svg", {attrs}, [children]] — children at index 2
+            // Or legacy format: flat array of [tag, attrs] pairs
+            if (iconData.length === 3 && iconData[0] === 'svg' && Array.isArray(iconData[2])) {
+                // New Lucide format: ["svg", {svgAttrs}, [[tag, attrs], ...]]
+                svgStr += buildSvgChildren(iconData[2]);
+            } else {
+                // Legacy/flat format: [[tag, attrs], [tag, attrs], ...]
+                svgStr += buildSvgChildren(iconData);
+            }
+
             svgStr += '</svg>';
             return svgStr;
         }
 
+        // Fallback: use DOM-based rendering via lucide.createIcons
         var tempDiv = document.createElement('div');
         tempDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
         tempDiv.innerHTML = '<i data-lucide="' + iconName + '"></i>';
         document.body.appendChild(tempDiv);
 
-        if (typeof lucide !== 'undefined' && lucide.createIcons) {
-            lucide.createIcons({ root: tempDiv });
+        if (lucide.createIcons) {
+            try { lucide.createIcons({ root: tempDiv }); } catch (e) { }
         }
 
         var svg = tempDiv.querySelector('svg');
@@ -593,6 +641,14 @@ var FabricRenderer = (function() {
             }
             return;
         }
+        // Cut: Ctrl+X (copy then delete)
+        if (ctrl && e.key === 'x') {
+            if (active && !active._isBackground) {
+                e.preventDefault();
+                cutSelected();
+            }
+            return;
+        }
         // Paste: Ctrl+V
         if (ctrl && e.key === 'v') {
             e.preventDefault();
@@ -823,6 +879,14 @@ var FabricRenderer = (function() {
         active.clone(function(cloned) {
             _clipboard = cloned;
         }, ['_elementType', '_iconName']);
+    }
+
+    function cutSelected() {
+        if (!_canvas) return;
+        var active = _canvas.getActiveObject();
+        if (!active || active._isBackground) return;
+        copySelected();
+        deleteSelected();
     }
 
     function pasteClipboard() {
@@ -1100,6 +1164,7 @@ var FabricRenderer = (function() {
         // CRUD: Manipulate
         deleteSelected: deleteSelected,
         copySelected: copySelected,
+        cutSelected: cutSelected,
         pasteClipboard: pasteClipboard,
         duplicateSelected: duplicateSelected,
         selectAll: selectAll,

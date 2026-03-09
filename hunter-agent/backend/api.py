@@ -338,7 +338,10 @@ Return JSON with this structure:
 Create 5-8 slides. Last slide should be CTA. Return ONLY valid JSON."""
 
     try:
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            contents=prompt,
+            generation_config={"temperature": 0.7, "max_output_tokens": 8192}
+        )
         raw = response.text.strip()
         if raw.startswith("```json"):
             raw = raw[7:]
@@ -730,9 +733,8 @@ async def compose_slides(req: ComposeRequest):
 
     import google.generativeai as genai
     genai.configure(api_key=gemini_key)
-    model = genai.GenerativeModel("gemini-2.5-flash")
 
-    # Parse canvas dimensions
+    # Parse canvas dimensions (needed for system instruction)
     try:
         cw, ch = req.canvas_size.split("x")
         canvas_w, canvas_h = int(cw), int(ch)
@@ -755,77 +757,91 @@ DESIGN DNA:
 
     slides_json = json.dumps(req.slides, ensure_ascii=False, indent=2)
 
-    prompt = f"""Kamu adalah AI Visual Composer untuk carousel sosial media.
-Canvas: {canvas_w}x{canvas_h} pixels.
-Template preset: {req.template_preset or 'minimal-dark'}
+    # ── System instruction: expert visual composer ──
+    system_instruction = f"""Kamu adalah SENIOR VISUAL DESIGNER AI untuk carousel sosial media profesional.
+Kamu merancang layout pixel-perfect yang siap render di Fabric.js canvas.
 
-{design_ctx}
+PRINSIP DESAIN:
+- Whitespace adalah elemen desain — jangan penuhi canvas
+- Hierarki visual yang jelas: mata pembaca mengalir dari headline → icon → body → footer
+- Konsistensi spacing: gunakan kelipatan 8px (8, 16, 24, 32, 40, 48, 64, 80)
+- Kontras warna minimal 4.5:1 untuk teks agar mudah dibaca
+- Setiap slide harus punya focal point yang jelas
+
+CANVAS: {canvas_w}x{canvas_h} pixels
+SAFE ZONE: 64px padding dari semua edge (konten di area {canvas_w - 128}x{canvas_h - 128} di tengah)"""
+
+    model = genai.GenerativeModel("gemini-2.5-flash", system_instruction=system_instruction)
+
+    prompt = f"""{design_ctx}
+
+TEMPLATE PRESET: {req.template_preset or 'minimal-dark'}
+
+TEMPLATE COLOR GUIDE:
+- "minimal-dark": bg=#0f0f11, accent=#8b5cf6 (purple), text=#ffffff, surface=rgba(255,255,255,0.04)
+- "bold-gradient": bg=#1a0533, accent=#f59e0b (amber), text=#ffffff, gradients lebih dramatis
+- "minimal-light": bg=#fafafa, accent=#3b82f6 (blue), text=#1a1a1a, clean & bright
+- "professional": bg=#0f172a, accent=#0ea5e9 (sky), text=#f1f5f9, corporate feel
+- "warm-earth": bg=#1c1917, accent=#d97706 (warm), text=#fef3c7, organic tones
+- "neon-dark": bg=#0a0a0a, accent=#22d3ee (cyan), text=#ffffff, glow effects
 
 SLIDES DATA:
 {slides_json}
 
-TUGAS: Untuk SETIAP slide, generate Composition JSON yang berisi SEMUA elemen visual dengan posisi TEPAT dalam pixel.
+TUGAS: Generate Composition JSON untuk SETIAP slide.
 
-ELEMENT TYPES yang tersedia:
-1. "gradient-bg" — Background gradient
+ELEMENT TYPES (gunakan PERSIS format ini):
+
+1. "gradient-bg" — WAJIB ada sebagai elemen pertama
    Properties: width, height, colorStops: [{{offset, color}}], direction: "to-bottom"|"to-bottom-right"|"to-right"
 
-2. "rect" — Rectangle/shape
-   Properties: left, top, width, height, fill, stroke, strokeWidth, rx, ry (rounded corners), opacity
+2. "circle" — Dekoratif glow/blur blobs
+   Properties: left, top, radius(100-250), fill: "rgba(accent, 0.06-0.12)"
 
-3. "circle" — Circle/ellipse
-   Properties: left, top, radius, fill, stroke, strokeWidth, opacity
+3. "rect" — Shapes, cards, icon backgrounds
+   Properties: left, top, width, height, fill, stroke, strokeWidth, rx, ry, opacity
 
-4. "textbox" — Text content
-   Properties: left, top, width, text, fontSize, fontWeight, fontStyle, fontFamily, fill (color), textAlign, lineHeight
+4. "textbox" — Teks (headline, body, badge, footer)
+   Properties: left, top, width(max {canvas_w - 128}), text, fontSize, fontWeight("400"-"900"), fontFamily("Inter, sans-serif"), fill, textAlign, lineHeight(1.2-1.7)
 
-5. "lucide-icon" — Icon dari Lucide
-   Properties: iconName, left, top, size, color
+5. "lucide-icon" — Icon dari Lucide (kebab-case: "sparkles", "zap", "brain", "target", dll)
+   Properties: iconName(kebab-case), left, top, size(48-96), color
 
-6. "line" — Garis dekoratif
-   Properties: x1, y1, x2, y2, stroke, strokeWidth
+6. "line" — Garis dekoratif/divider
+   Properties: x1, y1, x2, y2, stroke, strokeWidth(1-3)
 
-7. "image" — Gambar/ilustrasi (placeholder area)
-   Properties: left, top, width, height, src (URL atau "placeholder"), opacity, rx (rounded)
+7. "image" — Placeholder gambar
+   Properties: left, top, width, height, src("placeholder"), rx, opacity
 
-ATURAN DESAIN:
-1. Padding minimum dari edge: 64px
-2. Decorative elements WAJIB ada: minimal 2 blur circles + 1 accent line per slide
-3. Variasi posisi antar slide — jangan semua slide terlihat sama
-4. Hierarchy visual: headline paling besar (40-64px), body lebih kecil (20-28px)
-5. Icon dengan background shape (rounded rect atau circle di belakangnya)
-6. Footer di bottom: brand text kiri, progress dots kanan
-7. Sesuaikan posisi berdasarkan layout_type:
-   - hero-center: headline besar di tengah, tanpa body
-   - card-detail: card frame + headline + body di dalam
-   - split-visual: visual kiri 42%, text kanan 58%
-   - quote-highlight: tanda kutip dekoratif besar + teks centered
-   - list-bullets: headline atas + poin-poin list di bawah
-   - dramatic-closer: overlay gelap + teks besar centered
-   - text-heavy: headline + body panjang, tanpa visual
-8. Warna decorative elements: gunakan accent color dengan opacity rendah (0.05-0.15)
-9. Number badge (angka slide) di posisi yang sesuai layout
+ATURAN LAYOUT per layout_type:
 
-Balas HANYA JSON array (tanpa markdown fences):
-[
-  {{
-    "slide_index": 0,
-    "canvas": {{"width": {canvas_w}, "height": {canvas_h}}},
-    "elements": [
-      {{"type": "gradient-bg", "id": "bg", "width": {canvas_w}, "height": {canvas_h}, "colorStops": [...], "direction": "..."}},
-      {{"type": "circle", "id": "deco-glow-1", "left": ..., "top": ..., "radius": ..., "fill": "rgba(...)"}},
-      {{"type": "rect", "id": "icon-bg", "left": ..., "top": ..., "width": ..., "height": ..., "fill": "...", "rx": ..., "ry": ...}},
-      {{"type": "lucide-icon", "id": "icon", "iconName": "...", "left": ..., "top": ..., "size": ..., "color": "..."}},
-      {{"type": "textbox", "id": "headline", "left": ..., "top": ..., "width": ..., "text": "...", "fontSize": ..., ...}},
-      {{"type": "textbox", "id": "body", "left": ..., "top": ..., "width": ..., "text": "...", "fontSize": ..., ...}},
-      ...
-    ]
-  }}
-]
+"hero-center": Headline centered fontSize 52-64 fontWeight 800, Icon centered di atas size 80-96 dengan rect bg, Tanpa body, Accent line pendek
+"card-detail": Rect card frame surface color rx 24, Icon top-left size 64, Headline fontSize 40-48, Body fontSize 22-26
+"split-visual": Divider vertikal di 42%, Kiri icon besar/image, Kanan headline+body
+"quote-highlight": Tanda kutip dekoratif fontSize 120 opacity 0.15, Headline centered italic fontSize 44-52, Body attribution fontSize 20
+"list-bullets": Headline top fontSize 36-42, Body bullet list dengan newline "• " prefix, Icon top-left size 56-64
+"dramatic-closer": Dark overlay rect rgba(0,0,0,0.4), Headline centered fontSize 56-64 fontWeight 900, Body centered, Tanpa icon
+"text-heavy": Headline top-left fontSize 38-44, Body below fontSize 22-26 lineHeight 1.7, Tanpa icon
+
+ATURAN WAJIB:
+1. SETIAP slide: gradient-bg → decorations → content → footer
+2. Minimal 2 circle glow blobs per slide (radius 120-220, opacity 0.05-0.12)
+3. Minimal 1 accent line per slide
+4. VARIASI posisi decorations antar slide — jangan copy-paste
+5. Footer WAJIB: textbox "@jadisatu.cloud" left:80 top:{canvas_h - 70} + progress circle dots
+6. Icon WAJIB kebab-case: "sparkles", "zap", "brain", "target", "heart", "lightbulb", "rocket"
+7. Semua left/top/width/height = integer bulat. fontFamily SELALU "Inter, sans-serif"
+8. Setiap elemen WAJIB punya "id" unik (contoh: "bg", "deco-glow-1", "headline", "body", "icon-main", "footer-brand")
+
+Balas HANYA JSON array. Tanpa markdown fences. Tanpa penjelasan.
+[{{"slide_index":0,"canvas":{{"width":{canvas_w},"height":{canvas_h}}},"elements":[...]}}]
 """
 
     try:
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            contents=prompt,
+            generation_config={"temperature": 0.7, "max_output_tokens": 8192}
+        )
         raw_text = response.text.strip()
 
         # Clean markdown fences if present
@@ -836,6 +852,12 @@ Balas HANYA JSON array (tanpa markdown fences):
         compositions = json.loads(raw_text)
         if not isinstance(compositions, list):
             raise ValueError("Response is not a JSON array")
+
+        # Post-process: ensure all elements have required fields
+        for comp in compositions:
+            for el in comp.get("elements", []):
+                if "id" not in el:
+                    el["id"] = el.get("type", "el") + "-auto"
 
         return {
             "success": True,
