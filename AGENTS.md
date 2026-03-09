@@ -13,7 +13,12 @@
 
 ### Key caveats
 
-- **Supabase credentials required:** Both `nextjs-app` and `jadisatu-light` require Supabase credentials. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_KEY` in each app's `.env.local`. **Important:** `NEXT_PUBLIC_SUPABASE_URL` must be the project URL (`https://xxxx.supabase.co`), NOT a key. The anon key starts with `eyJ...` (JWT) or `sb_publishable_...`, and the service key starts with `eyJ...` or `sb_secret_...`. If secrets are injected as env vars and contain wrong values, you must override them inline when starting the dev server (e.g., `NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co npm run dev`), because OS env vars take precedence over `.env.local`.
+- **Supabase credentials — three distinct values required:**
+  - `NEXT_PUBLIC_SUPABASE_URL` — the **project URL**, e.g. `https://abcdefg.supabase.co`. Find this in Supabase Dashboard → Settings → API → "Project URL". This is **not** a key — it must start with `https://`.
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the **anon/public** API key (starts with `eyJ...` or `sb_publishable_...`). Found in Supabase Dashboard → Settings → API → "Project API keys" → `anon` / `public`.
+  - `SUPABASE_SERVICE_KEY` — the **service_role** secret key (starts with `eyJ...` or `sb_secret_...`). Found in Supabase Dashboard → Settings → API → "Project API keys" → `service_role`.
+  - Set all three in each app's `.env.local` (`nextjs-app/.env.local` and `jadisatu-light/.env.local`).
+  - **Env-var override gotcha:** If secrets are injected as OS env vars (e.g. via Cursor Secrets) with incorrect values, they override `.env.local`. Work around this by prefixing the dev command: `NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co npm run dev`.
 - **Hunter Agent missing pip dependency:** `hunter-agent/backend/database.py` imports the `supabase` Python SDK but it is not listed in `requirements.txt`. Install it manually: `pip3 install supabase`.
 - **No ESLint config in nextjs-app:** The main Next.js app does not have ESLint configured. Use `npx tsc --noEmit` for type checking instead.
 - **Port conflict:** `nextjs-app` runs on 3000, `jadisatu-light` on 3001, and `hunter-agent/frontend` should use 3002 when running all simultaneously.
