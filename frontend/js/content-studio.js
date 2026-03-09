@@ -10,7 +10,9 @@
  */
 
 // ── Config ──────────────────────────────────────────────────────────────
-const VISUAL_ENGINE_URL = window.VISUAL_ENGINE_URL || 'http://localhost:8100';
+// In production, nginx proxies /api/visual/* → localhost:8100
+// So we use '' (empty = same origin) for production, or override via window.VISUAL_ENGINE_URL
+const VISUAL_ENGINE_URL = window.VISUAL_ENGINE_URL || '';
 
 // ── Utility: Toast ──────────────────────────────────────────────────────
 function toast(msg, type = 'info') {
@@ -208,6 +210,9 @@ class ContentStudio {
             };
 
             toast(`${data.template_count} template diekstrak!`, 'success');
+
+            // Save to Supabase for persistence
+            this._saveTemplateToSupabase(this.currentFolder);
 
             // Move to Step 2 after brief delay
             setTimeout(() => this._showStep('templates'), 800);
@@ -602,11 +607,43 @@ class ContentStudio {
 
         try {
             const userId = window.currentUser ? window.currentUser.id : null;
-            const resp = await fetch(`${VISUAL_ENGINE_URL}/api/visual/templates?user_id=${userId || ''}`);
-            if (!resp.ok) return;
+            let folders = [];
 
-            const data = await resp.json();
-            const folders = data.folders || [];
+            // Try Visual Engine API first
+            try {
+                const resp = await fetch(`${VISUAL_ENGINE_URL}/api/visual/templates?user_id=${userId || ''}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    folders = data.folders || [];
+                }
+            } catch (e) {
+                console.warn('[Content Studio] Visual Engine API unavailable, trying Supabase...');
+            }
+
+            // Also load from Supabase (user_template_folders)
+            if (window.supabaseClient && userId) {
+                try {
+                    const { data: sbFolders, error } = await window.supabaseClient
+                        .from('user_template_folders')
+                        .select('*')
+                        .eq('user_id', userId)
+                        .order('created_at', { ascending: false });
+                    if (!error && sbFolders) {
+                        const existingIds = new Set(folders.map(f => f.id));
+                        for (const sf of sbFolders) {
+                            if (!existingIds.has(sf.id)) {
+                                folders.push({
+                                    id: sf.id,
+                                    name: sf.name,
+                                    template_count: (sf.styles || []).length,
+                                    source: 'supabase',
+                                    created_at: sf.created_at,
+                                });
+                            }
+                        }
+                    }
+                } catch (e) { console.warn('[Content Studio] Supabase template load:', e); }
+            }
 
             if (count) count.textContent = folders.length;
 
@@ -669,6 +706,103 @@ class ContentStudio {
             this._loadTemplateFolders();
         } catch (e) {
             toast('Gagal menghapus', 'error');
+        }
+    }
+
+    // ====================================================================
+    // Creative Hub Import
+    // ====================================================================
+
+    async importFromCreativeHub(contentId) {
+        const svc = window.creativeHubService;
+        if (!svc) { console.warn('[Content Studio] CreativeHubService not available'); return; }
+
+        try {
+            const item = await Promise.resolve(svc.getItem(contentId));
+            if (!item) { toast('Konten tidak ditemukan', 'error'); return; }
+
+            this._sourceContent = item;
+
+            // Show banner
+            const banner = document.getElementById('source-content-banner');
+            const titleEl = document.getElementById('source-content-title');
+            const statusEl = document.getElementById('source-content-status');
+            const dismissBtn = document.getElementById('btn-dismiss-source');
+
+            if (banner) banner.classList.remove('hidden');
+            if (titleEl) titleEl.textContent = item.title || item.hook_text || 'Untitled';
+            if (statusEl) statusEl.textContent = item.status || 'ready';
+            if (dismissBtn) dismissBtn.addEventListener('click', () => banner.classList.add('hidden'));
+
+            // Pre-fill generate form
+            const topicInput = document.getElementById('input-topic');
+            const hookInput = document.getElementById('input-hook');
+            const pointsInput = document.getElementById('input-points');
+            const ctaInput = document.getElementById('input-cta');
+
+            if (topicInput) topicInput.value = item.title || '';
+            if (hookInput) hookInput.value = item.hook_text || '';
+            if (ctaInput) ctaInput.value = item.cta_text || '';
+
+            // Parse value_text or full_script into points
+            if (pointsInput) {
+                let points = '';
+                if (item.full_script) {
+                    // Extract key points from full script
+                    points = item.full_script
+                        .split('\n')
+                        .filter(line => line.trim() && !line.startsWith('#'))
+                        .map(line => line.replace(/^[\-\*]\s*/, '').replace(/^\d+\.\s*/, '').trim())
+                        .filter(line => line.length > 5 && line.length < 200)
+                        .join('\n');
+                } else if (item.value_text) {
+                    points = item.value_text;
+                }
+                pointsInput.value = points;
+            }
+
+            toast(`Script "${item.title || 'content'}" dimuat dari Creative Hub`, 'success');
+            console.log('[Content Studio] imported content:', contentId, item.title);
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        } catch (e) {
+            console.error('[Content Studio] import error:', e);
+            toast('Gagal mengimpor konten', 'error');
+        }
+    }
+
+    // ====================================================================
+    // Supabase Template Save
+    // ====================================================================
+
+    async _saveTemplateToSupabase(folder) {
+        const client = window.supabaseClient;
+        const userId = window.currentUser?.id;
+        if (!client || !userId) return;
+
+        try {
+            const { error } = await client.from('user_template_folders').insert({
+                id: folder.folder_id,
+                user_id: userId,
+                name: folder.folder_name,
+                styles: folder.templates.map(t => ({
+                    name: t.name,
+                    description: t.description || '',
+                    colors: t.colors || {},
+                    html: t.html || '',
+                    preview_url: t.preview_url || null,
+                })),
+                created_at: new Date().toISOString(),
+            });
+
+            if (error) {
+                console.warn('[Content Studio] save template to Supabase:', error);
+            } else {
+                console.log('[Content Studio] template folder saved to Supabase:', folder.folder_id);
+            }
+        } catch (e) {
+            console.warn('[Content Studio] save template error:', e);
         }
     }
 

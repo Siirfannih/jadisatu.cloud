@@ -55,8 +55,8 @@ app.add_middleware(
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Serve generated images
-app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
+# Serve generated images — mounted under /api/visual/output/ so nginx proxy covers it
+app.mount("/api/visual/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
 # Initialize services
 extractor = SmartExtractorV2()
@@ -173,7 +173,7 @@ async def extract_templates(req: ExtractTemplatesRequest):
                     width=1080,
                     height=1080,
                 )
-                template["preview_url"] = f"/output/previews/{folder.id}/preview_{i}.png"
+                template["preview_url"] = f"/api/visual/output/previews/{folder.id}/preview_{i}.png"
             except Exception:
                 template["preview_url"] = None
 
@@ -236,7 +236,7 @@ async def render_slide(req: RenderSlideRequest):
 
         return RenderSlideResponse(
             success=True,
-            image_url=f"/output/renders/slide_{gen_id}.png",
+            image_url=f"/api/visual/output/renders/slide_{gen_id}.png",
             slide_data=req.slide_data,
         )
 
@@ -314,7 +314,7 @@ async def generate_carousel(req: GenerateCarouselRequest):
             slides.append({
                 "index": i,
                 "type": slide_data.get("type", "content"),
-                "image_url": f"/output/generations/{gen_id}/slide_{i}.png",
+                "image_url": f"/api/visual/output/generations/{gen_id}/slide_{i}.png",
                 "data": slide_data,
                 "template_used": selector.assignments.get(i, folder.templates[0]["name"] if folder.templates else ""),
             })

@@ -166,6 +166,27 @@
         <!-- Content area -->
         <div id="studio-content" class="flex-1 overflow-y-auto custom-scroll">
 
+            <!-- Source content banner (shown when imported from Creative Hub) -->
+            <div id="source-content-banner" class="hidden mx-6 mt-4 glass rounded-xl p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-personal/20 flex items-center justify-center">
+                            <i data-lucide="file-text" class="w-4 h-4 text-personal"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-white" id="source-content-title">—</p>
+                            <p class="text-xs text-gray-400">Script dari Creative Hub — siap generate carousel</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="source-content-status" class="text-[10px] px-2 py-0.5 rounded-full bg-success/20 text-success">ready</span>
+                        <button id="btn-dismiss-source" class="text-gray-500 hover:text-white transition-all">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- ====== STEP 1: Upload Reference Designs ====== -->
             <section id="step-upload" class="p-6">
                 <!-- Step indicator -->
@@ -520,11 +541,13 @@
 
     <!-- ==================== SCRIPTS ==================== -->
     <script src="js/config.js"></script>
+    <script src="js/data-service.js"></script>
+    <script src="js/creative-hub-service.js"></script>
     <script src="js/sidebar-workspace.js"></script>
     <script src="js/content-studio.js"></script>
 
     <script>
-        // Auth initialization (same pattern as creative-hub-view)
+        // Auth initialization + Creative Hub content import
         (function () {
             var SUPABASE_URL = 'https://dwpkokavxjvtrltntjtn.supabase.co';
             var SUPABASE_ANON_KEY = 'sb_publishable_T5-XcRCVYuXvukpmPSO2cw_JBcOBwD1';
@@ -556,16 +579,41 @@
 
                         // Update sidebar profile
                         var email = session.user.email || '';
-                        var name = email.split('@')[0] || 'User';
+                        var displayName = email.split('@')[0] || 'User';
+
+                        // Try UserProfileService for better name
+                        if (typeof UserProfileService !== 'undefined') {
+                            try {
+                                var profileSvc = new UserProfileService(client);
+                                var profile = await profileSvc.getProfile(session.user.id);
+                                if (profile && profile.display_name && profile.display_name.trim()) {
+                                    displayName = profile.display_name.trim();
+                                }
+                            } catch (e) { console.warn('[Content Studio] profile fetch:', e); }
+                        }
+
                         var nameEl = document.getElementById('sidebar-user-name');
                         var avatarEl = document.getElementById('sidebar-user-avatar');
-                        if (nameEl) nameEl.textContent = name;
-                        if (avatarEl) avatarEl.textContent = (name.substring(0, 2) || '—').toUpperCase();
+                        if (nameEl) nameEl.textContent = displayName;
+                        if (avatarEl) avatarEl.textContent = (displayName.substring(0, 2) || '—').toUpperCase();
+
+                        // Initialize Creative Hub Service (for importing scripts)
+                        if (typeof CreativeHubService !== 'undefined') {
+                            window.creativeHubService = new CreativeHubService(client, session.user.id);
+                        }
 
                         // Initialize Content Studio
                         if (window.ContentStudio) {
                             window.contentStudio = new ContentStudio();
                             window.contentStudio.init();
+
+                            // Check if we came from Creative Hub with a content_id
+                            var params = new URLSearchParams(window.location.search);
+                            var contentId = params.get('content_id') || sessionStorage.getItem('active_generator_id');
+                            if (contentId) {
+                                sessionStorage.removeItem('active_generator_id');
+                                await window.contentStudio.importFromCreativeHub(contentId);
+                            }
                         }
 
                     } catch (e) {

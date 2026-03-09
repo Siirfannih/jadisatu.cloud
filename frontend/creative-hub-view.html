@@ -904,7 +904,7 @@
 
                 function goToCarouselGenerator(itemId) {
                     try { sessionStorage.setItem('active_generator_id', itemId); } catch (e) { }
-                    window.location.href = 'carousel-generator-preview.html';
+                    window.location.href = 'content-studio.html?content_id=' + encodeURIComponent(itemId);
                 }
                 window._creativeAdvance = advanceContent;
                 window._creativeDelete = deleteContent;
