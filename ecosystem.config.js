@@ -31,6 +31,22 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss",
       error_file: "/root/.pm2/logs/hunter-agent-error.log",
       out_file: "/root/.pm2/logs/hunter-agent-out.log"
+    },
+    {
+      name: "visual-engine",
+      cwd: "./visual-engine",
+      script: "/usr/local/bin/uvicorn",
+      args: "api.app:app --host 0.0.0.0 --port 8100",
+      interpreter: "none",
+      env: {
+        PORT: 8100
+      },
+      instances: 1,
+      autorestart: true,
+      max_memory_restart: "256M",
+      log_date_format: "YYYY-MM-DD HH:mm:ss",
+      error_file: "/root/.pm2/logs/visual-engine-error.log",
+      out_file: "/root/.pm2/logs/visual-engine-out.log"
     }
   ]
 };

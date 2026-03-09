@@ -15,6 +15,7 @@ NGINX_ROOT="/var/www/jadisatu.cloud/public"
 DEPLOY_LOG="/var/log/jadisatu-deploy.log"
 NEXTJS_DIR="${REPO_DIR}/nextjs-app"
 HUNTER_DIR="${REPO_DIR}/hunter-agent/backend"
+VISUAL_DIR="${REPO_DIR}/visual-engine"
 
 # ── Load NVM ──────────────────────────────────────────────────
 export NVM_DIR="/root/.nvm"
@@ -68,10 +69,17 @@ else
   log "WARNING: Frontend or Nginx root missing, skipping"
 fi
 
-# ── 4. Python deps ───────────────────────────────────────────
+# ── 4. Python deps (Hunter Agent) ────────────────────────────
 cd "$HUNTER_DIR"
-pip install -r requirements.txt --quiet --break-system-packages 2>&1 | tail -3 || log "WARNING: pip install had issues"
-log "Python deps updated"
+pip install -r requirements.txt --quiet --break-system-packages 2>&1 | tail -3 || log "WARNING: pip install (hunter) had issues"
+log "Python deps updated (hunter-agent)"
+
+# ── 4b. Python deps (Visual Engine) ─────────────────────────
+cd "$VISUAL_DIR"
+pip install -r requirements.txt --quiet --break-system-packages 2>&1 | tail -3 || log "WARNING: pip install (visual-engine) had issues"
+# Ensure Playwright Chromium is installed for screenshot rendering
+python -m playwright install chromium 2>&1 | tail -3 || log "WARNING: Playwright install had issues"
+log "Python deps updated (visual-engine)"
 
 # ── 5. PM2: reload all processes ─────────────────────────────
 cd "$REPO_DIR"
@@ -84,7 +92,11 @@ else
   log "PM2 processes started (first run)"
 fi
 
-# ── 6. Nginx: test & reload ──────────────────────────────────
+# ── 6. Nginx: add visual-engine proxy if needed ──────────────
+cd "$REPO_DIR"
+bash deploy/setup-nginx-visual-engine.sh 2>&1 || log "WARNING: nginx visual-engine setup had issues"
+
+# ── 6b. Nginx: test & reload ─────────────────────────────────
 nginx -t 2>&1 || fail "Nginx config test failed"
 nginx -s reload 2>&1
 log "Nginx reloaded"
@@ -107,6 +119,12 @@ if curl -sf http://localhost:8000/api/health > /dev/null 2>&1; then
   log "Health: Extractor API OK (/api/health)"
 else
   log "WARNING: Extractor API health check failed (/api/health)"
+fi
+
+if curl -sf http://localhost:8100/api/visual/health > /dev/null 2>&1; then
+  log "Health: Visual Engine OK (port 8100)"
+else
+  log "WARNING: Visual Engine health check failed (port 8100)"
 fi
 
 # ── 8. Summary ────────────────────────────────────────────────
