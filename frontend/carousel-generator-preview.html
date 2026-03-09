@@ -3175,6 +3175,19 @@
                             slidesData[si]._visualMode = d.visual_mode;
                             slidesData[si]._emotionalTone = d.emotional_tone;
                         }
+                        // Check if all slides got the same icon (Gemini sometimes repeats)
+                        var _iconSet = {};
+                        var _hasIconDupes = false;
+                        for (var ci = 0; ci < slidesData.length; ci++) {
+                            var _ic = slidesData[ci]._iconName;
+                            if (_ic && _iconSet[_ic]) { _hasIconDupes = true; break; }
+                            if (_ic) _iconSet[_ic] = true;
+                        }
+                        if (_hasIconDupes) {
+                            console.warn('[Strategist] Duplicate icons detected — calling resolveSlideIcons() as backup');
+                            resolveSlideIcons(slidesData);
+                        }
+
                         // Re-render with strategist data via clean renderer
                         renderSlideStrip();
                         renderSlideClean(currentSlideIndex);

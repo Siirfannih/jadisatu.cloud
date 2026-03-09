@@ -473,6 +473,8 @@ ATURAN PENTING:
 4. Slide tengah = VALUE (edukasi/insight)
 5. Headline MAKSIMAL 8-10 kata (potong jika terlalu panjang)
 6. Body mendukung headline, bukan mengulang
+7. ICON HARUS BERBEDA untuk setiap slide — jangan gunakan icon yang sama dua kali!
+8. Konten bahasa Indonesia — terjemahkan konsep ke icon yang tepat (misal "uang" → banknote, "waktu" → clock)
 
 LAYOUT TYPES (7 opsi):
 - "hero-center": Headline besar di tengah, tanpa body. Untuk kalimat pendek & impactful. Cocok untuk hook.
@@ -511,7 +513,8 @@ Balas HANYA dalam format JSON array berikut (tanpa markdown, tanpa penjelasan):
 ]
 
 bg_variant: "light" (latar terang) atau "dark" (latar gelap) — variasikan untuk ritme visual.
-icon_name: gunakan nama icon dari Lucide icons (alert-triangle, heart, target, zap, compass, brain, lightbulb, shield, star, sparkles, flame, eye, hand, users, clock, map-pin, award, trending-up, check-circle, x-circle, dll).
+icon_name: WAJIB UNIK per slide — jangan ulangi icon yang sama! Gunakan nama icon dari Lucide icons.
+Contoh icon: alert-triangle, heart, target, zap, compass, brain, lightbulb, shield, star, sparkles, flame, eye, hand, users, clock, map-pin, award, trending-up, check-circle, x-circle, rocket, send, key, lock, globe, bar-chart-3, layers, code, briefcase, wallet, banknote, book-open, graduation-cap, wrench, search, filter, crown, diamond, gem, thumbs-up, message-circle, camera, play-circle, megaphone, palette, pen-tool, cpu, bot, shopping-cart, tag, calculator, calendar, bell, bookmark, clipboard.
 """
 
     try:
