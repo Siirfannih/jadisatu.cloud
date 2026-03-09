@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1080">
+  {% if brand.font %}
+  <link href="https://fonts.googleapis.com/css2?family={{ brand.font | replace(' ', '+') }}:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  {% endif %}
+  {% if brand.font_body and brand.font_body != brand.font %}
+  <link href="https://fonts.googleapis.com/css2?family={{ brand.font_body | replace(' ', '+') }}:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  {% endif %}
+  <link rel="stylesheet" href="file://{{ templates_dir }}/shared/css/reset.css">
+  <link rel="stylesheet" href="file://{{ templates_dir }}/shared/css/utilities.css">
+  <style>
+    :root {
+      --color-bg: {{ brand.colors.background | default('#ffffff') }};
+      --color-primary: {{ brand.colors.primary | default('#2563EB') }};
+      --color-secondary: {{ brand.colors.secondary | default('#1E40AF') }};
+      --color-accent: {{ brand.colors.accent | default('#F59E0B') }};
+      --color-text: {{ brand.colors.text | default('#1F2937') }};
+      --color-text-muted: {{ brand.colors.text_muted | default('#6B7280') }};
+      --color-surface: {{ brand.colors.surface | default('#F3F4F6') }};
+      --font-heading: '{{ brand.font | default("Inter") }}', sans-serif;
+      --font-body: '{{ brand.font_body | default(brand.font) | default("Inter") }}', sans-serif;
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% block body %}{% endblock %}
+</body>
+</html>

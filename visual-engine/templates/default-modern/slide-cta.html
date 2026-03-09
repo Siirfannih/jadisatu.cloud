@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  .slide {
+    width: 1080px;
+    height: 1080px;
+    background: var(--color-primary);
+    font-family: var(--font-heading);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Decorative circles */
+  .slide::before {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: white;
+    opacity: 0.05;
+    top: -200px;
+    left: -100px;
+  }
+
+  .slide::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    opacity: 0.15;
+    bottom: -80px;
+    right: -50px;
+  }
+
+  .icon-area {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 40px;
+  }
+
+  .icon-area svg, .icon-area i {
+    width: 40px;
+    height: 40px;
+    color: white;
+  }
+
+  .headline {
+    font-size: 56px;
+    font-weight: 800;
+    color: white;
+    line-height: 1.2;
+    margin-bottom: 20px;
+    max-width: 700px;
+  }
+
+  .body {
+    font-size: 24px;
+    font-weight: 400;
+    font-family: var(--font-body);
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.5;
+    max-width: 600px;
+    margin-bottom: 48px;
+  }
+
+  .cta-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: white;
+    color: var(--color-primary);
+    font-size: 22px;
+    font-weight: 700;
+    padding: 20px 48px;
+    border-radius: 60px;
+    text-decoration: none;
+  }
+
+  .cta-button i {
+    width: 24px;
+    height: 24px;
+  }
+
+  .footer {
+    position: absolute;
+    bottom: 60px;
+    left: 80px;
+    right: 80px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .footer .brand-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+  }
+</style>
+<script src="https://unpkg.com/lucide@latest"></script>
+{% endblock %}
+
+{% block body %}
+<div class="slide">
+  {% if slide.icon_name %}
+  <div class="icon-area">
+    <i data-lucide="{{ slide.icon_name }}"></i>
+  </div>
+  {% endif %}
+
+  <h2 class="headline">{{ slide.headline }}</h2>
+  <p class="body">{{ slide.body }}</p>
+
+  {% if slide.cta_text %}
+  <div class="cta-button">
+    {{ slide.cta_text }}
+    <i data-lucide="arrow-right"></i>
+  </div>
+  {% endif %}
+
+  <div class="footer">
+    <span class="brand-name">{{ brand.name | default('') }}</span>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+{% endblock %}
