@@ -5,115 +5,129 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  Target, Plus, CheckCircle2, Circle, Trash2, ChevronRight,
-  Briefcase, GraduationCap, DollarSign, User, Clock, Activity,
-  LayoutDashboard
+  Check, Rocket, Clock, PenTool, Plus, Play, Pause, RotateCcw,
+  MessageSquare, GitCommit, FileEdit, CheckCircle2, Circle,
+  ArrowRight, Trash2
 } from "lucide-react";
 
-type Task = { id: string; title: string; status: string; domain: string; priority: string; project_id: string | null; created_at: string; };
-type Domain = { id: string; name: string; display_name: string; color: string | null; total_tasks: number; completed_tasks: number; progress_percentage: number; };
+type Task = { id: string; title: string; status: string; domain: string; priority: string; created_at: string; };
 type Project = { id: string; name: string; description: string | null; status: string; };
-type ActivityItem = { id: string; type: string; description: string; created_at: string; };
+type ActivityItem = { id: string; type?: string; action?: string; description: string; created_at: string; };
+type Idea = { id: string; title: string; tags?: string[]; source: string; status: string; created_at: string; };
 
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
   const [user, setUser] = useState<any>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [domains, setDomains] = useState<Domain[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [addingTask, setAddingTask] = useState(false);
+  const [taskFilter, setTaskFilter] = useState<"all" | "pending">("pending");
+  const [noteText, setNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  // Pomodoro
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [timerActive, setTimerActive] = useState(false);
+
+  useEffect(() => { checkUser(); }, []);
 
   useEffect(() => {
-    checkUser();
-  }, []);
+    let interval: NodeJS.Timeout;
+    if (timerActive && timeLeft > 0) {
+      interval = setInterval(() => setTimeLeft(t => { if (t <= 1) { setTimerActive(false); return 0; } return t - 1; }), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timeLeft]);
 
   async function checkUser() {
-    const { data: { user: authUser }, error } = await supabase.auth.getUser();
-    if (error || !authUser) { router.push("/login"); return; }
-    setUser(authUser);
+    const { data: { user: u }, error } = await supabase.auth.getUser();
+    if (error || !u) { router.push("/login"); return; }
+    setUser(u);
     fetch("/api/init-user", { method: "POST" }).catch(() => {});
-    await loadDashboardData();
+    await loadData();
   }
 
-  async function loadDashboardData() {
+  async function loadData() {
     setLoading(true);
-    try {
-      const [tasksRes, domainsRes, projectsRes, activitiesRes] = await Promise.all([
-        fetch("/api/tasks?status=active&limit=100"),
-        fetch("/api/domains"),
-        fetch("/api/projects"),
-        fetch("/api/activities?limit=5"),
-      ]);
-      if (tasksRes.ok) { const d = await tasksRes.json(); setTasks(Array.isArray(d) ? d : []); }
-      if (domainsRes.ok) { const d = await domainsRes.json(); setDomains(Array.isArray(d) ? d : []); }
-      if (projectsRes.ok) { const d = await projectsRes.json(); setProjects(Array.isArray(d) ? d : []); }
-      if (activitiesRes.ok) { const d = await activitiesRes.json(); setActivities(Array.isArray(d) ? d : []); }
-    } catch (e) { console.error(e); }
+    const [tRes, pRes, aRes] = await Promise.all([
+      fetch("/api/tasks?status=active&limit=100"),
+      fetch("/api/projects"),
+      fetch("/api/activities?limit=5"),
+    ]);
+    if (tRes.ok) { const d = await tRes.json(); setTasks(Array.isArray(d) ? d : []); }
+    if (pRes.ok) { const d = await pRes.json(); setProjects(Array.isArray(d) ? d : []); }
+    if (aRes.ok) { const d = await aRes.json(); setActivities(Array.isArray(d) ? d : []); }
+
+    // Load ideas for creative preview
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (u) {
+      const { data: ideasData } = await supabase.from("ideas").select("*").eq("user_id", u.id).neq("status", "deleted").order("created_at", { ascending: false }).limit(3);
+      if (ideasData) setIdeas(ideasData);
+    }
     setLoading(false);
   }
 
-  async function handleAddTask() {
+  async function addTask() {
     if (!newTaskTitle.trim()) return;
-    setAddingTask(true);
     await fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: newTaskTitle, status: "todo", priority: "medium", domain: "personal" }) });
     setNewTaskTitle("");
-    setAddingTask(false);
-    await loadDashboardData();
+    await loadData();
   }
 
-  async function handleToggleTask(taskId: string, currentStatus: string) {
-    const newStatus = currentStatus === "done" ? "todo" : "done";
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-    await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: taskId, status: newStatus }) });
-    await loadDashboardData();
+  async function toggleTask(id: string, status: string) {
+    const ns = status === "done" ? "todo" : "done";
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: ns } : t));
+    await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: ns }) });
+    await loadData();
   }
 
-  async function handleUpdateTaskStatus(taskId: string, status: string) {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
-    await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: taskId, status }) });
-    await loadDashboardData();
+  async function deleteTask(id: string) {
+    setTasks(prev => prev.filter(t => t.id !== id));
+    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
   }
 
-  async function handleDeleteTask(taskId: string) {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-  }
-
-  const getDomainIcon = (name: string) => {
-    switch (name.toLowerCase()) {
-      case "work": return <Briefcase className="w-5 h-5" />;
-      case "learn": return <GraduationCap className="w-5 h-5" />;
-      case "business": return <DollarSign className="w-5 h-5" />;
-      case "personal": return <User className="w-5 h-5" />;
-      default: return <Target className="w-5 h-5" />;
+  async function saveNote() {
+    if (!noteText.trim()) return;
+    setSavingNote(true);
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (u) {
+      const tags = noteText.match(/#\w+/g)?.map(t => t.slice(1)) || [];
+      const title = noteText.replace(/#\w+/g, "").trim();
+      await supabase.from("ideas").insert({ title: title || noteText, tags, source: "quick-note", status: "active", user_id: u.id });
+      setNoteText("");
     }
-  };
-
-  const getDomainStyle = (name: string) => {
-    const n = name.toLowerCase();
-    if (n === "work") return { icon: "text-blue-600 bg-blue-50", bar: "bg-blue-500", card: "border-blue-100" };
-    if (n === "learn") return { icon: "text-amber-600 bg-amber-50", bar: "bg-amber-500", card: "border-amber-100" };
-    if (n === "business") return { icon: "text-emerald-600 bg-emerald-50", bar: "bg-emerald-500", card: "border-emerald-100" };
-    if (n === "personal") return { icon: "text-violet-600 bg-violet-50", bar: "bg-violet-500", card: "border-violet-100" };
-    return { icon: "text-slate-600 bg-slate-50", bar: "bg-slate-500", card: "border-slate-100" };
-  };
-
-  const focusTasks = tasks.filter(t => t.status !== "done" && t.status !== "completed").slice(0, 3);
-  const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Creator";
-  const greeting = () => { const h = new Date().getHours(); if (h < 12) return "Good morning"; if (h < 17) return "Good afternoon"; return "Good evening"; };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-        <p className="text-slate-500 text-lg">Loading your dashboard...</p>
-      </div>
-    );
+    setSavingNote(false);
   }
+
+  const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+  const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Creator";
+  const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; };
+  const completedCount = tasks.filter(t => t.status === "done").length;
+  const activeProjectCount = projects.filter(p => p.status === "active").length;
+  const pendingTasks = tasks.filter(t => t.status !== "done" && t.status !== "completed");
+  const displayTasks = taskFilter === "pending" ? pendingTasks : tasks;
+  const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+  const activityIcons: Record<string, { icon: typeof FileEdit; color: string; bg: string }> = {
+    comment: { icon: MessageSquare, color: "text-blue-500", bg: "bg-blue-50" },
+    commit: { icon: GitCommit, color: "text-purple-500", bg: "bg-purple-50" },
+    edit: { icon: FileEdit, color: "text-orange-500", bg: "bg-orange-50" },
+    complete: { icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50" },
+  };
+
+  const ideaStyles = [
+    { color: "text-purple-600", bg: "bg-purple-50" },
+    { color: "text-blue-600", bg: "bg-blue-50" },
+    { color: "text-orange-600", bg: "bg-orange-50" },
+  ];
+
+  if (loading) return <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center"><p className="text-slate-500 text-lg">Loading your dashboard...</p></div>;
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
@@ -122,158 +136,157 @@ export default function DashboardPage() {
         <TopNav />
         <main className="flex-1 overflow-y-auto p-8 scrollbar-hide">
           <div className="max-w-7xl mx-auto space-y-8">
+            {/* Header */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-500 font-medium mb-1">{greeting()}</p>
-                <h1 className="text-4xl font-bold text-slate-900 tracking-tight mb-2">Welcome back, {userName}! 👋</h1>
-                <p className="text-slate-500 text-lg">{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+                <h1 className="text-4xl font-bold text-slate-900 tracking-tight mb-3">Welcome back, {userName}! 👋</h1>
+                <p className="text-slate-500 text-lg">You have <span className="text-blue-600 font-medium">{pendingTasks.length} tasks</span> due today and <span className="text-purple-600 font-medium">{activeProjectCount} projects</span> in progress.</p>
               </div>
-              <a href="/projects" className="hidden sm:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-medium transition-colors shadow-sm">
-                <Plus className="w-5 h-5" /><span>New Project</span>
-              </a>
+              <Link href="/projects" className="hidden sm:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-medium transition-colors shadow-sm"><Plus className="w-5 h-5" /><span>New Project</span></Link>
             </div>
 
-            {/* Domain Cards */}
-            {domains.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {domains.map((domain) => {
-                  const style = getDomainStyle(domain.name);
-                  return (
-                    <div key={domain.id} className={`bg-white rounded-3xl p-6 border ${style.card} shadow-sm hover:shadow-md transition-all`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${style.icon}`}>{getDomainIcon(domain.name)}</div>
-                        <span className="text-2xl font-bold text-slate-900">{domain.progress_percentage}%</span>
-                      </div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-1">{domain.display_name}</h3>
-                      <p className="text-sm text-slate-500 mb-3">{domain.completed_tasks} / {domain.total_tasks} tasks</p>
-                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${domain.progress_percentage}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+                <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-50 rounded-full opacity-50"></div>
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 relative z-10"><Check className="w-6 h-6 text-blue-600" strokeWidth={3} /></div>
+                <p className="text-sm text-slate-500 font-medium mb-2 relative z-10">Tasks Completed</p>
+                <div className="flex items-baseline gap-3 relative z-10"><h3 className="text-4xl font-bold text-slate-900 tracking-tight">{completedCount}</h3></div>
+                <p className="text-xs text-slate-400 mt-2 relative z-10">this session</p>
               </div>
-            )}
-
-            {domains.length === 0 && (
-              <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm text-center">
-                <LayoutDashboard className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No domains yet</h3>
-                <p className="text-sm text-slate-500">Domains will be created automatically when you add tasks.</p>
+              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+                <div className="absolute -right-10 -top-10 w-40 h-40 bg-purple-50 rounded-full opacity-50"></div>
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center mb-6 relative z-10"><Rocket className="w-6 h-6 text-purple-600" /></div>
+                <p className="text-sm text-slate-500 font-medium mb-2 relative z-10">Active Projects</p>
+                <div className="flex items-baseline gap-3 relative z-10"><h3 className="text-4xl font-bold text-slate-900 tracking-tight">{activeProjectCount}</h3><span className="text-sm font-medium text-slate-400">{projects.length} total</span></div>
               </div>
-            )}
-
-            {/* Today's Focus */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Target className="w-5 h-5 text-blue-600" />
-                  <h2 className="text-xl font-bold text-slate-900">Today&apos;s Focus</h2>
-                </div>
-                {focusTasks.length > 0 && <span className="text-sm text-slate-500">{focusTasks.length} priority tasks</span>}
+              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+                <div className="absolute -right-10 -top-10 w-40 h-40 bg-orange-50 rounded-full opacity-50"></div>
+                <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center mb-6 relative z-10"><Clock className="w-6 h-6 text-orange-500" /></div>
+                <p className="text-sm text-slate-500 font-medium mb-2 relative z-10">Pending Tasks</p>
+                <div className="flex items-baseline gap-3 relative z-10 mb-4"><h3 className="text-4xl font-bold text-slate-900 tracking-tight">{pendingTasks.length}</h3></div>
+                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden relative z-10"><div className="h-full bg-orange-500 rounded-full" style={{ width: `${tasks.length > 0 ? (pendingTasks.length / tasks.length) * 100 : 0}%` }}></div></div>
               </div>
-
-              <div className="mb-4 flex gap-2">
-                <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddTask()} placeholder="Add a new task..." disabled={addingTask} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-400" />
-                <button onClick={handleAddTask} disabled={addingTask || !newTaskTitle.trim()} className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-xl text-sm font-medium flex items-center gap-2"><Plus className="w-4 h-4" />Add</button>
+              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+                <div className="absolute -right-10 -top-10 w-40 h-40 bg-pink-50 rounded-full opacity-50"></div>
+                <div className="w-12 h-12 rounded-2xl bg-pink-50 flex items-center justify-center mb-6 relative z-10"><PenTool className="w-6 h-6 text-pink-500" /></div>
+                <p className="text-sm text-slate-500 font-medium mb-2 relative z-10">Creative Output</p>
+                <div className="flex items-baseline gap-3 relative z-10"><h3 className="text-4xl font-bold text-slate-900 tracking-tight">{ideas.length}</h3><span className="text-sm font-medium text-slate-400">items</span></div>
               </div>
-
-              {focusTasks.length === 0 ? (
-                <div className="text-center py-8"><Target className="w-12 h-12 mx-auto mb-3 text-slate-300" /><p className="text-sm text-slate-500">No tasks yet. Add your first task above!</p></div>
-              ) : (
-                <div className="space-y-2">
-                  {focusTasks.map((task) => (
-                    <div key={task.id} className="group flex items-center gap-3 p-4 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 rounded-2xl transition-all">
-                      <button onClick={() => handleToggleTask(task.id, task.status)} className="shrink-0">
-                        {task.status === "done" ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Circle className="w-5 h-5 text-slate-400 hover:text-blue-600" />}
-                      </button>
-                      <span className={`flex-1 text-sm font-medium ${task.status === "done" ? "line-through text-slate-400" : "text-slate-900"}`}>{task.title}</span>
-                      <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-500">{task.domain}</span>
-                      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleUpdateTaskStatus(task.id, "in-progress")} className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs rounded-lg font-medium">Dikerjakan</button>
-                        <button onClick={() => handleUpdateTaskStatus(task.id, "backlog")} className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs rounded-lg font-medium">Ditunda</button>
-                        <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* Active Projects */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3"><Briefcase className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">Active Projects</h2></div>
-                <a href="/projects" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium">View all<ChevronRight className="w-4 h-4" /></a>
-              </div>
-              {projects.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {projects.slice(0, 3).map((project) => (
-                    <div key={project.id} className="p-4 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 rounded-2xl transition-all cursor-pointer">
-                      <h3 className="font-semibold text-slate-900 mb-1">{project.name}</h3>
-                      <p className="text-sm text-slate-500 line-clamp-2">{project.description || "No description"}</p>
-                      <div className="mt-3"><span className={`text-xs px-2 py-1 rounded-lg font-medium ${project.status === "active" ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-500"}`}>{project.status}</span></div>
+            {/* Main Grid: 2/3 + 1/3 */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-8">
+                {/* Today's Tasks */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div><h2 className="text-xl font-bold text-slate-900">Today&apos;s Tasks</h2><p className="text-sm text-slate-500 mt-1">{today}</p></div>
+                    <div className="flex items-center bg-slate-50 p-1 rounded-xl">
+                      <button onClick={() => setTaskFilter("all")} className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${taskFilter === "all" ? "bg-blue-100 text-blue-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>All</button>
+                      <button onClick={() => setTaskFilter("pending")} className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${taskFilter === "pending" ? "bg-blue-100 text-blue-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>Pending</button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Briefcase className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                  <p className="text-sm text-slate-500">No projects yet.</p>
-                  <a href="/projects" className="text-sm text-blue-600 hover:text-blue-700 font-medium mt-1 inline-block">Create your first project →</a>
-                </div>
-              )}
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3"><Activity className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">Recent Activity</h2></div>
-                <a href="/history" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium">View all<ChevronRight className="w-4 h-4" /></a>
-              </div>
-              {activities.length > 0 ? (
-                <div className="space-y-3">
-                  {activities.map((activity) => (
-                    <div key={activity.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
-                      <Clock className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-900">{activity.description}</p>
-                        <p className="text-xs text-slate-400 mt-1">{new Date(activity.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="space-y-3">
+                    {displayTasks.slice(0, 6).map(task => (
+                      <div key={task.id} className="group flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-100 transition-colors bg-white">
+                        <button onClick={() => toggleTask(task.id, task.status)} className={`w-5 h-5 rounded flex items-center justify-center border transition-colors shrink-0 ${task.status === "done" ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300 hover:border-blue-500"}`}>
+                          {task.status === "done" && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide ${task.priority === "high" ? "bg-red-50 text-red-600" : task.priority === "medium" ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-blue-600"}`}>{task.priority}</span>
+                            <h4 className={`text-sm font-semibold ${task.status === "done" ? "text-slate-900 line-through opacity-70" : "text-slate-900"}`}>{task.title}</h4>
+                          </div>
+                          <div className="text-xs text-slate-500 flex items-center gap-1.5"><span>{task.domain}</span><span>•</span><span>{task.status}</span></div>
+                        </div>
+                        <button onClick={() => deleteTask(task.id)} className="p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
                       </div>
+                    ))}
+                    {displayTasks.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No tasks yet</p>}
+                    <div className="flex gap-2 mt-2">
+                      <input type="text" value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} placeholder="Add a new task..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-400" />
+                      <button onClick={addTask} disabled={!newTaskTitle.trim()} className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-xl text-sm font-medium flex items-center gap-1.5"><Plus className="w-4 h-4" />Add</button>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Activity className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                  <p className="text-sm text-slate-500">No activity recorded yet. Actions you take will appear here.</p>
-                </div>
-              )}
-            </div>
 
-            {/* All Active Tasks */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3"><CheckCircle2 className="w-5 h-5 text-blue-600" /><h2 className="text-xl font-bold text-slate-900">All Active Tasks</h2></div>
-                <span className="text-sm text-slate-500">{tasks.filter(t => t.status !== "done").length} remaining</span>
-              </div>
-              {tasks.filter(t => t.status !== "done" && t.status !== "completed").length > 0 ? (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {tasks.filter(t => t.status !== "done" && t.status !== "completed").map((task) => (
-                    <div key={task.id} className="group flex items-center gap-3 p-3 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 rounded-xl transition-all">
-                      <button onClick={() => handleToggleTask(task.id, task.status)} className="shrink-0"><Circle className="w-5 h-5 text-slate-400 hover:text-blue-600" /></button>
-                      <span className="flex-1 text-sm text-slate-900">{task.title}</span>
-                      <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-500">{task.domain}</span>
-                      <button onClick={() => handleDeleteTask(task.id)} className="opacity-0 group-hover:opacity-100 p-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                {/* Creative Preview */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div><h2 className="text-xl font-bold text-slate-900">Creative Hub</h2><p className="text-sm text-slate-500 mt-1">Recent drafts and ideas</p></div>
+                    <Link href="/creative" className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1 bg-blue-50 px-4 py-2 rounded-xl">Open Hub <ArrowRight className="w-4 h-4" /></Link>
+                  </div>
+                  {ideas.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {ideas.map((idea, i) => {
+                        const style = ideaStyles[i % ideaStyles.length];
+                        return (
+                          <Link href="/creative" key={idea.id} className="group rounded-2xl overflow-hidden border border-slate-100 hover:border-blue-100 hover:shadow-md transition-all cursor-pointer bg-white flex flex-col">
+                            <div className={`aspect-[4/3] relative w-full overflow-hidden ${style.bg} flex items-center justify-center`}>
+                              <PenTool className={`w-10 h-10 ${style.color} opacity-30`} />
+                              {idea.tags && idea.tags[0] && (
+                                <div className="absolute top-3 left-3"><span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/90 ${style.color}`}>{idea.tags[0]}</span></div>
+                              )}
+                            </div>
+                            <div className="p-4"><h4 className="text-sm font-semibold text-slate-900 line-clamp-1">{idea.title}</h4></div>
+                          </Link>
+                        );
+                      })}
                     </div>
-                  ))}
+                  ) : (
+                    <div className="text-center py-8"><PenTool className="w-10 h-10 text-slate-300 mx-auto mb-2" /><p className="text-sm text-slate-400">No creative content yet</p><Link href="/creative" className="text-sm text-blue-600 font-medium mt-1 inline-block">Create your first content →</Link></div>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                  <p className="text-sm text-slate-500">All caught up! Add tasks from Today&apos;s Focus above.</p>
+              </div>
+
+              {/* Right Sidebar Widgets */}
+              <div className="space-y-8">
+                {/* Focus Widget */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-6"><h2 className="text-lg font-bold text-slate-900">Focus Mode</h2><span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold tracking-wide uppercase">Pomodoro</span></div>
+                    <div className="flex flex-col items-center justify-center py-6 relative">
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-48 h-48 rounded-full border-[3px] border-slate-50"></div><div className="absolute w-48 h-48 rounded-full border-[3px] border-blue-500 border-t-transparent border-l-transparent rotate-45 opacity-20"></div></div>
+                      <div className="text-5xl font-bold tracking-tight text-slate-900 mb-2 relative z-10">{formatTime(timeLeft)}</div>
+                      <p className="text-slate-500 text-sm font-medium relative z-10">Deep work session</p>
+                    </div>
+                    <div className="flex items-center justify-center gap-4 mt-4">
+                      <button onClick={() => setTimerActive(!timerActive)} className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 hover:scale-105 transition-all shadow-md shadow-blue-200">{timerActive ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}</button>
+                      <button onClick={() => { setTimerActive(false); setTimeLeft(25 * 60); }} className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-colors"><RotateCcw className="w-5 h-5" /></button>
+                    </div>
+                  </div>
                 </div>
-              )}
+
+                {/* Activity */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-6"><h2 className="text-lg font-bold text-slate-900">Activity</h2><Link href="/history" className="text-sm font-medium text-blue-600 hover:text-blue-700">View All</Link></div>
+                  {activities.length > 0 ? (
+                    <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-slate-100">
+                      {activities.map(a => {
+                        const ai = activityIcons[a.type || "edit"] || activityIcons.edit;
+                        const Icon = ai.icon;
+                        return (
+                          <div key={a.id} className="relative flex items-start gap-4">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-white shrink-0 relative z-10"><div className={`w-8 h-8 rounded-full flex items-center justify-center ${ai.bg}`}><Icon className={`w-4 h-4 ${ai.color}`} /></div></div>
+                            <div className="flex-1 pt-1.5"><p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">{a.action || "Action"}</span> {a.description}</p><span className="text-xs text-slate-400 mt-1 block">{new Date(a.created_at).toLocaleString()}</span></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400 text-center py-4">No recent activity</p>
+                  )}
+                </div>
+
+                {/* Quick Note */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-4"><h2 className="text-lg font-bold text-slate-900">Quick Note</h2></div>
+                  <textarea value={noteText} onChange={e => setNoteText(e.target.value)} className="w-full h-32 resize-none bg-slate-50 border-none rounded-2xl p-4 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all" placeholder="Jot down an idea... (use #tags)"></textarea>
+                  <div className="mt-4 flex justify-end"><button onClick={saveNote} disabled={savingNote || !noteText.trim()} className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white text-sm font-medium rounded-xl transition-colors shadow-sm">{savingNote ? "Saving..." : "Save Note"}</button></div>
+                </div>
+              </div>
             </div>
           </div>
         </main>
