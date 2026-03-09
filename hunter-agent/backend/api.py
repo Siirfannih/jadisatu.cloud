@@ -107,7 +107,7 @@ def get_problems(
 ):
     """
     Get pain points with optional filtering
-    
+
     - **limit**: Number of results (1-500)
     - **offset**: Pagination offset
     - **category**: Filter by category
@@ -120,7 +120,7 @@ def get_problems(
             problems = db.get_by_category(category, limit=limit)
         else:
             problems = db.get_all(limit=limit, offset=offset)
-        
+
         # Parse JSON fields
         for p in problems:
             if p.get('matching_keywords'):
@@ -128,20 +128,20 @@ def get_problems(
                     p['matching_keywords'] = json.loads(p['matching_keywords'])
                 except:
                     p['matching_keywords'] = []
-            
+
             if p.get('keywords_extracted'):
                 try:
                     p['keywords_extracted'] = json.loads(p['keywords_extracted'])
                 except:
                     p['keywords_extracted'] = []
-        
+
         return {
             "total": len(problems),
             "limit": limit,
             "offset": offset,
             "data": problems
         }
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -150,27 +150,27 @@ def get_problem(problem_id: str):
     """Get a single pain point by ID"""
     try:
         problems = db.search(problem_id, limit=1)
-        
+
         if not problems:
             raise HTTPException(status_code=404, detail="Problem not found")
-        
+
         problem = problems[0]
-        
+
         # Parse JSON fields
         if problem.get('matching_keywords'):
             try:
                 problem['matching_keywords'] = json.loads(problem['matching_keywords'])
             except:
                 problem['matching_keywords'] = []
-        
+
         if problem.get('keywords_extracted'):
             try:
                 problem['keywords_extracted'] = json.loads(problem['keywords_extracted'])
             except:
                 problem['keywords_extracted'] = []
-        
+
         return problem
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -207,20 +207,20 @@ def trigger_scrape():
     """
     try:
         from hunter_agent import HunterAgent
-        
+
         agent = HunterAgent(
             gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
             apify_token=os.environ.get("APIFY_TOKEN", "")
         )
-        
+
         agent.run_full_cycle()
-        
+
         return {
             "status": "success",
             "message": "Scrape cycle completed",
             "stats": db.get_stats()
         }
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -272,7 +272,7 @@ async def extract_template(req: ExtractTemplateRequest):
         return {
             "success": True,
             "template_schema": schema,
-            "pipeline": "gemini-vision-v1",
+            "pipeline": "gemini-vision-v2",
             "images_processed": len(req.images),
             # Keep these fields for frontend backward compat
             "extracted_style": {
@@ -284,6 +284,7 @@ async def extract_template(req: ExtractTemplateRequest):
             "asset_plan": {
                 "visual_components": schema.get("visual_components", []),
                 "layout_type": schema.get("layout_structure", {}).get("type"),
+                "visual_element_plan": schema.get("visual_element_plan", []),
             },
         }
 
@@ -392,7 +393,7 @@ async def extract_template_folder(req: ExtractTemplateFolderRequest):
                 "canvas": schema.get("canvas", {})
             },
             "style_count": 1,
-            "pipeline": "gemini-vision-single-v1"
+            "pipeline": "gemini-vision-single-v2"
         }
 
     # Multiple images — per-image extraction
@@ -405,7 +406,7 @@ async def extract_template_folder(req: ExtractTemplateFolderRequest):
         "styles": result["styles"],
         "shared_brand": result["shared_brand"],
         "style_count": result["style_count"],
-        "pipeline": "gemini-vision-per-image-v1"
+        "pipeline": "gemini-vision-per-image-v2"
     }
 
 @app.get("/api/carousel/template-families")
@@ -420,6 +421,77 @@ def get_template_families():
 # ────────────────────────────────────────────────────
 # Content Strategist Agent (Multi-phase pipeline)
 # ────────────────────────────────────────────────────
+
+# Valid Lucide icon names for validation
+VALID_LUCIDE_ICONS = {
+    # Common
+    "sparkles", "lightbulb", "target", "zap", "brain", "heart", "star", "shield",
+    "eye", "flame", "compass", "award", "crown", "diamond", "gem",
+    # Actions
+    "arrow-right", "check-circle", "x-circle", "plus", "minus", "search", "send",
+    "share-2", "download", "upload", "refresh-cw",
+    # Objects
+    "briefcase", "book-open", "pen-tool", "code", "database", "globe", "monitor",
+    "smartphone", "camera", "mic", "mail", "lock", "key", "clock", "calendar",
+    # People
+    "user", "users", "user-check", "user-plus",
+    # Charts
+    "bar-chart-3", "trending-up", "pie-chart", "activity",
+    # Shapes
+    "circle", "square", "triangle", "hexagon",
+    # Nature
+    "sun", "moon", "cloud", "leaf", "sprout",
+    # Communication
+    "message-circle", "message-square", "phone", "video", "bell",
+    # Business
+    "shopping-cart", "credit-card", "wallet", "banknote", "receipt",
+    # Tech
+    "cpu", "server", "wifi", "hard-drive", "terminal", "git-branch", "layers",
+    # Media
+    "play-circle", "image", "film", "music", "headphones", "volume-2",
+    # Navigation
+    "map", "map-pin", "navigation", "route", "signpost",
+    # Misc
+    "rocket", "flag", "bookmark", "tag", "paperclip", "wrench", "settings",
+    "filter", "alert-triangle", "info", "help-circle",
+}
+
+
+def _validate_icon_name(icon_name: str) -> str:
+    """Validate and normalize icon name against known Lucide icons."""
+    if not icon_name or not isinstance(icon_name, str):
+        return "sparkles"
+    name = icon_name.strip().lower()
+    if name in VALID_LUCIDE_ICONS:
+        return name
+    # Try common corrections
+    corrections = {
+        "hand": "users", "hand-pointing": "arrow-right",
+        "alert": "alert-triangle", "check": "check-circle",
+        "close": "x-circle", "money": "banknote", "dollar": "banknote",
+        "chart": "bar-chart-3", "graph": "trending-up",
+        "bulb": "lightbulb", "bolt": "zap", "fire": "flame",
+        "person": "user", "people": "users", "group": "users",
+        "chat": "message-circle", "comment": "message-square",
+        "phone-call": "phone", "telephone": "phone",
+        "pencil": "pen-tool", "edit": "pen-tool", "write": "pen-tool",
+        "folder": "briefcase", "file": "book-open",
+        "link": "globe", "web": "globe", "internet": "globe",
+        "laptop": "monitor", "computer": "monitor",
+        "location": "map-pin", "pin": "map-pin",
+        "time": "clock", "timer": "clock", "watch": "clock",
+        "mic-2": "mic", "microphone": "mic",
+        "megaphone": "bell", "notification": "bell",
+        "gear": "settings", "cog": "settings",
+        "trash": "x-circle", "delete": "x-circle",
+        "copy": "layers", "duplicate": "layers",
+        "thumbs-up": "heart", "like": "heart", "love": "heart",
+    }
+    if name in corrections:
+        return corrections[name]
+    return "sparkles"  # Safe fallback
+
+
 class StrategistRequest(BaseModel):
     full_script: str = ""
     design_schema: dict = {}
@@ -447,17 +519,57 @@ async def strategize_content(req: StrategistRequest):
     genai.configure(api_key=gemini_key)
     model = genai.GenerativeModel("gemini-2.5-flash")
 
-    # Extract design context from schema
+    # Extract design context from schema — now includes visual element plan
     design_context = ""
     if req.design_schema:
         ds = req.design_schema
+        # Build rich design context including visual element plan
+        vep = ds.get('visual_element_plan', [])
+        vep_summary = ""
+        if vep:
+            dynamic_icons = [v for v in vep if v.get('handling') == 'dynamic_icon']
+            dynamic_diagrams = [v for v in vep if v.get('handling') == 'dynamic_diagram']
+            preserved_css = [v for v in vep if v.get('handling') == 'preserve_as_css']
+            containers = [v for v in vep if v.get('handling') == 'dynamic_container']
+            vep_lines = []
+            for v in dynamic_icons[:5]:
+                vep_lines.append(f"  - {v.get('description', '')} | suggested: {v.get('suggested_lucide_icon', 'auto')}")
+            vep_summary = f"""
+VISUAL ELEMENT PLAN dari analisis referensi:
+- Dynamic icons (akan diganti sesuai konten): {len(dynamic_icons)} elemen
+{chr(10).join(vep_lines)}
+- Dynamic diagrams: {len(dynamic_diagrams)} elemen
+- Preserved decorations (CSS): {len(preserved_css)} elemen
+- Dynamic containers: {len(containers)} elemen
+"""
+
+        cb = ds.get('component_blocks', [])
+        cb_summary = ""
+        if cb:
+            cb_lines = []
+            for b in cb[:4]:
+                cb_lines.append(f"- {b.get('type', 'unknown')}: {b.get('item_count', 0)} items, layout={b.get('layout', 'horizontal')}")
+            cb_summary = f"""
+COMPONENT BLOCKS dari referensi:
+{chr(10).join(cb_lines)}
+"""
+
         design_context = f"""
 DESIGN DNA dari referensi:
 - Template family: {ds.get('template_family', 'unknown')}
 - Color palette: {json.dumps(ds.get('color_palette', {}))}
-- Font: {ds.get('font_style', 'sans-serif')}
+- Font heading: {ds.get('typography', {}).get('heading_font', 'Inter')}
+- Font body: {ds.get('typography', {}).get('body_font', 'Inter')}
 - Visual mode default: {ds.get('visual_mode', 'icon')}
+- Diagram type: {ds.get('diagram_type', 'none')}
+- Layout type: {ds.get('layout_structure', {}).get('type', 'center_stack')}
 - Style traits: {ds.get('style_traits', [])}
+{vep_summary}{cb_summary}
+ATURAN VISUAL BERDASARKAN TEMPLATE:
+- Jika visual_mode referensi = "diagram": gunakan "diagram" untuk slide yang punya data/proses/perbandingan, "none" untuk slide teks pendek
+- Jika visual_mode referensi = "icon": gunakan "icon" untuk sebagian besar slide, "none" untuk CTA/closer
+- Jika visual_mode referensi = "none": gunakan "none" untuk semua slide (typography-only style)
+- JANGAN paksa icon jika template family tidak mendukung (dark_editorial_diagram, warm_photo_editorial, storytelling_editorial, technical_diagram -> hindari icon)
 """
 
     prompt = f"""Kamu adalah Content Strategist Agent untuk carousel {req.platform}.
@@ -488,10 +600,10 @@ LAYOUT TYPES (7 opsi):
 - "quote-highlight": Teks besar gaya kutipan dengan tanda kutip dekoratif. Untuk insight, wisdom, atau quote powerful.
 - "list-bullets": Headline + poin-poin list (pakai • atau nomor di body). Untuk tips, langkah-langkah, checklist.
 
-VISUAL MODES:
-- "icon": Icon tunggal yang relevan dengan konten
-- "diagram": Diagram/chart jika ada data/perbandingan/proses
-- "none": Tanpa visual, teks saja (untuk slide teks panjang)
+VISUAL MODES (pilih sesuai template family dan konten):
+- "icon": Icon tunggal yang relevan. HANYA gunakan jika template family mendukung (minimal_educational, bold_modern).
+- "diagram": Untuk slide yang punya data/perbandingan/proses/langkah-langkah. Gunakan jika template mendukung diagram.
+- "none": Tanpa visual, teks saja. Untuk slide teks panjang, CTA, atau template yang tidak pakai visual.
 
 EMOTIONAL TONES:
 - "impact": Mengejutkan, eye-catching (untuk hook)
@@ -507,7 +619,7 @@ Balas HANYA dalam format JSON array berikut (tanpa markdown, tanpa penjelasan):
     "layout_type": "hero-center",
     "visual_mode": "icon",
     "visual_hint": "deskripsi singkat visual yang cocok",
-    "icon_name": "nama icon lucide yang relevan",
+    "icon_name": "nama icon lucide yang relevan (HARUS dari daftar valid di bawah)",
     "headline": "Headline yang sudah dioptimalkan",
     "body": "Body text (kosongkan jika layout hero-center)",
     "emotional_tone": "impact",
@@ -516,8 +628,23 @@ Balas HANYA dalam format JSON array berikut (tanpa markdown, tanpa penjelasan):
 ]
 
 bg_variant: "light" (latar terang) atau "dark" (latar gelap) — variasikan untuk ritme visual.
-icon_name: WAJIB UNIK per slide — jangan ulangi icon yang sama! Gunakan nama icon dari Lucide icons.
-Contoh icon: alert-triangle, heart, target, zap, compass, brain, lightbulb, shield, star, sparkles, flame, eye, hand, users, clock, map-pin, award, trending-up, check-circle, x-circle, rocket, send, key, lock, globe, bar-chart-3, layers, code, briefcase, wallet, banknote, book-open, graduation-cap, wrench, search, filter, crown, diamond, gem, thumbs-up, message-circle, camera, play-circle, megaphone, palette, pen-tool, cpu, bot, shopping-cart, tag, calculator, calendar, bell, bookmark, clipboard.
+icon_name: WAJIB UNIK per slide — jangan ulangi icon yang sama!
+
+DAFTAR ICON LUCIDE YANG VALID (HANYA gunakan dari daftar ini):
+Common: sparkles, lightbulb, target, zap, brain, heart, star, shield, eye, flame, compass, award, crown, diamond, gem
+Actions: arrow-right, check-circle, x-circle, plus, minus, search, send, share-2, download, upload, refresh-cw
+Objects: briefcase, book-open, pen-tool, code, database, globe, monitor, smartphone, camera, mic, mail, lock, key, clock, calendar
+People: user, users, user-check, user-plus
+Charts: bar-chart-3, trending-up, pie-chart, activity
+Nature: sun, moon, cloud, leaf, sprout
+Communication: message-circle, message-square, phone, video, bell
+Business: shopping-cart, credit-card, wallet, banknote, receipt
+Tech: cpu, server, wifi, hard-drive, terminal, git-branch, layers
+Media: play-circle, image, film, music, headphones, volume-2
+Navigation: map, map-pin, navigation, route, signpost
+Misc: rocket, flag, bookmark, tag, paperclip, wrench, settings, filter, alert-triangle
+
+JANGAN gunakan icon di luar daftar ini. Jika ragu, gunakan: sparkles, lightbulb, target, zap, atau star.
 """
 
     try:
@@ -532,6 +659,21 @@ Contoh icon: alert-triangle, heart, target, zap, compass, brain, lightbulb, shie
         slides = json.loads(raw_text)
         if not isinstance(slides, list):
             raise ValueError("Response is not a JSON array")
+
+        # Post-process: validate all icon names against known Lucide icons
+        for slide in slides:
+            if slide.get("icon_name"):
+                slide["icon_name"] = _validate_icon_name(slide["icon_name"])
+            # Ensure visual_mode respects template family rules
+            if req.design_schema:
+                family = req.design_schema.get("template_family", "")
+                no_icon_families = {"dark_editorial_diagram", "warm_photo_editorial",
+                                    "storytelling_editorial", "technical_diagram"}
+                if family in no_icon_families and slide.get("visual_mode") == "icon":
+                    # Downgrade to none for families that don't support icons
+                    ref_mode = req.design_schema.get("visual_mode", "none")
+                    slide["visual_mode"] = ref_mode if ref_mode in ("diagram", "none") else "none"
+                    slide["icon_name"] = None
 
         return {
             "success": True,

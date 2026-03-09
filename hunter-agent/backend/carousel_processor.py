@@ -70,6 +70,37 @@ CRITICAL: You are extracting the VISUAL DESIGN STYLE and STRUCTURE — NOT the a
 - For component_blocks: use generic labels like "Feature 1", "Category A" — NOT the actual text from the image
 - For text_highlights: describe the STYLE (color, bold/italic) but use generic placeholder phrases like "keyword" or "highlight"
 
+═══════════════════════════════════════════════════════════════
+VISUAL ELEMENT ANALYSIS — CRITICAL STEP
+═══════════════════════════════════════════════════════════════
+
+Before filling the schema, perform a thorough visual element inventory. For EVERY non-text element visible in the design, classify it into one of these categories:
+
+1. DECORATIVE_STYLE — Background patterns, geometric lines, gradient overlays, abstract shapes, divider lines, corner decorations, texture fills.
+   → These are PRESERVED as CSS/SVG decorations in the generated output.
+   → Record in "decorative_elements" field.
+
+2. CONTENT_ICON — Small icons that represent topics/concepts (e.g., a lightbulb for "idea", a target for "goal", user silhouettes). These are typically 24-64px symbolic icons.
+   → These become DYNAMIC PLACEHOLDERS — replaced with contextually appropriate Lucide icons at render time.
+   → Record in "visual_element_plan" with handling="dynamic_icon".
+   → Set visual_mode to "icon" if these are the primary visual elements.
+
+3. STRUCTURAL_DIAGRAM — Node graphs, flowcharts, hub-spoke layouts, arc paths, timelines, comparison layouts, funnel shapes, connected elements with lines/arrows.
+   → The STRUCTURE is preserved (layout pattern, node count, connection style) but NODE CONTENT becomes dynamic.
+   → Record in "diagram_style" and set visual_mode to "diagram".
+   → Record the structure type in "visual_element_plan" with handling="dynamic_diagram".
+
+4. CONTENT_SHAPE — Avatar circles, profile images, custom illustrations, photos, screenshots, mockups.
+   → These are REMOVED from the template and replaced with appropriate Lucide icons or left empty for user content.
+   → Record in "visual_element_plan" with handling="replace_with_icon".
+
+5. STRUCTURAL_LAYOUT — Card containers, grid arrangements, numbered step boxes, feature cards, stat blocks.
+   → The CONTAINER STRUCTURE is preserved but content inside becomes dynamic.
+   → Record in "component_blocks" with item_count and layout pattern.
+   → Record in "visual_element_plan" with handling="dynamic_container".
+
+═══════════════════════════════════════════════════════════════
+
 Return this exact structure:
 
 {
@@ -110,6 +141,16 @@ Return this exact structure:
     "node_shape": "<circle or rounded_rect or hexagon>",
     "node_count": "<approximate number of nodes visible>"
   },
+  "visual_element_plan": [
+    {
+      "element_type": "<decorative_style | content_icon | structural_diagram | content_shape | structural_layout>",
+      "description": "<what you see, e.g. 'small user-group icon next to headline', 'hub-spoke diagram with 6 satellite nodes', 'avatar circle placeholder'>",
+      "handling": "<preserve_as_css | dynamic_icon | dynamic_diagram | replace_with_icon | dynamic_container>",
+      "suggested_lucide_icon": "<if handling is dynamic_icon or replace_with_icon, suggest the closest Lucide icon name, else null>",
+      "position": "<where in the layout: top | center | bottom | left | right | background | beside_headline | beside_body>",
+      "size": "<small | medium | large>"
+    }
+  ],
   "text_highlights": [
     {"phrase": "<exact word or phrase that has different color or style>", "color": "<hex color>", "style": "<italic or bold or bold_italic or normal>"}
   ],
@@ -125,10 +166,12 @@ Return this exact structure:
     }
   ],
   "decorative_elements": {
-    "geometric_lines": <true or false>,
+    "geometric_lines": "<true or false>",
     "background_pattern": "<dots or grid or triangles or none>",
     "divider_style": "<short_colored or full_dashed or none>",
-    "divider_color": "<hex>"
+    "divider_color": "<hex>",
+    "corner_decorations": "<true or false>",
+    "gradient_overlay": "<true or false>"
   },
   "branding": {
     "logo_position": "<top_left or top_center or none>",
@@ -183,7 +226,7 @@ CRITICAL RULES:
 
 4. component_blocks — Detect card groups, stat displays, icon grids. Count the items and note their layout pattern. Use generic placeholder labels, NOT the actual text from the image. Capture: icon name (closest Lucide icon), accent color, and style. Lucide icon names use lowercase-kebab-case: mail, bot, calendar, code, file-text, dollar-sign, message-square, monitor, etc.
 
-5. decorative_elements — Note geometric line patterns in background (thin triangles, dots, grids). These are subtle overlay decorations, not main content.
+5. decorative_elements — Note geometric line patterns in background (thin triangles, dots, grids). These are subtle overlay decorations, not main content. Also detect corner decorations and gradient overlays.
 
 6. branding — Detect the POSITION and STYLE of branding elements (logo placement, footer placement, pagination style). Do NOT copy the actual brand name or text — leave logo_text, footer_left, footer_right as empty strings.
 
@@ -200,7 +243,30 @@ CRITICAL RULES:
    - cycle: circular path with nodes
    - comparison: side-by-side elements
    - timeline: linear horizontal or vertical sequence
-   - funnel: progressively narrowing stages"""
+   - funnel: progressively narrowing stages
+
+9. visual_element_plan — THIS IS CRITICAL. For EVERY non-text visual element:
+   a. Icons next to text (small symbols) → handling="dynamic_icon", suggest a Lucide icon
+   b. Diagram nodes/shapes with labels → handling="dynamic_diagram", content from script
+   c. Avatar/photo placeholders → handling="replace_with_icon", suggest user/image icon
+   d. Background patterns/lines → handling="preserve_as_css"
+   e. Card/grid containers → handling="dynamic_container"
+   f. If NO visual elements exist beyond text, return empty array []
+
+10. VALID LUCIDE ICON NAMES — Only use these verified Lucide icon names:
+    Common: sparkles, lightbulb, target, zap, brain, heart, star, shield, eye, flame, compass, award, crown, diamond, gem
+    Actions: arrow-right, check-circle, x-circle, plus, minus, search, send, share-2, download, upload, refresh-cw
+    Objects: briefcase, book-open, pen-tool, code, database, globe, monitor, smartphone, camera, mic, mail, lock, key, clock, calendar
+    People: user, users, user-check, user-plus
+    Charts: bar-chart-3, trending-up, pie-chart, activity
+    Shapes: circle, square, triangle, hexagon
+    Nature: sun, moon, cloud, leaf, sprout
+    Communication: message-circle, message-square, phone, video, bell
+    Business: shopping-cart, credit-card, wallet, banknote, receipt
+    Tech: cpu, server, wifi, bluetooth, hard-drive, terminal, git-branch, layers
+    Media: play-circle, image, film, music, headphones, volume-2
+    Navigation: map, map-pin, navigation, route, signpost
+    Misc: rocket, flag, bookmark, tag, paperclip, scissors, wrench, settings, filter"""
 
 
 # ─── Gemini Vision Extractor ──────────────────────────────────────────────────
@@ -285,6 +351,11 @@ class CarouselDesignExtractor:
             cb = schema.get("component_blocks", [])
             if cb:
                 print(f"  component_blocks: {len(cb)} blocks — types={[b['type'] for b in cb]}")
+            vep = schema.get("visual_element_plan", [])
+            if vep:
+                print(f"  visual_element_plan: {len(vep)} elements")
+                for ve in vep[:5]:
+                    print(f"    → {ve['element_type']}: {ve['handling']} | {ve.get('description', '')[:50]}")
             return {"success": True, "schema": schema}
 
         except json.JSONDecodeError as e:
@@ -606,16 +677,54 @@ def _build_component_blocks(raw_blocks) -> list:
     return result
 
 
+def _build_visual_element_plan(raw_plan) -> list:
+    """Build validated visual element plan from Gemini extraction."""
+    if not raw_plan or not isinstance(raw_plan, list):
+        return []
+    VALID_TYPES = ("decorative_style", "content_icon", "structural_diagram", "content_shape", "structural_layout")
+    VALID_HANDLING = ("preserve_as_css", "dynamic_icon", "dynamic_diagram", "replace_with_icon", "dynamic_container")
+    result = []
+    for item in raw_plan:
+        if not isinstance(item, dict):
+            continue
+        etype = item.get("element_type", "")
+        handling = item.get("handling", "")
+        if etype not in VALID_TYPES:
+            continue
+        if handling not in VALID_HANDLING:
+            # Auto-assign handling based on element_type
+            handling_map = {
+                "decorative_style": "preserve_as_css",
+                "content_icon": "dynamic_icon",
+                "structural_diagram": "dynamic_diagram",
+                "content_shape": "replace_with_icon",
+                "structural_layout": "dynamic_container",
+            }
+            handling = handling_map.get(etype, "preserve_as_css")
+        result.append({
+            "element_type": etype,
+            "description": str(item.get("description", "")),
+            "handling": handling,
+            "suggested_lucide_icon": item.get("suggested_lucide_icon"),
+            "position": item.get("position", "center"),
+            "size": item.get("size", "medium"),
+        })
+    return result
+
+
 def _build_decorative(raw_deco: Dict) -> Dict:
     """Build validated decorative elements."""
     if not isinstance(raw_deco, dict):
         return {"geometric_lines": False, "background_pattern": "none",
-                "divider_style": "none", "divider_color": ""}
+                "divider_style": "none", "divider_color": "",
+                "corner_decorations": False, "gradient_overlay": False}
     return {
         "geometric_lines": bool(raw_deco.get("geometric_lines", False)),
         "background_pattern": raw_deco.get("background_pattern", "none"),
         "divider_style": raw_deco.get("divider_style", "none"),
         "divider_color": raw_deco.get("divider_color", ""),
+        "corner_decorations": bool(raw_deco.get("corner_decorations", False)),
+        "gradient_overlay": bool(raw_deco.get("gradient_overlay", False)),
     }
 
 
@@ -725,4 +834,6 @@ def build_complete_schema(raw_schema: Dict) -> Dict:
         "decorative_elements": _build_decorative(raw_schema.get("decorative_elements", {})),
         # ── Branding info ─────────────────────────────────────────
         "branding": _build_branding(raw_schema.get("branding", {})),
+        # ── Visual element plan (element classification & handling) ─
+        "visual_element_plan": _build_visual_element_plan(raw_schema.get("visual_element_plan", [])),
     }

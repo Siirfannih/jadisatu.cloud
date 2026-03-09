@@ -2611,6 +2611,7 @@
             var canvas = document.getElementById('carousel-live-canvas');
             var schema = (window._lastExtractedTemplate && window._lastExtractedTemplate.template_schema) || {};
             var cp = schema.color_palette || {};
+            var cr = schema.color_roles || {};
             if (canvas) {
                 if (decision.bg_variant === 'dark') {
                     canvas.style.background = cp.background || '#0f0f11';
@@ -2621,46 +2622,130 @@
                 }
             }
 
-            // 3. Visual mode rendering
+            // 3. Visual mode rendering — now handles diagram, icon, and none
             var iconWrap = document.getElementById('carousel-preview-icon-wrap');
             var visualArea = document.getElementById('carousel-preview-visual-area');
             var visualImg = document.getElementById('carousel-preview-visual-img');
             var headlineEl = document.getElementById('carousel-preview-headline');
             var bodyEl = document.getElementById('carousel-preview-body');
 
-            // Reset visuals first
+            // Reset ALL visual elements first
             if (iconWrap) iconWrap.classList.add('hidden');
             if (visualImg) visualImg.classList.add('hidden');
             var oldDiagram = document.getElementById('carousel-diagram-container');
             if (oldDiagram) oldDiagram.remove();
+            var oldComponents = document.getElementById('carousel-component-blocks');
+            if (oldComponents) oldComponents.remove();
 
-            if (decision.visual_mode === 'icon' && decision.icon_name) {
-                // Show icon with proper sizing and colors
-                if (iconWrap) {
-                    iconWrap.classList.remove('hidden');
-                    iconWrap.style.cssText = 'width:100px; height:100px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:' + (cp.primary || '#8b5cf6') + '15; border:2px solid ' + (cp.primary || '#8b5cf6') + '30;';
-                    iconWrap.innerHTML = '<i data-lucide="' + decision.icon_name + '" style="width:48px;height:48px;color:' + (cp.primary || '#8b5cf6') + '"></i>';
+            // Get current slide data for content-driven visuals
+            var _currentSlide = slidesData[slideIndex] || null;
+
+            if (decision.visual_mode === 'diagram') {
+                // ── DIAGRAM MODE: Render content-driven diagram ──────────
+                var ve = window._visualEngine || (window.VisualEngine ? new VisualEngine() : null);
+                if (!window._visualEngine && ve) window._visualEngine = ve;
+
+                var _contentDiagram = null;
+                if (_currentSlide && window.ContentDiagramMapper) {
+                    _contentDiagram = ContentDiagramMapper.map(
+                        _currentSlide,
+                        schema.diagram_type || 'flowchart',
+                        schema.diagram_style || {}
+                    );
                 }
-                if (visualArea) visualArea.style.display = '';
-                // Show text
-                if (headlineEl) headlineEl.style.display = '';
-                if (bodyEl) bodyEl.style.display = '';
+
+                if (_contentDiagram && ve) {
+                    // Build temporary schema with content-driven diagram data
+                    var diagramSchema = Object.assign({}, schema, {
+                        diagram_type: _contentDiagram.diagram_type,
+                        diagram_data: _contentDiagram.diagram_data
+                    });
+                    var rendered = ve.renderAll(diagramSchema);
+                    if (rendered.diagramHtml && visualArea) {
+                        var el = document.createElement('div');
+                        el.id = 'carousel-diagram-container';
+                        el.style.cssText = 'display:flex; align-items:center; justify-content:center; width:100%; min-height:200px;';
+                        el.innerHTML = rendered.diagramHtml;
+                        visualArea.innerHTML = '';
+                        visualArea.appendChild(el);
+                        visualArea.style.display = 'flex';
+                        visualArea.style.justifyContent = 'center';
+                        visualArea.style.alignItems = 'center';
+                    }
+                    // Hide text when diagram is showing (content is in diagram nodes)
+                    if (headlineEl) headlineEl.style.display = 'none';
+                    if (bodyEl) bodyEl.style.display = 'none';
+                    console.log('[Strategist] Diagram rendered: ' + _contentDiagram.diagram_type);
+                } else {
+                    // Not enough content for diagram — fallback to icon mode
+                    console.log('[Strategist] Diagram fallback to icon (not enough content)');
+                    decision.visual_mode = 'icon';
+                    // Fall through to icon handling below
+                }
+            }
+
+            if (decision.visual_mode === 'icon') {
+                // ── ICON MODE: Use IconEngine for intelligent selection ───
+                var iconName = decision.icon_name || 'sparkles';
+
+                // Use IconEngine if available for smarter icon selection
+                if (window._iconEngine || window.IconEngine) {
+                    var ie = window._iconEngine || new IconEngine();
+                    if (!window._iconEngine) window._iconEngine = ie;
+                    var combinedText = (decision.headline || '') + ' ' + (decision.body || '');
+                    var iconResult = ie.selectIcon({
+                        text: combinedText,
+                        slideType: decision.slide_type || 'value',
+                        templateFamily: schema.template_family || '',
+                        visualMode: 'icon',
+                        slideId: 'strat_slide_' + slideIndex
+                    });
+                    if (iconResult.icon) {
+                        iconName = iconResult.icon;
+                    } else if (iconResult.visual_mode !== 'icon') {
+                        // IconEngine says this family doesn't support icons — use none
+                        decision.visual_mode = 'none';
+                        if (visualArea) visualArea.style.display = 'none';
+                        if (headlineEl) headlineEl.style.display = '';
+                        if (bodyEl) bodyEl.style.display = '';
+                        console.log('[Strategist] IconEngine overrode to ' + iconResult.visual_mode + ': ' + iconResult.reason);
+                    }
+                }
+
+                // Only show icon if visual_mode is still 'icon' after IconEngine check
+                if (decision.visual_mode === 'icon') {
+                    if (iconWrap) {
+                        iconWrap.classList.remove('hidden');
+                        var _iconBg = (cp.primary || '#8b5cf6') + '15';
+                        var _iconBorder = (cp.primary || '#8b5cf6') + '30';
+                        iconWrap.style.cssText = 'width:100px; height:100px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:' + _iconBg + '; border:2px solid ' + _iconBorder + ';';
+                        iconWrap.innerHTML = '<i data-lucide="' + iconName + '" style="width:48px;height:48px;color:' + (cp.primary || '#8b5cf6') + '"></i>';
+                    }
+                    if (visualArea) visualArea.style.display = '';
+                    if (headlineEl) headlineEl.style.display = '';
+                    if (bodyEl) bodyEl.style.display = '';
+                    // Update decision with validated icon name
+                    decision.icon_name = iconName;
+                }
             } else if (decision.visual_mode === 'none') {
-                // No visual, text only
+                // ── NONE MODE: Text only ─────────────────────────────────
                 if (visualArea) visualArea.style.display = 'none';
-                if (headlineEl) headlineEl.style.display = '';
-                if (bodyEl) bodyEl.style.display = '';
-            } else {
-                // Default: show visual area, show text
-                if (visualArea) visualArea.style.display = '';
                 if (headlineEl) headlineEl.style.display = '';
                 if (bodyEl) bodyEl.style.display = '';
             }
 
-            // 4. Update text content
-            if (decision.headline) {
-                if (headlineEl) headlineEl.textContent = decision.headline;
-                if (bodyEl) bodyEl.textContent = decision.body || '';
+            // 4. Update text content (skip if diagram mode hides text)
+            if (decision.visual_mode !== 'diagram') {
+                if (decision.headline) {
+                    // Apply text highlights if available
+                    var _th = schema.text_highlights || [];
+                    if (_th.length > 0 && window.TextHighlighter && headlineEl) {
+                        headlineEl.innerHTML = TextHighlighter.apply(decision.headline, _th).replace(/\n/g, '<br>');
+                    } else if (headlineEl) {
+                        headlineEl.textContent = decision.headline;
+                    }
+                    if (bodyEl) bodyEl.textContent = decision.body || '';
+                }
             }
 
             // 5. Store decisions on slide data
@@ -3554,6 +3639,13 @@
             if (limitEl) limitEl.textContent = 'Max ' + preflight.maxSlides + ' slides';
 
             document.getElementById('carousel-content-meta').textContent = 'Content ID: ' + esc(item.id) + ' | "' + esc((item.title || '').substring(0, 40)) + (item.title && item.title.length > 40 ? '…' : '') + '"';
+
+            // Reset IconEngine for fresh icon selection
+            if (window._iconEngine && window._iconEngine.reset) {
+                window._iconEngine.reset();
+            } else if (window.IconEngine) {
+                window._iconEngine = new IconEngine();
+            }
 
             // ══════════════════════════════════════════════════════════
             // GENERATION PIPELINE — with progress overlay
