@@ -135,7 +135,7 @@
         this._templateFamily = '';
         this._feedbackMemory = opts.feedbackMemory || null;
         this._fontRegistry = opts.fontRegistry || null;
-        this._iconEngine = opts.iconEngine || null;
+        // IconEngine removed — icons now come from Gemini Strategist
         this._onUpdate = opts.onUpdate || null;   // callback when schema changes
         this._onSelect = opts.onSelect || null;   // callback when selection changes
         this._idCounter = 0;
@@ -175,25 +175,13 @@
 
         // Icon or Diagram block based on visual_mode
         if (this._visualMode === 'icon') {
-            var iconName = 'zap';
-            if (this._iconEngine && slideData) {
-                var result = this._iconEngine.selectIcon({
-                    text: (slideData.headline || '') + ' ' + (slideData.body || ''),
-                    slideType: slideData.type || 'value',
-                    templateFamily: this._templateFamily,
-                    visualMode: this._visualMode,
-                    slideId: slideData.id || 'slide_0'
-                });
-                if (result.icon) iconName = result.icon;
-                if (result.visual_mode !== 'icon') this._visualMode = result.visual_mode;
-            }
-            if (this._visualMode === 'icon') {
-                this._elements.push(ELEMENT_DEFAULTS.icon_block(this._nextId('icon_block'), {
-                    icon_name: iconName,
-                    color: cp.accent || '#f59e0b',
-                    size: 48
-                }));
-            }
+            // Icon comes from Gemini Strategist (slide._iconName) or fallback
+            var iconName = (slideData && slideData._iconName) || (slideData && slideData.icon_name) || 'sparkles';
+            this._elements.push(ELEMENT_DEFAULTS.icon_block(this._nextId('icon_block'), {
+                icon_name: iconName,
+                color: cp.accent || '#f59e0b',
+                size: 48
+            }));
         }
 
         if (this._visualMode === 'diagram') {
@@ -316,10 +304,7 @@
         var removed = this._elements.splice(idx, 1)[0];
         if (this._selectedId === id) this._selectedId = null;
 
-        // Release icon from engine if it was an icon block
-        if (removed.type === 'icon_block' && this._iconEngine && removed.icon_name) {
-            this._iconEngine.releaseIcon(removed.icon_name);
-        }
+        // Icon tracking removed — Gemini handles icon selection
 
         if (this._feedbackMemory) {
             this._feedbackMemory.record('delete_element', id, removed, null);

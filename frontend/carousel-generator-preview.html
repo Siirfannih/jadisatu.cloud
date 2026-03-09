@@ -1315,7 +1315,7 @@
     <script src="js/creative-content-service.js"></script>
     <script src="js/app-settings-service.js"></script>
     <script src="js/font-registry.js"></script>
-    <script src="js/icon-engine.js"></script>
+    <!-- IconEngine removed — icons resolved by Gemini Strategist + /api/carousel/resolve-icons -->
     <script src="js/feedback-memory.js"></script>
     <script src="js/visual-engine.js"></script>
     <script src="js/canvas-editor.js"></script>
@@ -2117,6 +2117,44 @@
             }
         }
 
+        /**
+         * Resolve icons for slides via Gemini when Strategist was skipped
+         * or when user edits slide text and needs icon refresh.
+         */
+        async function resolveSlideIcons(slides) {
+            if (!slides || slides.length === 0) return;
+            try {
+                var payload = slides.map(function(s) {
+                    return {
+                        headline: s.headline || '',
+                        body: s.body || '',
+                        slide_type: s.type || s._slideType || 'value'
+                    };
+                });
+                var res = await fetch('/api/carousel/resolve-icons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ slides: payload })
+                });
+                var data = await res.json();
+                if (data.success && data.icons) {
+                    data.icons.forEach(function(iconData) {
+                        var idx = (iconData.slide || 1) - 1;
+                        if (slides[idx]) {
+                            slides[idx]._iconName = iconData.icon;
+                            console.log('[IconResolver] Slide ' + (idx+1) + ': ' + iconData.icon + ' (' + (iconData.reason || '') + ')');
+                        }
+                    });
+                    // Re-render current slide if it was updated
+                    if (typeof renderSlideClean === 'function') {
+                        renderSlideClean(currentSlideIndex);
+                    }
+                }
+            } catch (e) {
+                console.warn('[IconResolver] Failed:', e);
+            }
+        }
+
         function applyStrategistToSlide(slideIndex) {
             if (!_strategistData || !_strategistData[slideIndex]) return;
             var decision = _strategistData[slideIndex];
@@ -2191,8 +2229,10 @@
                 slidesData[slideIndex]._emotionalTone = decision.emotional_tone;
             }
 
-            // 6. Re-create lucide icons
-            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+            // 6. Re-create lucide icons — defer to next frame
+            requestAnimationFrame(function() {
+                if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+            });
             console.log('[Strategist] Slide ' + (slideIndex+1) + ': layout=' + decision.layout_type + ' visual=' + decision.visual_mode + ' icon=' + (decision.icon_name || 'n/a') + ' bg=' + decision.bg_variant);
         }
 
@@ -2465,10 +2505,12 @@
                 b.classList.toggle('active', b.getAttribute('data-mode') === visualMode);
             });
 
-            // ── 10. RENDER ICONS ──
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
+            // ── 10. RENDER ICONS — defer to next frame so DOM has settled ──
+            requestAnimationFrame(function() {
+                if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                    lucide.createIcons();
+                }
+            });
 
             console.log('[renderSlideClean] slide=' + slideIndex
                 + ' layout=' + layoutType
@@ -3080,6 +3122,9 @@
                         if (window._carouselToast) window._carouselToast('AI Strategist: ' + result.length + ' slide dioptimalkan!');
                     }
                 });
+            } else {
+                // Strategist skipped — resolve icons via Gemini fallback
+                resolveSlideIcons(slidesData);
             }
 
             // Populate sidebar from slidesData (Full Script is the source of truth)
@@ -5421,19 +5466,18 @@
             });
 
             // ═══════════════════════════════════════════════════════════════
-            // EDITING LAYER — Font Registry, Icon Engine, Canvas Editor,
+            // EDITING LAYER — Font Registry, Canvas Editor,
             //                  Feedback Memory, Inspector Panel wiring
+            // Icons: resolved by Gemini Strategist or /api/carousel/resolve-icons
             // ═══════════════════════════════════════════════════════════════
 
             // ── Initialize modules ──────────────────────────────────────
             var _visualEngine  = window.VisualEngine ? new VisualEngine() : null;
             window._visualEngine = _visualEngine;
             var _fontRegistry  = new FontRegistry();
-            var _iconEngine    = new IconEngine();
             var _feedbackMemory = new FeedbackMemory(supabaseClient, currentUserId);
             var _canvasEditor  = new CanvasEditor({
                 fontRegistry:   _fontRegistry,
-                iconEngine:     _iconEngine,
                 feedbackMemory: _feedbackMemory,
                 onUpdate: function () {
                     _canvasEditor.applyToDOM();
@@ -5447,7 +5491,6 @@
 
             // Expose globally for Smart Extractor integration
             window._fontRegistry   = _fontRegistry;
-            window._iconEngine     = _iconEngine;
             window._feedbackMemory = _feedbackMemory;
             window._canvasEditor   = _canvasEditor;
 
@@ -5566,12 +5609,30 @@
             }
 
             // ── Icon select population ──────────────────────────────────
+            // Curated Lucide icon list for manual icon picker
+            var PICKER_ICONS = [
+                'arrow-right','arrow-up-right','activity','alert-triangle','award','badge',
+                'banknote','bar-chart-3','bell','book-open','bookmark','bot','brain',
+                'briefcase','building','calculator','calendar','camera','check-circle',
+                'clipboard','clock','cloud','code','coffee','compass','cpu','crown',
+                'database','diamond','download','eye','external-link','file-text',
+                'film','filter','flag','flame','folder','footprints','gem','globe',
+                'graduation-cap','hand','headphones','heart','heart-pulse','home',
+                'image','info','key','layers','lightbulb','link','lock','mail',
+                'map','map-pin','megaphone','message-circle','mic','monitor',
+                'mouse-pointer-click','music','palette','pen-tool','percent',
+                'phone','pie-chart','plane','play-circle','rocket','search','send',
+                'settings','share-2','shield','shopping-cart','speaker','sparkles',
+                'star','store','tag','target','terminal','thumbs-up','timer',
+                'trending-up','trophy','unlock','upload','users','utensils',
+                'wallet','workflow','wrench','x-circle','zap'
+            ];
+
             function _populateIconSelect(currentIcon) {
                 var sel = document.getElementById('inspector-icon-select');
                 if (!sel) return;
-                var icons = _iconEngine.getPickerIcons();
                 var html = '';
-                icons.forEach(function (ic) {
+                PICKER_ICONS.forEach(function (ic) {
                     var selected = ic === currentIcon ? ' selected' : '';
                     html += '<option value="' + ic + '"' + selected + '>' + ic + '</option>';
                 });
@@ -5820,8 +5881,7 @@
                     presetName
                 );
 
-                // Reset icon engine for fresh generation
-                _iconEngine.reset();
+                // IconEngine removed — icons from Gemini Strategist
 
                 // Build editor elements from schema + current slide
                 _canvasEditor.buildFromCanvas(schema, slide);
@@ -5884,7 +5944,7 @@
                 });
             }
 
-            console.log('[EditingLayer] Initialized — FontRegistry, IconEngine, CanvasEditor, FeedbackMemory');
+            console.log('[EditingLayer] Initialized — FontRegistry, CanvasEditor, FeedbackMemory');
         });
 
         lucide.createIcons();

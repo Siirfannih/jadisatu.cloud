@@ -39,7 +39,8 @@ async def health_check():
             "/api/health",
             "/api/carousel/extract-template",
             "/api/carousel/map-to-slides",
-            "/api/carousel/template-families"
+            "/api/carousel/template-families",
+            "/api/carousel/resolve-icons"
         ]
     }
 
@@ -606,6 +607,96 @@ Hal 2:
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+
+
+# ────────────────────────────────────────────────────
+# Icon Resolver (Gemini-powered icon selection)
+# ────────────────────────────────────────────────────
+class ResolveIconsRequest(BaseModel):
+    slides: list  # [{ "headline": "...", "body": "...", "slide_type": "hook" }, ...]
+
+@app.post("/api/carousel/resolve-icons")
+async def resolve_icons(req: ResolveIconsRequest):
+    """
+    Resolve the best Lucide icon for each slide using Gemini.
+    Used as fallback when Content Strategist is skipped,
+    or when user edits slide text and needs icon refresh.
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    if not req.slides:
+        return {"success": True, "icons": []}
+
+    import google.generativeai as genai
+    genai.configure(api_key=gemini_key)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+    slides_text = ""
+    for i, s in enumerate(req.slides[:15]):
+        headline = s.get("headline", "")
+        body = s.get("body", "")
+        slide_type = s.get("slide_type", "value")
+        slides_text += f"Slide {i+1} ({slide_type}): {headline} — {body}\n"
+
+    prompt = f"""Kamu adalah icon specialist. Pilih 1 Lucide icon yang PALING COCOK untuk setiap slide carousel.
+
+SLIDES:
+{slides_text}
+
+ATURAN:
+1. Icon harus RELEVAN dengan makna/konteks headline & body
+2. Gunakan HANYA nama icon dari Lucide icons (lowercase-kebab-case)
+3. Jangan ulangi icon yang sama — setiap slide harus icon berbeda
+4. Konten dalam bahasa Indonesia — terjemahkan konteksnya ke konsep visual yang tepat
+5. Untuk slide hook: pilih icon yang eye-catching (zap, flame, sparkles, eye, alert-triangle)
+6. Untuk slide CTA: pilih icon yang action-oriented (arrow-right, send, mouse-pointer-click, rocket)
+7. Untuk slide value: pilih icon yang match topik spesifik
+
+CONTOH ICON YANG TERSEDIA:
+lightbulb, brain, target, compass, map, trophy, shield, heart, users, clock,
+trending-up, bar-chart-3, pie-chart, workflow, git-branch, layers, palette,
+pen-tool, code, terminal, database, globe, monitor, camera, play-circle,
+megaphone, briefcase, wallet, banknote, book-open, graduation-cap, wrench,
+settings, search, filter, check-circle, x-circle, alert-triangle, info,
+star, award, badge, crown, diamond, gem, flame, zap, sparkles, eye,
+hand, thumbs-up, message-circle, mail, phone, share-2, link, download,
+upload, cloud, lock, unlock, key, cpu, bot, rocket, plane, map-pin,
+home, building, store, shopping-cart, tag, percent, calculator, calendar,
+timer, bell, flag, bookmark, clipboard, file-text, folder, image, film,
+mic, headphones, speaker, music, heart-pulse, activity, footprints,
+arrow-right, arrow-up-right, mouse-pointer-click, send, external-link
+
+Balas HANYA dalam format JSON array (tanpa markdown):
+[
+  {{"slide": 1, "icon": "nama-icon", "reason": "alasan singkat"}}
+]"""
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+
+        if raw_text.startswith("```"):
+            raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text)
+            raw_text = re.sub(r'```\s*$', '', raw_text)
+
+        icons = json.loads(raw_text)
+        if not isinstance(icons, list):
+            raise ValueError("Response is not a JSON array")
+
+        return {
+            "success": True,
+            "icons": icons
+        }
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "error": f"JSON parse failed: {str(e)}",
+            "icons": []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Icon resolver failed: {str(e)}")
 
 
 if __name__ == "__main__":
