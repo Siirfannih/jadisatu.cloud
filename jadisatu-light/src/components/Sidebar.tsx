@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
+  Target,
   CheckSquare,
   KanbanSquare,
   FolderKanban,
@@ -27,6 +28,7 @@ import { createClient } from "@/lib/supabase-browser";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { icon: Calendar, label: "Calendar", href: "/calendar" },
+  { icon: Target, label: "Focus Mode", href: "/focus" },
   { icon: CheckSquare, label: "Tasks", href: "/tasks" },
   { icon: KanbanSquare, label: "Kanban", href: "/kanban" },
   { icon: FolderKanban, label: "Projects", href: "/projects" },
