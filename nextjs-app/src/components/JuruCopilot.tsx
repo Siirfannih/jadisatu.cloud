@@ -408,7 +408,7 @@ export default function JuruCopilot() {
                   'max-w-[85%] p-3 rounded-xl text-sm',
                   msg.role === 'user'
                     ? 'ml-auto bg-primary text-white'
-                    : 'bg-muted/50 dark:bg-white/5 text-foreground'
+                    : 'bg-muted text-foreground'
                 )}
               >
                 <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -447,7 +447,7 @@ export default function JuruCopilot() {
               <button
                 key={i}
                 onClick={() => setInput(action.prompt)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 dark:bg-white/5 hover:bg-muted dark:hover:bg-white/10 rounded-lg text-[11px] text-muted-foreground whitespace-nowrap transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-[11px] text-muted-foreground whitespace-nowrap transition-colors"
               >
                 <action.icon size={12} />
                 {action.label}
@@ -464,7 +464,7 @@ export default function JuruCopilot() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="Ask Juru anything..."
-                className="flex-1 px-3 py-2 bg-background/50 dark:bg-white/5 border border-border/50 dark:border-white/10 rounded-lg text-sm outline-none focus:border-primary/50"
+                className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg text-sm outline-none focus:border-primary/50"
               />
               <button
                 onClick={handleSend}

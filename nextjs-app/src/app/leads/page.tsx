@@ -61,12 +61,12 @@ export default function LeadsPage() {
       try {
         setLoading(true);
 
-        const leadsRes = await fetch("/api/leads");
+        const leadsRes = await fetch("/light/api/leads");
         if (!leadsRes.ok) throw new Error("Failed to fetch leads");
         const leadsData = await leadsRes.json();
         setLeads(leadsData.data || []);
 
-        const statsRes = await fetch("/api/leads?stats=true");
+        const statsRes = await fetch("/light/api/leads?stats=true");
         if (!statsRes.ok) throw new Error("Failed to fetch stats");
         const statsData = await statsRes.json();
         setStats(statsData);

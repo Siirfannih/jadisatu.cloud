@@ -96,8 +96,8 @@ export default function ViewKanban() {
     <div className="space-y-6 animate-slide-up">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white">Task Board</h2>
-          <p className="text-sm text-gray-500">To-do per project. Drag or move tasks between columns.</p>
+          <h2 className="text-xl font-bold text-foreground">Task Board</h2>
+          <p className="text-sm text-muted-foreground">To-do per project. Drag or move tasks between columns.</p>
         </div>
       </div>
 
@@ -115,24 +115,24 @@ export default function ViewKanban() {
                 if (taskId) moveTask(taskId, col.id)
               }}
             >
-              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+              <div className="p-4 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className={cn('w-2 h-2 rounded-full', col.dot)} />
-                  <span className="font-semibold text-white text-sm">{col.title}</span>
-                  <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+                  <span className="font-semibold text-foreground text-sm">{col.title}</span>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                     {columnTasks.length}
                   </span>
                 </div>
                 <button
                   onClick={() => { setAddingColumn(col.id); setNewTitle('') }}
-                  className="text-gray-500 hover:text-white transition-all"
+                  className="text-muted-foreground hover:text-foreground transition-all"
                 >
                   <Plus size={16} />
                 </button>
               </div>
               <div className="flex-1 p-3 space-y-3 overflow-y-auto custom-scroll">
                 {addingColumn === col.id && (
-                  <div className="bg-white/5 border border-accent/30 p-3 rounded-xl">
+                  <div className="bg-muted/50 border border-accent/30 p-3 rounded-xl">
                     <input
                       type="text"
                       value={newTitle}
@@ -142,14 +142,14 @@ export default function ViewKanban() {
                         if (e.key === 'Escape') setAddingColumn(null)
                       }}
                       placeholder="Task title..."
-                      className="w-full bg-transparent outline-none text-sm text-white placeholder-gray-500 mb-2"
+                      className="w-full bg-transparent outline-none text-sm text-foreground placeholder-muted-foreground mb-2"
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <button onClick={() => addTask(col.id)} className="text-xs bg-accent text-white px-3 py-1.5 rounded-lg">
+                      <button onClick={() => addTask(col.id)} className="text-xs bg-accent text-foreground px-3 py-1.5 rounded-lg">
                         Add
                       </button>
-                      <button onClick={() => setAddingColumn(null)} className="text-xs text-gray-400 px-3 py-1.5">
+                      <button onClick={() => setAddingColumn(null)} className="text-xs text-muted-foreground px-3 py-1.5">
                         Cancel
                       </button>
                     </div>
@@ -160,27 +160,27 @@ export default function ViewKanban() {
                     key={task.id}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData('taskId', task.id)}
-                    className="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-work/30 transition-all cursor-grab active:cursor-grabbing group"
+                    className="p-4 rounded-xl bg-muted/50 border border-border hover:border-blue-500/30 transition-all cursor-grab active:cursor-grabbing group"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <span className={cn(
                         'text-[10px] px-2 py-0.5 rounded',
-                        task.status === 'in-progress' ? 'bg-work/20 text-work-light' : 'bg-white/10 text-gray-400'
+                        task.status === 'in-progress' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-muted text-muted-foreground'
                       )}>
                         {task.priority ?? 'medium'}
                       </span>
-                      <button className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white">
+                      <button className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground">
                         <MoreHorizontal size={14} />
                       </button>
                     </div>
-                    <h4 className="text-sm font-medium text-white mb-2 leading-snug">{task.title}</h4>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <h4 className="text-sm font-medium text-foreground mb-2 leading-snug">{task.title}</h4>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                       {task.due_date && (
                         <span className="flex items-center gap-1">
                           <Calendar size={12} /> {task.due_date}
                         </span>
                       )}
-                      <span className="text-gray-500">{task.assignee ?? '—'}</span>
+                      <span className="text-muted-foreground">{task.assignee ?? '—'}</span>
                     </div>
                   </div>
                 ))}

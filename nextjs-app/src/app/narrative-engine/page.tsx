@@ -187,7 +187,7 @@ export default function NarrativeEngine() {
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && runResearch()}
               placeholder="e.g., AI in content creation, Crypto market trends, Creator economy..."
-              className="w-full pl-11 pr-4 py-3 bg-background/50 dark:bg-white/5 border border-border/50 dark:border-white/10 rounded-xl text-base outline-none focus:border-primary/50 transition-colors"
+              className="w-full pl-11 pr-4 py-3 bg-muted border border-border rounded-xl text-base outline-none focus:border-primary/50 transition-colors"
             />
           </div>
           <button
@@ -209,7 +209,7 @@ export default function NarrativeEngine() {
               <Sparkles size={20} className="text-primary" />
               Research Summary
             </h2>
-            <div className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed bg-muted/30 dark:bg-white/5 rounded-xl p-4">
+            <div className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed bg-muted rounded-xl p-4">
               {research.research_summary}
             </div>
           </div>
@@ -225,7 +225,7 @@ export default function NarrativeEngine() {
                     'p-4 rounded-xl border cursor-pointer transition-all',
                     selectedAngle?.angle === angle.angle
                       ? 'border-primary/50 bg-primary/5'
-                      : 'border-border/50 dark:border-white/5 hover:border-primary/30 hover:bg-muted/30 dark:hover:bg-white/5'
+                      : 'border-border hover:border-primary/30 hover:bg-muted'
                   )}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -236,7 +236,7 @@ export default function NarrativeEngine() {
                   </div>
                   <p className="text-xs text-muted-foreground mb-2">{angle.description}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] px-2 py-0.5 bg-muted/50 dark:bg-white/10 rounded text-muted-foreground">
+                    <span className="text-[10px] px-2 py-0.5 bg-muted rounded text-muted-foreground">
                       {angle.format}
                     </span>
                     <div className="flex items-center gap-2">
@@ -302,21 +302,21 @@ export default function NarrativeEngine() {
             </div>
           </div>
 
-          <pre className="text-sm whitespace-pre-wrap leading-relaxed bg-muted/30 dark:bg-white/5 rounded-xl p-4 mb-4 font-sans max-h-96 overflow-y-auto">
+          <pre className="text-sm whitespace-pre-wrap leading-relaxed bg-muted rounded-xl p-4 mb-4 font-sans max-h-96 overflow-y-auto">
             {generated.draft_script}
           </pre>
 
           <div className="flex items-center gap-3">
             <button
               onClick={copyScript}
-              className="flex items-center gap-2 px-4 py-2 bg-muted/50 dark:bg-white/10 hover:bg-muted dark:hover:bg-white/15 rounded-lg text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors"
             >
               {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
               {copied ? 'Copied!' : 'Copy Script'}
             </button>
             {sentToHub ? (
               <button
-                onClick={() => router.push('/light/creative')}
+                onClick={() => router.push('/creative')}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <Check size={14} />

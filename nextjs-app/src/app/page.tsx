@@ -297,7 +297,7 @@ export default function DashboardPage() {
               </div>
               <h2 className="text-xl font-bold text-foreground">Active Projects</h2>
             </div>
-            <a href="/projects" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <a href="/light/projects" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
               View all <ChevronRight className="w-4 h-4" />
             </a>
           </div>
