@@ -13,7 +13,6 @@ Supports:
 """
 
 import os
-import json
 import base64
 import asyncio
 from pathlib import Path
@@ -233,62 +232,32 @@ class SmartExtractorV2:
     async def extract_multiple(self, images_base64: list[str]) -> list[dict]:
         """
         Extract multiple templates from multiple reference images.
-        Each image becomes its own template.
+        Each image is processed individually for reliability — embedding
+        HTML inside JSON strings from LLM output causes frequent parse errors.
 
         Returns: List of template dicts (same format as extract_single)
         """
-        if len(images_base64) == 1:
-            result = await self.extract_single(images_base64[0])
-            return [result]
+        # Process each image individually — much more reliable than asking
+        # Gemini to return a JSON array with embedded HTML strings
+        tasks = [self.extract_single(img) for img in images_base64]
+        templates = await asyncio.gather(*tasks, return_exceptions=True)
 
-        import google.generativeai as genai
+        results = []
+        for i, t in enumerate(templates):
+            if isinstance(t, Exception):
+                print(f"  [Image {i+1}] FAILED: {t}")
+                results.append({
+                    "name": f"error-{i+1}",
+                    "description": f"Extraction failed: {str(t)[:100]}",
+                    "html": "",
+                    "colors": {},
+                    "created_at": datetime.utcnow().isoformat(),
+                })
+            else:
+                print(f"  [Image {i+1}] OK: {t.get('name', 'unknown')}")
+                results.append(t)
 
-        genai.configure(api_key=self.api_key)
-        model = genai.GenerativeModel(self.model)
-
-        # Build content parts: prompt + all images
-        parts = [
-            EXTRACT_TEMPLATE_PROMPT_MULTI.format(count=len(images_base64))
-        ]
-
-        for img_b64 in images_base64:
-            image_data = base64.b64decode(img_b64)
-            parts.append({"mime_type": "image/png", "data": image_data})
-
-        response = await model.generate_content_async(
-            parts,
-            generation_config={
-                "temperature": 0.2,
-                "max_output_tokens": 16384,  # More tokens for multiple templates
-            },
-        )
-
-        text = response.text.strip()
-
-        # Clean markdown fences
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-
-        templates_raw = json.loads(text)
-
-        templates = []
-        for i, t in enumerate(templates_raw):
-            html = t.get("html", "")
-            colors = self._extract_css_variables(html)
-            templates.append({
-                "name": t.get("name", f"style-{i+1}"),
-                "description": t.get("description", f"Template style {i+1}"),
-                "html": html,
-                "colors": colors,
-                "created_at": datetime.utcnow().isoformat(),
-            })
-
-        return templates
+        return results
 
     async def create_template_folder(
         self,
