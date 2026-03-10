@@ -65,6 +65,11 @@ else
   log "WARNING: ${NEXTJS_ENV} not found - Supabase env vars may be missing"
 fi
 
+# ── 1c. Sync static frontend to nginx-readable directory ─────
+mkdir -p "$NGINX_ROOT"
+rsync -a --delete "${REPO_DIR}/frontend/" "$NGINX_ROOT/"
+log "Static frontend synced to ${NGINX_ROOT}"
+
 # ── 2. Next.js: install & build ──────────────────────────────
 cd "$NEXTJS_DIR"
 log "Installing Next.js dependencies..."
