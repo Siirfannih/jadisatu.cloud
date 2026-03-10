@@ -57,6 +57,8 @@ export default function CreativeHubPage() {
   const [saving, setSaving] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -96,58 +98,69 @@ export default function CreativeHubPage() {
   }
 
   async function saveContent() {
-    if (!editTitle.trim() || !userId) return;
+    if (!editTitle.trim()) return;
+    if (!userId) { setSaveError("Not logged in"); return; }
+
     setSaving(true);
-    const tags = editTags.split(",").map(t => t.trim().replace(/^#/, "")).filter(Boolean);
-    const now = new Date().toISOString();
-    const payload: any = {
-      title: editTitle.trim(),
-      content: editContent.trim() || null,
-      tags: tags.length > 0 ? tags : null,
-      source: editPlatform || "creative-hub",
-      status: editStatus,
-      user_id: userId,
-      updated_at: now,
-    };
-    if (editPublishDate) payload.publish_date = editPublishDate;
+    setSaveError(null);
+    setSaveSuccess(false);
 
-    let savedItem: Content | null = null;
+    try {
+      const tags = editTags.split(",").map(t => t.trim().replace(/^#/, "")).filter(Boolean);
+      const now = new Date().toISOString();
+      const payload: any = {
+        title: editTitle.trim(),
+        content: editContent.trim() || null,
+        tags: tags.length > 0 ? tags : null,
+        source: editPlatform || "creative-hub",
+        status: editStatus,
+        user_id: userId,
+        updated_at: now,
+      };
+      if (editPublishDate) payload.publish_date = editPublishDate;
 
-    if (selected) {
-      await supabase.from("ideas").update(payload).eq("id", selected.id);
-      savedItem = { ...selected, ...payload };
-      setSelected(savedItem);
-      setItems(prev => prev.map(i => i.id === selected.id ? savedItem! : i));
-    } else {
-      const { data } = await supabase.from("ideas").insert(payload).select().single();
-      if (data) {
-        savedItem = data;
-        setSelected(data);
-        setShowNew(false);
-        setItems(prev => [data, ...prev]);
+      if (selected) {
+        const { error } = await supabase.from("ideas").update(payload).eq("id", selected.id);
+        if (error) throw new Error(error.message);
+        const updated = { ...selected, ...payload };
+        setSelected(updated);
+        setItems(prev => prev.map(i => i.id === selected.id ? updated : i));
+      } else {
+        const { data, error } = await supabase.from("ideas").insert(payload).select().single();
+        if (error) throw new Error(error.message);
+        if (data) {
+          setSelected(data);
+          setShowNew(false);
+          setItems(prev => [data, ...prev]);
+        }
       }
-    }
 
-    // Create schedule entry for publish date so it shows on Calendar
-    if (editPublishDate && savedItem) {
-      try {
-        await fetch("/api/schedule", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date: editPublishDate,
-            start_time: "09:00",
-            end_time: "10:00",
-            title: `📝 Publish: ${editTitle.trim()}`,
-            domain: "business",
-            type: "content",
-          }),
-        });
-      } catch {}
-    }
+      // Create schedule entry for publish date so it shows on Calendar
+      if (editPublishDate) {
+        try {
+          await fetch("/api/schedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              date: editPublishDate,
+              start_time: "09:00",
+              end_time: "10:00",
+              title: `📝 Publish: ${editTitle.trim()}`,
+              domain: "business",
+              type: "content",
+            }),
+          });
+        } catch {}
+      }
 
-    setLastSaved(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    setSaving(false);
+      setLastSaved(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (err: any) {
+      setSaveError(err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function deleteItem(id: string) {
@@ -292,32 +305,33 @@ export default function CreativeHubPage() {
                         <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md"><ImageIcon className="w-3.5 h-3.5" /></button>
                         <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md"><LinkIcon className="w-3.5 h-3.5" /></button>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-slate-400">{wordCount} words · {charCount} chars</span>
-                        {lastSaved && <span className="text-[10px] text-slate-400">Saved {lastSaved}</span>}
-                        <button onClick={saveContent} disabled={saving || !editTitle.trim()} className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white text-[11px] font-medium rounded-md transition-colors">
-                          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                          {saving ? "Saving" : "Save"}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400">{wordCount} words</span>
+                        {saveError && <span className="text-[10px] text-red-500 font-medium">{saveError}</span>}
+                        {saveSuccess && <span className="text-[10px] text-emerald-600 font-medium">✓ Saved</span>}
+                        {lastSaved && !saveSuccess && !saveError && <span className="text-[10px] text-slate-400">Saved {lastSaved}</span>}
+                        <button onClick={saveContent} disabled={saving || !editTitle.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg transition-colors shadow-sm">
+                          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                          {saving ? "Saving..." : "Save"}
                         </button>
                       </div>
                     </div>
 
                     {/* Writing Area */}
                     <div className="flex-1 overflow-y-auto">
-                      <div className="max-w-2xl mx-auto px-8 py-10">
+                      <div className="px-6 py-6">
                         <input
                           type="text"
                           value={editTitle}
                           onChange={e => setEditTitle(e.target.value)}
                           placeholder="Untitled"
-                          className="w-full text-3xl font-bold text-slate-900 border-none focus:outline-none p-0 mb-6 placeholder:text-slate-300 bg-transparent leading-tight"
+                          className="w-full text-2xl font-bold text-slate-900 border-none focus:outline-none p-0 mb-4 placeholder:text-slate-300 bg-transparent leading-tight"
                         />
                         <textarea
                           value={editContent}
                           onChange={e => setEditContent(e.target.value)}
-                          placeholder="Start writing...&#10;&#10;Write your script, outline, caption, or content draft here. This is your creative workspace."
+                          placeholder="Start writing your script, outline, caption, or content draft here..."
                           className="w-full min-h-[500px] text-slate-700 text-[15px] leading-[1.8] border-none focus:outline-none p-0 resize-none placeholder:text-slate-400/60 bg-transparent"
-                          style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
                         />
                       </div>
                     </div>
@@ -405,9 +419,11 @@ export default function CreativeHubPage() {
                     </div>
 
                     {/* Save */}
-                    <div className="pt-3 border-t border-slate-100">
-                      <button onClick={saveContent} disabled={saving || !editTitle.trim()} className="w-full flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-lg py-2 text-xs font-medium transition-colors">
-                        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                    <div className="pt-3 border-t border-slate-100 space-y-2">
+                      {saveError && <p className="text-[10px] text-red-500 font-medium text-center">{saveError}</p>}
+                      {saveSuccess && <p className="text-[10px] text-emerald-600 font-medium text-center">✓ Saved successfully</p>}
+                      <button onClick={saveContent} disabled={saving || !editTitle.trim()} className="w-full flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-lg py-2.5 text-xs font-medium transition-colors shadow-sm">
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                         {saving ? "Saving..." : "Save Changes"}
                       </button>
                     </div>
