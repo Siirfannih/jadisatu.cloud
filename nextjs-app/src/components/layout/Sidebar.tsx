@@ -4,17 +4,21 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/lib/theme'
 import {
   LayoutDashboard, Lightbulb, KanbanSquare, FolderKanban,
-  Bot, BrainCircuit, History, Settings, Menu, X
+  Bot, BrainCircuit, History, Settings, Menu, X,
+  PenTool, Compass, Sun, Moon
 } from 'lucide-react'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Home', to: '/' },
+  { icon: PenTool, label: 'Creative Hub', to: '/creative' },
   { icon: Lightbulb, label: 'Ideas', to: '/ideas' },
   { icon: KanbanSquare, label: 'Kanban', to: '/kanban' },
   { icon: FolderKanban, label: 'Projects', to: '/projects' },
   { type: 'divider' as const },
+  { icon: Compass, label: 'Narrative Engine', to: '/narrative-engine' },
   { icon: Bot, label: 'Agents', to: '/agents' },
   { icon: BrainCircuit, label: 'Context Hub', to: '/context' },
   { icon: History, label: 'History', to: '/history' },
@@ -23,9 +27,13 @@ const navItems = [
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
+  const { theme, toggleTheme } = useTheme()
 
   return (
-    <aside className={cn('border-r border-border bg-card flex flex-col z-20 transition-all duration-200', collapsed ? 'w-16' : 'w-60')}>
+    <aside className={cn(
+      'border-r border-border bg-card flex flex-col z-20 transition-all duration-200',
+      collapsed ? 'w-16' : 'w-60'
+    )}>
       <div className="h-14 flex items-center px-3 border-b border-border justify-between">
         {!collapsed && (
           <div className="font-bold text-lg tracking-tight flex items-center gap-2 text-primary">
@@ -33,7 +41,7 @@ export default function Sidebar() {
             JadiSatu
           </div>
         )}
-        <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 hover:bg-accent rounded-md text-muted-foreground ml-auto">
+        <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground ml-auto">
           {collapsed ? <Menu size={16} /> : <X size={16} />}
         </button>
       </div>
@@ -51,7 +59,7 @@ export default function Sidebar() {
               href={item.to!}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-md transition-colors group relative',
-                active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 collapsed && 'justify-center px-2'
               )}
             >
@@ -67,11 +75,21 @@ export default function Sidebar() {
         })}
       </div>
 
-      <div className="p-2 border-t border-border">
+      <div className="p-2 border-t border-border space-y-1">
+        <button
+          onClick={toggleTheme}
+          className={cn(
+            'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground w-full',
+            collapsed && 'justify-center px-2'
+          )}
+        >
+          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          {!collapsed && <span className="text-sm font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+        </button>
         <Link
           href="/settings"
           className={cn(
-            'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground',
             collapsed && 'justify-center px-2'
           )}
         >
