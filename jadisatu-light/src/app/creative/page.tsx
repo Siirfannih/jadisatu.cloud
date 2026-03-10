@@ -53,6 +53,7 @@ export default function CreativeHubPage() {
   const [editStatus, setEditStatus] = useState("idea");
   const [editTags, setEditTags] = useState("");
   const [editPlatform, setEditPlatform] = useState("");
+  const [editPublishDate, setEditPublishDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
@@ -77,6 +78,7 @@ export default function CreativeHubPage() {
     setEditStatus(item.status || "idea");
     setEditTags(item.tags?.join(", ") || "");
     setEditPlatform(item.source || "");
+    setEditPublishDate((item as any).publish_date || "");
     setShowNew(false);
     setLastSaved(item.updated_at ? new Date(item.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null);
   }
@@ -88,6 +90,7 @@ export default function CreativeHubPage() {
     setEditStatus("idea");
     setEditTags("");
     setEditPlatform("");
+    setEditPublishDate("");
     setShowNew(true);
     setLastSaved(null);
   }
@@ -97,7 +100,7 @@ export default function CreativeHubPage() {
     setSaving(true);
     const tags = editTags.split(",").map(t => t.trim().replace(/^#/, "")).filter(Boolean);
     const now = new Date().toISOString();
-    const payload = {
+    const payload: any = {
       title: editTitle.trim(),
       content: editContent.trim() || null,
       tags: tags.length > 0 ? tags : null,
@@ -106,16 +109,44 @@ export default function CreativeHubPage() {
       user_id: userId,
       updated_at: now,
     };
+    if (editPublishDate) payload.publish_date = editPublishDate;
+
+    let savedItem: Content | null = null;
 
     if (selected) {
       await supabase.from("ideas").update(payload).eq("id", selected.id);
-      setSelected({ ...selected, ...payload });
+      savedItem = { ...selected, ...payload };
+      setSelected(savedItem);
+      setItems(prev => prev.map(i => i.id === selected.id ? savedItem! : i));
     } else {
       const { data } = await supabase.from("ideas").insert(payload).select().single();
-      if (data) { setSelected(data); setShowNew(false); }
+      if (data) {
+        savedItem = data;
+        setSelected(data);
+        setShowNew(false);
+        setItems(prev => [data, ...prev]);
+      }
     }
+
+    // Create schedule entry for publish date so it shows on Calendar
+    if (editPublishDate && savedItem) {
+      try {
+        await fetch("/api/schedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: editPublishDate,
+            start_time: "09:00",
+            end_time: "10:00",
+            title: `📝 Publish: ${editTitle.trim()}`,
+            domain: "business",
+            type: "content",
+          }),
+        });
+      } catch {}
+    }
+
     setLastSaved(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    await loadItems();
     setSaving(false);
   }
 
@@ -356,7 +387,21 @@ export default function CreativeHubPage() {
                     {/* Publish Date */}
                     <div>
                       <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Publish Date</label>
-                      <input type="date" className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                      <input
+                        type="date"
+                        value={editPublishDate}
+                        onChange={e => setEditPublishDate(e.target.value)}
+                        onClick={e => (e.target as HTMLInputElement).showPicker?.()}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      />
+                      {editPublishDate && (
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-[9px] text-blue-600 font-medium">
+                            📅 {new Date(editPublishDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                          </span>
+                          <button onClick={() => setEditPublishDate("")} className="text-[9px] text-slate-400 hover:text-red-500">Clear</button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Save */}

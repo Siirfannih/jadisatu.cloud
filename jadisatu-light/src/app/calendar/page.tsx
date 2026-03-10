@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
-import { Plus, ChevronLeft, ChevronRight, Clock, Trash2, X } from "lucide-react";
+import { createClient } from "@/lib/supabase-browser";
+import { Plus, ChevronLeft, ChevronRight, Clock, Trash2, X, FileText, CheckSquare } from "lucide-react";
 
 interface ScheduleBlock {
   id: string;
@@ -13,6 +14,14 @@ interface ScheduleBlock {
   domain: string | null;
   type: string;
   date: string;
+}
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  type: "schedule" | "content" | "task";
+  time?: string;
+  color: string;
 }
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 6);
@@ -34,9 +43,16 @@ export default function CalendarPage() {
   const [newDomain, setNewDomain] = useState("personal");
   const [newType, setNewType] = useState("task");
 
+  const [dayEvents, setDayEvents] = useState<CalendarEvent[]>([]);
+  const supabase = createClient();
+
   const dateStr = selectedDate.toISOString().split("T")[0];
 
-  useEffect(() => { loadSchedule(); }, [dateStr]);
+  useEffect(() => { loadAll(); }, [dateStr]);
+
+  async function loadAll() {
+    await Promise.all([loadSchedule(), loadDayEvents()]);
+  }
 
   async function loadSchedule() {
     const res = await fetch(`/api/schedule?date=${dateStr}`);
@@ -44,6 +60,48 @@ export default function CalendarPage() {
       const data = await res.json();
       setSchedule(Array.isArray(data) ? data : []);
     }
+  }
+
+  async function loadDayEvents() {
+    const events: CalendarEvent[] = [];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Content with publish_date
+      const { data: content } = await supabase
+        .from("ideas")
+        .select("id, title, publish_date, status")
+        .eq("user_id", user.id)
+        .eq("publish_date", dateStr)
+        .neq("status", "deleted");
+      if (content) {
+        content.forEach(c => events.push({
+          id: `content-${c.id}`,
+          title: `📝 ${c.title}`,
+          type: "content",
+          color: "bg-purple-500",
+        }));
+      }
+
+      // Tasks (if they have created_at matching this date — future: due_date)
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("id, title, status, created_at")
+        .eq("user_id", user.id)
+        .gte("created_at", dateStr + "T00:00:00")
+        .lt("created_at", dateStr + "T23:59:59");
+      if (tasks) {
+        tasks.forEach(t => events.push({
+          id: `task-${t.id}`,
+          title: `✅ ${t.title}`,
+          type: "task",
+          time: new Date(t.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          color: "bg-blue-500",
+        }));
+      }
+    } catch {}
+    setDayEvents(events);
   }
 
   async function addBlock() {
@@ -150,6 +208,7 @@ export default function CalendarPage() {
               </div>
             )}
 
+            <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
             {/* Timeline View */}
             <div className="flex-1 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-y-auto">
               <div className="relative min-h-[1024px]">
@@ -192,6 +251,55 @@ export default function CalendarPage() {
                   );
                 })()}
               </div>
+            </div>
+
+            {/* Day Events Sidebar */}
+            <div className="w-64 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-y-auto shrink-0 flex flex-col">
+              <div className="p-4 border-b border-slate-100">
+                <h3 className="font-bold text-slate-900 text-sm">All Events</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">{dayEvents.length + schedule.length} items on this day</p>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {/* Schedule blocks */}
+                {schedule.map(s => (
+                  <div key={s.id} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50/50 transition-colors">
+                    <div className={`w-1.5 h-8 rounded-full ${domainColors[s.domain || "personal"] || "bg-blue-500"} shrink-0 mt-0.5`}></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-900 line-clamp-1">{s.title}</p>
+                      <p className="text-[10px] text-slate-500">{s.start_time} – {s.end_time}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Content publish dates */}
+                {dayEvents.filter(e => e.type === "content").map(e => (
+                  <div key={e.id} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-purple-50/50 hover:bg-purple-50 transition-colors">
+                    <div className="w-1.5 h-8 rounded-full bg-purple-500 shrink-0 mt-0.5"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-900 line-clamp-1">{e.title}</p>
+                      <p className="text-[10px] text-purple-600">Publish date</p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Tasks */}
+                {dayEvents.filter(e => e.type === "task").map(e => (
+                  <div key={e.id} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-blue-50/50 hover:bg-blue-50 transition-colors">
+                    <div className="w-1.5 h-8 rounded-full bg-blue-500 shrink-0 mt-0.5"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-900 line-clamp-1">{e.title}</p>
+                      <p className="text-[10px] text-blue-600">{e.time || "Task"}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {schedule.length === 0 && dayEvents.length === 0 && (
+                  <div className="text-center py-6">
+                    <p className="text-xs text-slate-400">No events</p>
+                  </div>
+                )}
+              </div>
+            </div>
             </div>
           </div>
         </main>
