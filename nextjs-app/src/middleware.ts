@@ -59,6 +59,19 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Redirect legacy .html pages to Next.js routes
+  if (pathname.endsWith('.html')) {
+    // Map known legacy pages to Next.js routes
+    const htmlMap: Record<string, string> = {
+      '/dashboard.html': '/',
+      '/creative-hub-view.html': '/creative',
+      '/ai-agent-view.html': '/agents',
+      '/focus-view.html': '/',
+    }
+    const target = htmlMap[pathname] || '/'
+    return NextResponse.redirect(new URL(target, request.url))
+  }
+
   // Allow access to login and auth callback routes
   if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
     // If already logged in, redirect to dashboard
