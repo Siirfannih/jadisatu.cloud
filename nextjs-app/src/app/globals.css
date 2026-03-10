@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dark theme (default) */
+/* ═══════════════════════════════════════════
+   DARK THEME — Jadisatu.cloud Original
+   Persona: Systematic, focused, glassmorphism
+   ═══════════════════════════════════════════ */
 :root, .dark {
   --background: #0f0f11;
   --foreground: #fafafa;
@@ -23,20 +26,31 @@
   --glass-strong-bg: rgba(24, 24, 27, 0.9);
   --scrollbar-thumb: #3f3f46;
   --scrollbar-thumb-hover: #52525b;
+  --card-radius: 1rem;
+  --card-shadow: none;
+  --card-hover-shadow: none;
+  --sidebar-bg: #18181b;
+  --sidebar-active-bg: rgba(99, 102, 241, 0.1);
+  --sidebar-active-text: #6366f1;
+  --sidebar-text: #a1a1aa;
+  --sidebar-hover-bg: #27272a;
 }
 
-/* Light theme */
+/* ═══════════════════════════════════════════
+   LIGHT THEME — JadisatuLight
+   Persona: Creative, warm, clean workspace
+   ═══════════════════════════════════════════ */
 .light {
-  --background: #f8fafc;
+  --background: #F8FAFC;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
   --border: #e2e8f0;
-  --primary: #4f46e5;
+  --primary: #2563eb;
   --primary-foreground: #ffffff;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --accent: #ec4899;
+  --accent: #7c3aed;
   --accent-foreground: #ffffff;
   --destructive: #ef4444;
   --surface: #ffffff;
@@ -46,6 +60,14 @@
   --glass-strong-bg: rgba(255, 255, 255, 0.95);
   --scrollbar-thumb: #cbd5e1;
   --scrollbar-thumb-hover: #94a3b8;
+  --card-radius: 1.5rem;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --card-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --sidebar-bg: #ffffff;
+  --sidebar-active-bg: #eff6ff;
+  --sidebar-active-text: #2563eb;
+  --sidebar-text: #64748b;
+  --sidebar-hover-bg: #f8fafc;
 }
 
 body {
@@ -55,6 +77,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Scrollbar ─────────────────────────── */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -67,7 +90,7 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
-/* Glassmorphism */
+/* ── Glassmorphism (Dark theme signature) ── */
 .glass {
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
@@ -82,7 +105,17 @@ body {
   background: var(--glass-strong-bg);
 }
 
-/* Animations */
+/* ── Theme-aware card ─────────────────── */
+.theme-card {
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.theme-card:hover {
+  box-shadow: var(--card-hover-shadow);
+}
+
+/* ── Animations ────────────────────────── */
 .animate-slide-up {
   animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -99,7 +132,12 @@ body {
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3);
 }
 
-/* Kanban column */
+/* Light theme: softer hover lift */
+.light .hover-lift:hover {
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Kanban ─────────────────────────────── */
 .kanban-col {
   min-width: 300px;
   background: var(--glass-bg);
@@ -107,21 +145,26 @@ body {
   border: 1px solid var(--glass-border);
 }
 
-/* Domain gradients */
+/* ── Domain gradients ──────────────────── */
 .gradient-work { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
 .gradient-learn { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
 .gradient-business { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
 .gradient-personal { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
 
-/* Pulse glow */
+/* ── Pulse glow (dark theme effect) ───── */
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
   50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.5); }
 }
 .pulse-work { animation: pulse-glow 3s infinite; }
 
-/* Stoic / serif quote */
+/* ── Stoic quote ───────────────────────── */
 .stoic-text {
   font-family: 'Playfair Display', serif;
   font-style: italic;
+}
+
+/* ── Light theme: card border + shadow ── */
+.light .bg-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
