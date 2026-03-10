@@ -20,9 +20,12 @@
 set -euo pipefail
 
 NGINX_CONF="/etc/nginx/sites-available/jadisatu.cloud"
+NGINX_ENABLED="/etc/nginx/sites-enabled/jadisatu.cloud"
 
 # Check if already configured
 if grep -q "api/visual" "$NGINX_CONF" 2>/dev/null; then
+    # Ensure sites-enabled is in sync
+    cp "$NGINX_CONF" "$NGINX_ENABLED"
     echo "[nginx] Visual Engine proxy already configured"
     exit 0
 fi
@@ -49,6 +52,9 @@ else
     echo "[nginx] Please manually add the visual engine proxy block"
     exit 1
 fi
+
+# Sync sites-enabled
+cp "$NGINX_CONF" "$NGINX_ENABLED"
 
 # Test and reload
 nginx -t && nginx -s reload
