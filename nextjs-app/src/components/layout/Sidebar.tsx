@@ -9,26 +9,42 @@ import {
   LayoutDashboard, Lightbulb, KanbanSquare, FolderKanban,
   Bot, BrainCircuit, History, Settings,
   PenTool, Compass, Moon, Sun, Sparkles,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Calendar, Target,
+  CheckSquare, Users, StickyNote, LogOut
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase-browser'
+import { useRouter } from 'next/navigation'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
-  { icon: PenTool, label: 'Creative Hub', to: '/creative' },
-  { icon: Lightbulb, label: 'Ideas', to: '/ideas' },
+  { icon: Calendar, label: 'Calendar', to: '/calendar' },
+  { icon: Target, label: 'Focus Mode', to: '/focus' },
+  { icon: CheckSquare, label: 'Tasks', to: '/tasks' },
   { icon: KanbanSquare, label: 'Kanban', to: '/kanban' },
   { icon: FolderKanban, label: 'Projects', to: '/projects' },
   { type: 'divider' as const },
+  { icon: PenTool, label: 'Creative Hub', to: '/creative' },
   { icon: Compass, label: 'Narrative Engine', to: '/narrative-engine' },
   { icon: Bot, label: 'AI Agents', to: '/agents' },
-  { icon: BrainCircuit, label: 'Context Hub', to: '/context' },
+  { icon: Users, label: 'CRM', to: '/crm' },
+  { icon: StickyNote, label: 'Notes', to: '/notes' },
+  { type: 'divider' as const },
   { icon: History, label: 'History', to: '/history' },
+  { icon: BrainCircuit, label: 'Context Hub', to: '/context' },
 ]
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, toggleTheme } = useTheme()
+  const supabase = createClient()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <aside className={cn(
@@ -116,6 +132,16 @@ export default function Sidebar() {
           <Settings className="w-5 h-5 shrink-0 text-muted-foreground group-hover:text-foreground" />
           {!collapsed && <span className="font-medium text-sm whitespace-nowrap">Settings</span>}
         </Link>
+        <button
+          onClick={handleLogout}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-all duration-200 group',
+            collapsed && 'justify-center px-2'
+          )}
+        >
+          <LogOut className="w-5 h-5 shrink-0 text-muted-foreground group-hover:text-red-500" />
+          {!collapsed && <span className="font-medium text-sm whitespace-nowrap">Logout</span>}
+        </button>
       </div>
     </aside>
   )

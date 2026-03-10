@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
+import TopNav from './TopNav'
 import JuruCopilot from '../JuruCopilot'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -21,9 +22,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       <Sidebar />
-      <main className={isFullWidth ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto p-6 lg:p-8'}>
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <TopNav />
+        <main className={isFullWidth ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto p-6 lg:p-8'}>
+          {children}
+        </main>
+      </div>
       <JuruCopilot />
     </div>
   )
