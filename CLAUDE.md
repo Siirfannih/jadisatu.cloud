@@ -194,3 +194,47 @@ New or updated fields needed:
 - Use Tailwind CSS for styling (no inline styles)
 - Use Supabase client from src/lib/ for all database operations
 - Use App Router conventions (server components by default, 'use client' only when needed)
+
+## Autonomous Agent Workflow
+
+### Agent System
+This project uses specialized AI agents for development. Agent prompts are in `.claude/agents/`:
+- `frontend-dev.md` - Next.js/React/Tailwind specialist
+- `backend-architect.md` - Supabase/API/FastAPI specialist
+- `devops.md` - VPS/PM2/Nginx/CI-CD specialist
+- `sprint-lead.md` - Task breakdown and prioritization
+
+### Self-Sufficiency Rules
+When working on a task autonomously:
+
+1. **Read before writing** - Always read existing files before modifying. Read 2-3 similar components to understand patterns.
+2. **Self-validate** - After making changes:
+   - Run `cd nextjs-app && npx tsc --noEmit` to check TypeScript
+   - Run `cd nextjs-app && npm run build` to verify build
+   - If either fails, fix the errors yourself before reporting
+3. **Self-fix on error** - If you encounter an error:
+   - Read the error message carefully
+   - Check the relevant file
+   - Fix the issue
+   - Re-validate
+   - Only escalate if you've tried 3 times and still can't fix it
+4. **Commit conventions** - Use conventional commits:
+   - `feat: description` for new features
+   - `fix: description` for bug fixes
+   - `refactor: description` for refactoring
+   - `chore: description` for maintenance
+5. **Branch naming** - `agent/issue-{number}` for GitHub Issue tasks
+6. **PR creation** - Always create a PR, never push directly to main
+
+### Deployment Pipeline
+- Push to `main` triggers GitHub Actions: test → deploy → notify
+- Deploy runs `deploy/deploy.sh` on VPS via SSH
+- Health checks run automatically after deploy
+- Notifications sent via OpenClaw (Telegram/WhatsApp)
+
+### Infrastructure
+- **VPS**: Hostinger (76.13.190.196, SSH port 2222)
+- **PM2 processes**: jadisatu-nextjs (3000), hunter-agent (8000), visual-engine (8100)
+- **Nginx**: reverse proxy for all services
+- **OpenClaw**: messaging gateway (port 18789)
+- **GitHub Actions**: `.github/workflows/deploy.yml` (CI/CD), `agent-task.yml` (agent tasks)
