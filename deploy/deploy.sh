@@ -61,12 +61,45 @@ log "Building Next.js..."
 npm run build 2>&1 | tail -5 || fail "Next.js build failed"
 log "Next.js build complete"
 
-# ── 3. Frontend: sync to Nginx ───────────────────────────────
-if [ -d "${REPO_DIR}/frontend" ] && [ -d "$NGINX_ROOT" ]; then
-  rsync -a --delete "${REPO_DIR}/frontend/" "${NGINX_ROOT}/"
-  log "Frontend synced to ${NGINX_ROOT}"
+# ── 3. Nginx: proxy all traffic to Next.js ─────────────────────
+# The legacy static frontend is replaced by the Next.js app.
+# Install the nginx config that proxies everything to port 3000.
+NGINX_CONF_SRC="${REPO_DIR}/deploy/nginx/jadisatu.cloud.conf"
+NGINX_CONF_DEST="/etc/nginx/sites-available/jadisatu.cloud"
+NGINX_ENABLED="/etc/nginx/sites-enabled/jadisatu.cloud"
+
+if [ -f "$NGINX_CONF_SRC" ]; then
+  # Backup old config
+  cp "$NGINX_CONF_DEST" "${NGINX_CONF_DEST}.bak.$(date +%s)" 2>/dev/null || true
+
+  # If existing config has SSL, extract the cert paths and inject into new config
+  if [ -f "$NGINX_CONF_DEST" ] && grep -q "ssl_certificate " "$NGINX_CONF_DEST"; then
+    EXISTING_CERT=$(grep "ssl_certificate " "$NGINX_CONF_DEST" | grep -v "ssl_certificate_key" | head -1 | sed 's/.*ssl_certificate //;s/;//;s/^ *//')
+    EXISTING_KEY=$(grep "ssl_certificate_key " "$NGINX_CONF_DEST" | head -1 | sed 's/.*ssl_certificate_key //;s/;//;s/^ *//')
+    log "Preserving SSL paths: cert=${EXISTING_CERT} key=${EXISTING_KEY}"
+  fi
+
+  # Install new config
+  cp "$NGINX_CONF_SRC" "$NGINX_CONF_DEST"
+
+  # Replace SSL paths if we extracted them from old config
+  if [ -n "${EXISTING_CERT:-}" ] && [ -n "${EXISTING_KEY:-}" ]; then
+    sed -i "s|ssl_certificate .*|ssl_certificate ${EXISTING_CERT};|" "$NGINX_CONF_DEST"
+    sed -i "s|ssl_certificate_key .*|ssl_certificate_key ${EXISTING_KEY};|" "$NGINX_CONF_DEST"
+  fi
+
+  # Handle missing letsencrypt options gracefully
+  if [ ! -f "/etc/letsencrypt/options-ssl-nginx.conf" ]; then
+    sed -i '/options-ssl-nginx.conf/d' "$NGINX_CONF_DEST"
+  fi
+  if [ ! -f "/etc/letsencrypt/ssl-dhparams.pem" ]; then
+    sed -i '/ssl-dhparams.pem/d' "$NGINX_CONF_DEST"
+  fi
+
+  cp "$NGINX_CONF_DEST" "$NGINX_ENABLED"
+  log "Nginx config updated: all traffic now proxied to Next.js"
 else
-  log "WARNING: Frontend or Nginx root missing, skipping"
+  log "WARNING: Nginx config template not found at ${NGINX_CONF_SRC}"
 fi
 
 # ── 4. Python deps (Hunter Agent) ────────────────────────────
@@ -92,11 +125,7 @@ else
   log "PM2 processes started (first run)"
 fi
 
-# ── 6. Nginx: add visual-engine proxy if needed ──────────────
-cd "$REPO_DIR"
-bash deploy/setup-nginx-visual-engine.sh 2>&1 || log "WARNING: nginx visual-engine setup had issues"
-
-# ── 6b. Nginx: test & reload ─────────────────────────────────
+# ── 6. Nginx: test & reload ────────────────────────────────────
 nginx -t 2>&1 || fail "Nginx config test failed"
 nginx -s reload 2>&1
 log "Nginx reloaded"
