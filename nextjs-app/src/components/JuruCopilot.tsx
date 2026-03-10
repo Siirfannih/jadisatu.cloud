@@ -1,29 +1,41 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   Sparkles, X, Send, Loader2, PenTool, Compass,
-  Lightbulb, ListTodo, ChevronDown
+  Lightbulb, ListTodo, LayoutGrid, ArrowRight
 } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
   action?: JuruAction
+  links?: { label: string; href: string }[]
 }
 
 interface JuruAction {
   type: string
-  data: Record<string, string>
+  data: Record<string, unknown>
   executed?: boolean
 }
 
+interface ContentItem {
+  id: string
+  title: string
+  script: string
+  caption: string
+  platform: string
+  status: string
+}
+
 const QUICK_ACTIONS = [
-  { icon: Lightbulb, label: 'Create content idea', prompt: 'Create content idea about ' },
+  { icon: Lightbulb, label: 'Create idea', prompt: 'Create content idea about ' },
   { icon: PenTool, label: 'Generate script', prompt: 'Generate script for ' },
-  { icon: Compass, label: 'Research topic', prompt: 'Research ' },
-  { icon: ListTodo, label: 'Create tasks', prompt: 'Create tasks from content ' },
+  { icon: LayoutGrid, label: 'Break into slides', prompt: 'Break into carousel slides ' },
+  { icon: Compass, label: 'Research', prompt: 'Research ' },
+  { icon: ListTodo, label: 'Create task', prompt: 'Create task ' },
 ]
 
 export default function JuruCopilot() {
@@ -32,35 +44,59 @@ export default function JuruCopilot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hi! I\'m Juru, your AI copilot. I can help you create content ideas, generate scripts, research topics, and manage tasks. What would you like to do?',
+      content: 'Hi! I\'m Juru, your AI copilot. I can help you create content ideas, generate scripts, break scripts into carousel slides, research topics, and manage tasks. What would you like to do?',
     }
   ])
   const [loading, setLoading] = useState(false)
+  const [recentContent, setRecentContent] = useState<ContentItem[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Fetch recent content when opened for context
+  useEffect(() => {
+    if (open) {
+      fetch('/light/api/contents')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setRecentContent(Array.isArray(data) ? data.slice(0, 10) : []))
+        .catch(() => setRecentContent([]))
+    }
+  }, [open])
+
+  const addMessage = useCallback((msg: Message) => {
+    setMessages(prev => [...prev, msg])
+  }, [])
 
   async function handleSend() {
     if (!input.trim() || loading) return
 
     const userMessage = input.trim()
     setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    addMessage({ role: 'user', content: userMessage })
     setLoading(true)
 
     try {
       const response = await processCommand(userMessage)
-      setMessages(prev => [...prev, response])
+      addMessage(response)
     } catch {
-      setMessages(prev => [...prev, {
+      addMessage({
         role: 'assistant',
         content: 'Sorry, something went wrong. Please try again.',
-      }])
+      })
     } finally {
       setLoading(false)
     }
+  }
+
+  function findContentByQuery(query: string): ContentItem | undefined {
+    const lower = query.toLowerCase()
+    return recentContent.find(c =>
+      c.title.toLowerCase().includes(lower) ||
+      c.id === query
+    )
   }
 
   async function processCommand(input: string): Promise<Message> {
@@ -80,14 +116,17 @@ export default function JuruCopilot() {
           body: JSON.stringify({ title: topic, status: 'idea' }),
         })
         if (res.ok) {
+          const data = await res.json()
+          refreshContent()
           return {
             role: 'assistant',
-            content: `Created a new content idea: "${topic}". You can find it in the Creative Hub.`,
-            action: { type: 'create_idea', data: { title: topic }, executed: true },
+            content: `Created content idea: "${topic}"\n\nYou can now edit it in Creative Hub, or ask me to generate a script for it.`,
+            action: { type: 'create_idea', data: { title: topic, id: data.id }, executed: true },
+            links: [{ label: 'Open Creative Hub', href: '/light/creative' }],
           }
         }
       } catch { /* fall through */ }
-      return { role: 'assistant', content: `I'll create that idea for you. Please open Creative Hub and add "${topic}" there.` }
+      return { role: 'assistant', content: `Couldn't create the idea. Please try in the Creative Hub directly.` }
     }
 
     // Generate script
@@ -97,33 +136,170 @@ export default function JuruCopilot() {
         return { role: 'assistant', content: 'What should the script be about? Try: "Generate script for AI productivity tools review"' }
       }
 
+      // Check if topic matches existing content
+      const existing = findContentByQuery(topic)
+
       try {
         const res = await fetch('/light/api/narrative/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic, angle: topic, platform: 'instagram' }),
+          body: JSON.stringify({
+            topic: existing?.title || topic,
+            angle: existing?.title || topic,
+            platform: existing?.platform || 'instagram',
+          }),
         })
         if (res.ok) {
           const data = await res.json()
-          // Save to creative hub
-          await fetch('/light/api/contents', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: topic,
-              script: data.draft_script,
-              platform: data.platform,
-              status: 'script',
-            }),
-          })
+
+          // Update existing content or create new
+          if (existing) {
+            await fetch('/light/api/contents', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: existing.id,
+                script: data.draft_script,
+                status: 'script',
+              }),
+            })
+          } else {
+            await fetch('/light/api/contents', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: topic,
+                script: data.draft_script,
+                platform: data.platform,
+                status: 'script',
+              }),
+            })
+          }
+          refreshContent()
+          const preview = data.draft_script.substring(0, 150)
           return {
             role: 'assistant',
-            content: `Script generated and saved to Creative Hub!\n\nPreview:\n${data.draft_script.substring(0, 200)}...`,
+            content: `Script generated${existing ? ' and updated' : ' and saved'}!\n\nPreview:\n${preview}...`,
             action: { type: 'generate_script', data: { title: topic }, executed: true },
+            links: [{ label: 'Open Creative Hub', href: '/light/creative' }],
           }
         }
       } catch { /* fall through */ }
-      return { role: 'assistant', content: `I couldn't generate the script right now. Try using the Narrative Engine page directly.` }
+      return { role: 'assistant', content: `Couldn't generate the script. Try the Narrative Engine page.` }
+    }
+
+    // Break into carousel slides / formats
+    if (lower.startsWith('break into') || lower.startsWith('break this') || lower.startsWith('split into') || lower.startsWith('carousel')) {
+      const query = input.replace(/^(break (this |into )?|split into |carousel (slides? )?)(carousel slides?|slides?|formats?)?\s*(for |from |of )?\s*/i, '').trim()
+
+      // Find content to break into slides
+      let content = query ? findContentByQuery(query) : undefined
+
+      // If no query match, use the most recent content with a script
+      if (!content) {
+        content = recentContent.find(c => c.script && c.script.length > 0)
+      }
+
+      if (!content || !content.script) {
+        return {
+          role: 'assistant',
+          content: 'I need a content item with a script to break into slides. Generate a script first, or specify which content to use.\n\nTry: "Break into carousel slides [content title]"',
+        }
+      }
+
+      // Generate carousel slides from the script
+      const slides = generateCarouselSlides(content.title, content.script)
+
+      try {
+        await fetch('/light/api/contents', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: content.id,
+            carousel_assets: slides,
+          }),
+        })
+        refreshContent()
+
+        const slidePreview = slides.map((s: { slide: number; text: string }, i: number) =>
+          `Slide ${i + 1}: ${s.text.substring(0, 60)}...`
+        ).join('\n')
+
+        return {
+          role: 'assistant',
+          content: `Broke "${content.title}" into ${slides.length} carousel slides!\n\n${slidePreview}`,
+          action: { type: 'break_into_slides', data: { contentId: content.id, slideCount: String(slides.length) }, executed: true },
+          links: [{ label: 'Open Creative Hub', href: '/light/creative' }],
+        }
+      } catch { /* fall through */ }
+      return { role: 'assistant', content: `Couldn't save carousel slides. Try again later.` }
+    }
+
+    // Create tasks from content
+    if (lower.startsWith('create tasks from')) {
+      const query = input.replace(/^create tasks from (content )?\s*/i, '').trim()
+
+      let content = query ? findContentByQuery(query) : undefined
+      if (!content) {
+        content = recentContent[0]
+      }
+
+      if (!content) {
+        return {
+          role: 'assistant',
+          content: 'No content found to create tasks from. Create some content first!',
+        }
+      }
+
+      // Generate task list based on content status and pipeline
+      const tasks = generateTasksFromContent(content)
+      const created: string[] = []
+
+      for (const task of tasks) {
+        try {
+          const res = await fetch('/light/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(task),
+          })
+          if (res.ok) created.push(task.title)
+        } catch { /* skip */ }
+      }
+
+      if (created.length > 0) {
+        return {
+          role: 'assistant',
+          content: `Created ${created.length} tasks for "${content.title}":\n\n${created.map(t => `- ${t}`).join('\n')}`,
+          action: { type: 'create_tasks_from_content', data: { contentTitle: content.title, taskCount: String(created.length) }, executed: true },
+          links: [{ label: 'Open Kanban', href: '/light/kanban' }],
+        }
+      }
+      return { role: 'assistant', content: `Couldn't create tasks. Please try adding them manually on the Kanban board.` }
+    }
+
+    // Create single task
+    if (lower.startsWith('create task') || lower.startsWith('add task')) {
+      const title = input.replace(/^(create task|add task)\s*/i, '').trim()
+      if (!title) {
+        return { role: 'assistant', content: 'What task should I create? Try: "Create task Review content calendar"' }
+      }
+
+      try {
+        const res = await fetch('/light/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, status: 'todo', priority: 'medium', domain: 'work' }),
+        })
+        if (res.ok) {
+          return {
+            role: 'assistant',
+            content: `Task created: "${title}"`,
+            action: { type: 'create_task', data: { title }, executed: true },
+            links: [{ label: 'Open Kanban', href: '/light/kanban' }],
+          }
+        }
+      } catch { /* fall through */ }
+      return { role: 'assistant', content: `Couldn't create the task. Try the Kanban board directly.` }
     }
 
     // Research
@@ -146,53 +322,55 @@ export default function JuruCopilot() {
             .join('\n')
           return {
             role: 'assistant',
-            content: `Research completed for "${topic}"!\n\nContent Angles:\n${anglesText}\n\nUse the Narrative Engine page to generate scripts from these angles.`,
+            content: `Research completed for "${topic}"!\n\nContent Angles:\n${anglesText}\n\nSay "Generate script for [topic]" to create a script from this research.`,
             action: { type: 'research', data: { topic }, executed: true },
+            links: [{ label: 'Open Narrative Engine', href: '/light/narrative-engine' }],
           }
         }
       } catch { /* fall through */ }
-      return { role: 'assistant', content: `Research on "${topic}" is available in the Narrative Engine. Head there to see full results.` }
+      return { role: 'assistant', content: `Couldn't complete research. Try the Narrative Engine page directly.` }
     }
 
-    // Create tasks
-    if (lower.startsWith('create task') || lower.startsWith('add task')) {
-      const title = input.replace(/^(create tasks? from content|create tasks?|add tasks?)\s*/i, '').trim()
-      if (!title) {
-        return { role: 'assistant', content: 'What task should I create? Try: "Create task Review content calendar"' }
+    // List content
+    if (lower.startsWith('list content') || lower.startsWith('show content') || lower.startsWith('my content')) {
+      if (recentContent.length === 0) {
+        return { role: 'assistant', content: 'No content items found. Create one with "Create content idea about [topic]"' }
       }
-
-      try {
-        const res = await fetch('/light/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, status: 'todo', priority: 'medium', domain: 'work' }),
-        })
-        if (res.ok) {
-          return {
-            role: 'assistant',
-            content: `Task created: "${title}". You can find it on the Kanban board.`,
-            action: { type: 'create_task', data: { title }, executed: true },
-          }
-        }
-      } catch { /* fall through */ }
-      return { role: 'assistant', content: `I'll note that task. Please add "${title}" on the Kanban board.` }
+      const list = recentContent.slice(0, 5).map(c =>
+        `- **${c.title}** [${c.status}] (${c.platform})`
+      ).join('\n')
+      return {
+        role: 'assistant',
+        content: `Your recent content:\n\n${list}\n\nYou can reference any of these by title in your commands.`,
+        links: [{ label: 'Open Creative Hub', href: '/light/creative' }],
+      }
     }
 
-    // Default response
+    // Help / default
     return {
       role: 'assistant',
-      content: `I can help you with:\n\n` +
-        `- **Create content idea about [topic]** - adds to Creative Hub\n` +
-        `- **Generate script for [topic]** - creates a content script\n` +
-        `- **Research [topic]** - runs Narrative Engine research\n` +
-        `- **Create task [title]** - adds a new task\n\n` +
+      content: `Here's what I can do:\n\n` +
+        `- **Create content idea about [topic]** → adds to Creative Hub\n` +
+        `- **Generate script for [topic]** → creates a content script\n` +
+        `- **Break into carousel slides [title]** → splits script into slides\n` +
+        `- **Create tasks from [content title]** → generates tasks from content\n` +
+        `- **Create task [title]** → adds a single task\n` +
+        `- **Research [topic]** → runs Narrative Engine research\n` +
+        `- **List content** → shows your recent content\n\n` +
         `Try one of these commands!`,
     }
   }
 
-  async function executeAction(action: JuruAction) {
-    if (action.executed) return
-    // Actions are executed during processCommand, this is for future use
+  function refreshContent() {
+    fetch('/light/api/contents')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setRecentContent(Array.isArray(data) ? data.slice(0, 10) : []))
+      .catch(() => {})
+  }
+
+  function handleLinkClick(href: string) {
+    router.push(href)
+    setOpen(false)
   }
 
   return (
@@ -235,8 +413,21 @@ export default function JuruCopilot() {
               >
                 <div className="whitespace-pre-wrap">{msg.content}</div>
                 {msg.action?.executed && (
-                  <div className="mt-2 pt-2 border-t border-white/10 text-xs opacity-70 flex items-center gap-1">
+                  <div className="mt-2 pt-2 border-t border-current/10 text-xs opacity-70 flex items-center gap-1">
                     ✓ Action completed
+                  </div>
+                )}
+                {msg.links && msg.links.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-current/10 flex flex-wrap gap-2">
+                    {msg.links.map((link, j) => (
+                      <button
+                        key={j}
+                        onClick={() => handleLinkClick(link.href)}
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        {link.label} <ArrowRight size={10} />
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -288,4 +479,97 @@ export default function JuruCopilot() {
       )}
     </>
   )
+}
+
+function generateCarouselSlides(title: string, script: string): { slide: number; text: string; type: string }[] {
+  // Parse script sections into carousel slides
+  const sections = script.split(/\n\n+/).filter(s => s.trim().length > 0)
+  const slides: { slide: number; text: string; type: string }[] = []
+
+  // Slide 1: Hook / Title
+  slides.push({
+    slide: 1,
+    text: title,
+    type: 'hook',
+  })
+
+  // Parse meaningful sections into slides
+  let slideNum = 2
+  for (const section of sections) {
+    const cleaned = section.replace(/^\[.*?\]\s*/m, '').trim()
+    if (cleaned.length < 10) continue
+
+    // Determine slide type from content
+    let type = 'content'
+    const sectionLower = section.toLowerCase()
+    if (sectionLower.includes('hook') || sectionLower.includes('intro')) type = 'hook'
+    else if (sectionLower.includes('problem')) type = 'problem'
+    else if (sectionLower.includes('insight') || sectionLower.includes('finding')) type = 'insight'
+    else if (sectionLower.includes('action') || sectionLower.includes('step')) type = 'action'
+    else if (sectionLower.includes('cta') || sectionLower.includes('follow')) type = 'cta'
+
+    slides.push({
+      slide: slideNum++,
+      text: cleaned.substring(0, 280),
+      type,
+    })
+
+    if (slideNum > 10) break // Cap at 10 slides
+  }
+
+  // Add CTA slide if not present
+  if (!slides.some(s => s.type === 'cta')) {
+    slides.push({
+      slide: slideNum,
+      text: `Follow for more insights on ${title}. Save this post for later!`,
+      type: 'cta',
+    })
+  }
+
+  return slides
+}
+
+function generateTasksFromContent(content: ContentItem): { title: string; status: string; priority: string; domain: string }[] {
+  const tasks: { title: string; status: string; priority: string; domain: string }[] = []
+  const title = content.title
+
+  switch (content.status) {
+    case 'idea':
+      tasks.push(
+        { title: `Research topic: ${title}`, status: 'todo', priority: 'high', domain: 'work' },
+        { title: `Write script for: ${title}`, status: 'backlog', priority: 'medium', domain: 'work' },
+        { title: `Choose platform for: ${title}`, status: 'backlog', priority: 'low', domain: 'work' },
+      )
+      break
+    case 'draft':
+    case 'script':
+      tasks.push(
+        { title: `Review and edit script: ${title}`, status: 'todo', priority: 'high', domain: 'work' },
+        { title: `Create visuals for: ${title}`, status: 'backlog', priority: 'medium', domain: 'work' },
+        { title: `Schedule shoot for: ${title}`, status: 'backlog', priority: 'medium', domain: 'work' },
+      )
+      break
+    case 'ready':
+      tasks.push(
+        { title: `Final review: ${title}`, status: 'todo', priority: 'high', domain: 'work' },
+        { title: `Schedule publish date for: ${title}`, status: 'todo', priority: 'high', domain: 'work' },
+        { title: `Prepare captions & hashtags: ${title}`, status: 'backlog', priority: 'medium', domain: 'work' },
+      )
+      break
+    case 'published':
+      tasks.push(
+        { title: `Monitor engagement: ${title}`, status: 'todo', priority: 'medium', domain: 'work' },
+        { title: `Respond to comments: ${title}`, status: 'backlog', priority: 'low', domain: 'work' },
+      )
+      break
+    default:
+      tasks.push(
+        { title: `Plan content: ${title}`, status: 'todo', priority: 'medium', domain: 'work' },
+        { title: `Create script for: ${title}`, status: 'backlog', priority: 'medium', domain: 'work' },
+        { title: `Produce content: ${title}`, status: 'backlog', priority: 'medium', domain: 'work' },
+        { title: `Publish: ${title}`, status: 'backlog', priority: 'low', domain: 'work' },
+      )
+  }
+
+  return tasks
 }
