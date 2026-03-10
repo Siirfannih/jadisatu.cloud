@@ -1,3 +1,21 @@
+const fs = require('fs');
+const path = require('path');
+
+// Load .env file as key=value pairs (ignores comments and blank lines)
+function loadEnv(envPath) {
+  const vars = {};
+  try {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq > 0) vars[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
+    }
+  } catch (_) { /* .env not found — ok */ }
+  return vars;
+}
+
 module.exports = {
   apps: [
     {
@@ -23,7 +41,8 @@ module.exports = {
       args: "api:app --host 0.0.0.0 --port 8000",
       interpreter: "none",
       env: {
-        PORT: 8000
+        PORT: 8000,
+        ...loadEnv(path.resolve(__dirname, 'hunter-agent/backend/.env'))
       },
       instances: 1,
       autorestart: true,
@@ -39,7 +58,8 @@ module.exports = {
       args: "api.app:app --host 0.0.0.0 --port 8100",
       interpreter: "none",
       env: {
-        PORT: 8100
+        PORT: 8100,
+        ...loadEnv(path.resolve(__dirname, 'visual-engine/.env'))
       },
       instances: 1,
       autorestart: true,
