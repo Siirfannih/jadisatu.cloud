@@ -2,9 +2,11 @@ import { createClient } from "@/lib/supabase-server"
 import { NextResponse } from "next/server"
 
 function getSiteUrl(request: Request) {
-  // Use the actual request origin so redirects work correctly in production
-  const url = new URL(request.url)
-  return `${url.protocol}//${url.host}`
+  // Behind nginx proxy, request.url is http://localhost:3000
+  // Use X-Forwarded headers set by nginx to get the real external URL
+  const proto = request.headers.get('x-forwarded-proto') || 'https'
+  const host = request.headers.get('host') || 'jadisatu.cloud'
+  return `${proto}://${host}`
 }
 
 export async function GET(request: Request) {
