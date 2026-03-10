@@ -126,7 +126,7 @@ export default function CreativeHub() {
 
   async function deleteContent(id: string) {
     if (!confirm('Delete this content?')) return
-    await fetch(`/api/contents?id=${id}`, { method: 'DELETE' })
+    await fetch(`/light/api/contents?id=${id}`, { method: 'DELETE' })
     if (selectedId === id) setSelectedId(null)
     await loadContents()
   }
