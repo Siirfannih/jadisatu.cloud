@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════
-   JadisatuLight — Light Theme Only
-   Persona: Creative, warm, clean workspace
+   JadiSatu OS — Theme System
+   Light Mode (default) + Dark Mode
    ═══════════════════════════════════════════ */
+
 :root {
   --background: #F8FAFC;
   --foreground: #0f172a;
@@ -16,14 +17,38 @@
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
   --accent: #7c3aed;
+  --accent-foreground: #ffffff;
   --destructive: #ef4444;
+  --surface: #f1f5f9;
+  --surface-light: #f8fafc;
+  --input: #f1f5f9;
+  --ring: #2563eb;
+}
+
+.dark {
+  --background: #0c0c14;
+  --foreground: #e2e8f0;
+  --card: #14141f;
+  --border: #1e293b;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #8b5cf6;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --surface: #1a1a2e;
+  --surface-light: #1e1e32;
+  --input: #1e293b;
+  --ring: #3b82f6;
 }
 
 body {
-  background-color: #F8FAFC;
-  color: #0f172a;
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* ── Scrollbar ─────────────────────────── */
@@ -36,8 +61,12 @@ body {
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb,
 .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+.dark .custom-scroll::-webkit-scrollbar-thumb { background: #334155; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark .custom-scroll::-webkit-scrollbar-thumb:hover { background: #475569; }
 
 /* ── Animations ────────────────────────── */
 .animate-slide-up {

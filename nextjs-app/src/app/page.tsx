@@ -126,11 +126,11 @@ export default function DashboardPage() {
 
   const getDomainColor = (name: string) => {
     const n = name.toLowerCase()
-    if (n === 'work') return 'text-blue-600 bg-blue-50 border-blue-100'
-    if (n === 'learn') return 'text-amber-600 bg-amber-50 border-amber-100'
-    if (n === 'business') return 'text-emerald-600 bg-emerald-50 border-emerald-100'
-    if (n === 'personal') return 'text-violet-600 bg-violet-50 border-violet-100'
-    return 'text-slate-600 bg-slate-50 border-slate-100'
+    if (n === 'work') return 'text-blue-600 bg-blue-50 dark:bg-blue-500/10 border-blue-100 dark:border-blue-500/20'
+    if (n === 'learn') return 'text-amber-600 bg-amber-50 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20'
+    if (n === 'business') return 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20'
+    if (n === 'personal') return 'text-violet-600 bg-violet-50 dark:bg-violet-500/10 border-violet-100 dark:border-violet-500/20'
+    return 'text-muted-foreground bg-muted border-border'
   }
 
   const focusTasks = tasks.filter(t => t.status !== 'done' && t.status !== 'completed').slice(0, 3)
@@ -141,7 +141,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-slate-400 text-lg">Loading your dashboard...</div>
+        <div className="text-muted-foreground text-lg">Loading your dashboard...</div>
       </div>
     )
   }
@@ -151,17 +151,17 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-slate-500 font-medium mb-1">Good morning</p>
-          <h1 className="text-4xl font-bold text-slate-900 tracking-tight">
+          <p className="text-muted-foreground font-medium mb-1">Good morning</p>
+          <h1 className="text-4xl font-bold text-foreground tracking-tight">
             Welcome back, {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Creator'}!
           </h1>
-          <p className="text-slate-500 text-lg mt-1">
-            You have <span className="text-blue-600 font-medium">{tasks.filter(t => t.status !== 'done').length} tasks</span> active
-            {projects.length > 0 && <> and <span className="text-purple-600 font-medium">{projects.length} projects</span> in progress</>}.
+          <p className="text-muted-foreground text-lg mt-1">
+            You have <span className="text-blue-600 dark:text-blue-400 font-medium">{tasks.filter(t => t.status !== 'done').length} tasks</span> active
+            {projects.length > 0 && <> and <span className="text-purple-600 dark:text-purple-400 font-medium">{projects.length} projects</span> in progress</>}.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/projects')} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-medium transition-colors shadow-sm">
+          <button onClick={() => router.push('/projects')} className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-3 rounded-xl font-medium transition-colors shadow-sm">
             <Plus className="w-5 h-5" /><span>New Project</span>
           </button>
         </div>
@@ -169,12 +169,12 @@ export default function DashboardPage() {
 
       {/* Life Balance */}
       {domains.length > 0 && (
-        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm p-5">
-          <div className="flex justify-between text-xs uppercase tracking-wider text-slate-500 mb-3">
+        <div className="bg-card border border-border rounded-3xl shadow-sm p-5">
+          <div className="flex justify-between text-xs uppercase tracking-wider text-muted-foreground mb-3">
             <span>Life Balance</span>
-            <span className="text-slate-900 font-semibold">{overallBalance}%</span>
+            <span className="text-foreground font-semibold">{overallBalance}%</span>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex mb-3">
+          <div className="h-2 bg-muted rounded-full overflow-hidden flex mb-3">
             {domainPercentages.map((d, i) => {
               let bg = 'bg-violet-500'
               if (d.name === 'work') bg = 'bg-blue-500'
@@ -190,7 +190,7 @@ export default function DashboardPage() {
               else if (d.name === 'learn') dot = 'bg-amber-500'
               else if (d.name === 'business') dot = 'bg-emerald-500'
               return (
-                <span key={d.id} className="flex items-center gap-1.5 text-slate-500">
+                <span key={d.id} className="flex items-center gap-1.5 text-muted-foreground">
                   <div className={'w-2 h-2 rounded-full ' + dot} />{d.display_name}
                 </span>
               )
@@ -200,15 +200,15 @@ export default function DashboardPage() {
       )}
 
       {/* Today's Focus */}
-      <div className="bg-white border border-slate-100 rounded-3xl shadow-sm p-6">
+      <div className="bg-card border border-border rounded-3xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
-              <Target className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+              <Target className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Today&apos;s Focus</h2>
-              <p className="text-sm text-slate-500">{focusTasks.length} priority tasks</p>
+              <h2 className="text-xl font-bold text-foreground">Today&apos;s Focus</h2>
+              <p className="text-sm text-muted-foreground">{focusTasks.length} priority tasks</p>
             </div>
           </div>
         </div>
@@ -219,33 +219,33 @@ export default function DashboardPage() {
             onChange={(e) => setNewTaskTitle(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
             placeholder="Add a new task..."
-            className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-300 text-slate-900 placeholder:text-slate-400"
+            className="flex-1 px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:border-primary/50 text-foreground placeholder:text-muted-foreground"
             disabled={addingTask}
           />
-          <button onClick={handleAddTask} disabled={addingTask || !newTaskTitle.trim()} className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-medium flex items-center gap-2">
+          <button onClick={handleAddTask} disabled={addingTask || !newTaskTitle.trim()} className="px-4 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white rounded-xl text-sm font-medium flex items-center gap-2">
             <Plus className="w-4 h-4" />Add
           </button>
         </div>
 
         {focusTasks.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
+          <div className="text-center py-8 text-muted-foreground">
             <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p className="text-sm">No tasks yet. Add your first task above!</p>
           </div>
         ) : (
           <div className="space-y-2">
             {focusTasks.map((task) => (
-              <div key={task.id} className="group flex items-center gap-3 p-4 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-2xl transition-all">
+              <div key={task.id} className="group flex items-center gap-3 p-4 bg-muted/50 hover:bg-muted border border-border rounded-2xl transition-all">
                 <button onClick={() => handleToggleTask(task.id, task.status)} className="shrink-0">
                   {task.status === 'done' || task.status === 'completed'
                     ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    : <Circle className="w-5 h-5 text-slate-300 hover:text-blue-500" />}
+                    : <Circle className="w-5 h-5 text-muted-foreground/50 hover:text-blue-500" />}
                 </button>
-                <span className={'flex-1 text-sm ' + (task.status === 'done' ? 'line-through text-slate-400' : 'text-slate-900')}>{task.title}</span>
+                <span className={'flex-1 text-sm ' + (task.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground')}>{task.title}</span>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleUpdateTaskStatus(task.id, 'in-progress')} className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs rounded-lg">Dikerjakan</button>
-                  <button onClick={() => handleUpdateTaskStatus(task.id, 'backlog')} className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs rounded-lg">Ditunda</button>
-                  <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleUpdateTaskStatus(task.id, 'in-progress')} className="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs rounded-lg">Dikerjakan</button>
+                  <button onClick={() => handleUpdateTaskStatus(task.id, 'backlog')} className="px-3 py-1 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs rounded-lg">Ditunda</button>
+                  <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-500 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
@@ -263,14 +263,14 @@ export default function DashboardPage() {
             else if (domain.name === 'learn') bar = 'bg-amber-500'
             else if (domain.name === 'business') bar = 'bg-emerald-500'
             return (
-              <div key={domain.id} className={'bg-white border p-6 rounded-3xl shadow-sm hover:shadow-md transition-all cursor-pointer border-slate-100 ' + color}>
+              <div key={domain.id} className={'bg-card border p-6 rounded-3xl shadow-sm hover:shadow-md transition-all cursor-pointer border-border ' + color}>
                 <div className="flex items-center justify-between mb-4">
                   <div className={'p-3 rounded-xl ' + color}>{getDomainIcon(domain.name)}</div>
-                  <span className="text-4xl font-bold text-slate-900">{domain.progress_percentage}%</span>
+                  <span className="text-4xl font-bold text-foreground">{domain.progress_percentage}%</span>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">{domain.display_name}</h3>
-                <p className="text-sm text-slate-500 mb-3">{domain.completed_tasks} / {domain.total_tasks} tasks</p>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <h3 className="text-lg font-semibold text-foreground mb-1">{domain.display_name}</h3>
+                <p className="text-sm text-muted-foreground mb-3">{domain.completed_tasks} / {domain.total_tasks} tasks</p>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div className={bar} style={{ width: domain.progress_percentage + '%' }} />
                 </div>
               </div>
@@ -280,32 +280,32 @@ export default function DashboardPage() {
       )}
 
       {domains.length === 0 && (
-        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm p-8 text-center">
-          <LayoutDashboard className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">No domains yet</h3>
-          <p className="text-sm text-slate-500">Domains will be created automatically when you add tasks.</p>
+        <div className="bg-card border border-border rounded-3xl shadow-sm p-8 text-center">
+          <LayoutDashboard className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No domains yet</h3>
+          <p className="text-sm text-muted-foreground">Domains will be created automatically when you add tasks.</p>
         </div>
       )}
 
       {/* Active Projects */}
       {projects.length > 0 && (
-        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm p-6">
+        <div className="bg-card border border-border rounded-3xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
                 <Briefcase className="w-6 h-6 text-emerald-600" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900">Active Projects</h2>
+              <h2 className="text-xl font-bold text-foreground">Active Projects</h2>
             </div>
-            <a href="/projects" className="text-sm text-slate-500 hover:text-slate-900 flex items-center gap-1">
+            <a href="/projects" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
               View all <ChevronRight className="w-4 h-4" />
             </a>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.slice(0, 3).map((project) => (
-              <div key={project.id} className="p-4 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-2xl transition-all cursor-pointer">
-                <h3 className="font-semibold text-slate-900 mb-1">{project.name}</h3>
-                <p className="text-sm text-slate-500 line-clamp-2">{project.description || 'No description'}</p>
+              <div key={project.id} className="p-4 bg-muted/50 hover:bg-muted border border-border rounded-2xl transition-all cursor-pointer">
+                <h3 className="font-semibold text-foreground mb-1">{project.name}</h3>
+                <p className="text-sm text-muted-foreground line-clamp-2">{project.description || 'No description'}</p>
                 <div className="mt-3">
                   <span className={'text-xs px-2 py-1 rounded-lg ' + getDomainColor(project.domain)}>{project.domain}</span>
                 </div>
@@ -317,20 +317,20 @@ export default function DashboardPage() {
 
       {/* Recent Activity */}
       {activities.length > 0 && (
-        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm p-6">
+        <div className="bg-card border border-border rounded-3xl shadow-sm p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center">
               <Activity className="w-6 h-6 text-violet-600" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900">Recent Activity</h2>
+            <h2 className="text-xl font-bold text-foreground">Recent Activity</h2>
           </div>
           <div className="space-y-3">
             {activities.map((a) => (
-              <div key={a.id} className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-100 rounded-2xl">
-                <Clock className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+              <div key={a.id} className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-2xl">
+                <Clock className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-900">{a.description}</p>
-                  <p className="text-xs text-slate-400 mt-1">{new Date(a.created_at).toLocaleString()}</p>
+                  <p className="text-sm text-foreground">{a.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{new Date(a.created_at).toLocaleString()}</p>
                 </div>
               </div>
             ))}

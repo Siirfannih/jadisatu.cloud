@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/components/layout/AppShell'
+import { ThemeProvider } from '@/lib/theme'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' })
@@ -13,18 +14,27 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="light" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <style dangerouslySetInnerHTML={{__html: `
-          .no-scrollbar::-webkit-scrollbar { display: none; }
-          .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        <script dangerouslySetInnerHTML={{__html: `
+          (function() {
+            try {
+              var theme = localStorage.getItem('jadisatu-theme');
+              if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+              } else {
+                document.documentElement.classList.remove('dark');
+              }
+            } catch(e) {}
+          })();
         `}} />
       </head>
-      <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}
-        style={{ backgroundColor: '#F8FAFC', color: '#0f172a' }}>
-        <AppShell>
-          {children}
-        </AppShell>
+      <body className={`${inter.variable} ${playfair.variable} font-sans antialiased bg-background text-foreground`}>
+        <ThemeProvider>
+          <AppShell>
+            {children}
+          </AppShell>
+        </ThemeProvider>
       </body>
     </html>
   )

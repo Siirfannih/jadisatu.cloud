@@ -19,7 +19,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#F8FAFC] text-slate-900">
+    <div className="min-h-screen flex bg-background text-foreground">
       <Sidebar />
       <main className={isFullWidth ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto p-6 lg:p-8'}>
         {children}

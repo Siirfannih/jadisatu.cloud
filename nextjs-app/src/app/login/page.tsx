@@ -18,7 +18,7 @@ function LoginContent() {
   // Check for error messages from OAuth callback
   useEffect(() => {
     if (!searchParams) return
-    
+
     const errorParam = searchParams.get('error')
     if (errorParam) {
       console.error('OAuth error:', errorParam)
@@ -29,7 +29,7 @@ function LoginContent() {
   const handleGoogleLogin = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       console.log('Starting Google OAuth login...')
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -38,12 +38,12 @@ function LoginContent() {
           redirectTo: `${window.location.origin}/light/auth/callback`,
         },
       })
-      
+
       if (error) {
         console.error('Google OAuth error:', error)
         throw error
       }
-      
+
       console.log('Google OAuth initiated:', data)
     } catch (err: any) {
       console.error('Google login error:', err)
@@ -67,7 +67,7 @@ function LoginContent() {
             emailRedirectTo: `${window.location.origin}/light/auth/callback`,
           },
         })
-        
+
         if (error) throw error
         setMessage("Check your email for the confirmation link!")
       } else {
@@ -75,7 +75,7 @@ function LoginContent() {
           email,
           password,
         })
-        
+
         if (error) throw error
         window.location.href = "/light"
       }
@@ -87,31 +87,31 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100 dark:from-gray-900 dark:via-black dark:to-gray-900 flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="relative w-full max-w-md">
-        <div className="backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 shadow-2xl p-8">
+        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
               JadiSatu OS
             </h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-slate-500 dark:text-gray-400 text-sm">
               {isSignUp ? "Create your account" : "Welcome back"}
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm">
               {error}
             </div>
           )}
 
           {message && (
-            <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+            <div className="mb-4 p-3 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 text-green-600 dark:text-green-400 text-sm">
               {message}
             </div>
           )}
@@ -119,7 +119,7 @@ function LoginContent() {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full mb-6 py-3 px-4 bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl text-white font-medium transition-all duration-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full mb-6 py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-200 dark:border-white/20 rounded-xl text-foreground font-medium transition-all duration-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -144,16 +144,16 @@ function LoginContent() {
 
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10"></div>
+              <div className="w-full border-t border-slate-200 dark:border-white/10"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-gray-900/50 text-gray-400">or</span>
+              <span className="px-4 bg-white dark:bg-gray-900/50 text-slate-400 dark:text-gray-400">or</span>
             </div>
           </div>
 
           <form onSubmit={handleEmailAuth} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                 Email
               </label>
               <input
@@ -162,13 +162,13 @@ function LoginContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-foreground placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                 Password
               </label>
               <input
@@ -178,7 +178,7 @@ function LoginContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-foreground placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
                 placeholder="••••••••"
               />
             </div>
@@ -199,14 +199,14 @@ function LoginContent() {
                 setError(null)
                 setMessage(null)
               }}
-              className="text-sm text-gray-400 hover:text-white transition-colors"
+              className="text-sm text-slate-500 dark:text-gray-400 hover:text-foreground transition-colors"
             >
               {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
             </button>
           </div>
         </div>
 
-        <div className="text-center mt-6 text-gray-500 text-sm">
+        <div className="text-center mt-6 text-slate-400 dark:text-gray-500 text-sm">
           Powered by JadiSatu Ecosystem
         </div>
       </div>
@@ -217,8 +217,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100 dark:from-gray-900 dark:via-black dark:to-gray-900 flex items-center justify-center">
+        <div className="text-foreground">Loading...</div>
       </div>
     }>
       <LoginContent />

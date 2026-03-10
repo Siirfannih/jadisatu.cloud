@@ -10,19 +10,18 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'dark',
+  theme: 'light',
   toggleTheme: () => {},
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark')
-
-  useEffect(() => {
-    const stored = localStorage.getItem('jadisatu-theme') as Theme | null
-    if (stored === 'light' || stored === 'dark') {
-      setTheme(stored)
+  const [theme, setTheme] = useState<Theme>(() => {
+    // On server, default to light. On client, the inline script already set the class.
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
     }
-  }, [])
+    return 'light'
+  })
 
   useEffect(() => {
     const root = document.documentElement
