@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-browser"
 import { cn } from "@/lib/utils"
 import { Folder } from "lucide-react"
 
@@ -16,14 +16,17 @@ interface Project {
 
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([])
+  const supabase = createClient()
 
   useEffect(() => { loadProjects() }, [])
 
   async function loadProjects() {
-    const { data: projectsData } = await supabase.from("projects").select("*").order("created_at")
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: projectsData } = await supabase.from("projects").select("*").eq("user_id", user.id).order("created_at")
     if (!projectsData) return
     const withCounts = await Promise.all(projectsData.map(async (p) => {
-      const { count } = await supabase.from("tasks").select("*", { count: "exact", head: true }).eq("project_id", p.id).neq("status", "done")
+      const { count } = await supabase.from("tasks").select("*", { count: "exact", head: true }).eq("project_id", p.id).eq("user_id", user.id).neq("status", "done")
       return { ...p, task_count: count || 0 }
     }))
     setProjects(withCounts)

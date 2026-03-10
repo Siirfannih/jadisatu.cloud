@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-browser"
 import { cn } from "@/lib/utils"
 import { Plus, MoreHorizontal, Calendar, Flag } from "lucide-react"
 
@@ -27,17 +27,22 @@ export default function Kanban() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [adding, setAdding] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState("")
+  const supabase = createClient()
 
   useEffect(() => { loadTasks() }, [])
 
   async function loadTasks() {
-    const { data } = await supabase.from("tasks").select("*").order("sort_order")
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from("tasks").select("*").eq("user_id", user.id).order("sort_order")
     if (data) setTasks(data)
   }
 
   async function addTask(status: string) {
     if (!newTitle.trim()) return
-    await supabase.from("tasks").insert({ title: newTitle, status, assignee: "Irfan" })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from("tasks").insert({ title: newTitle, status, assignee: "Irfan", user_id: user.id })
     setNewTitle("")
     setAdding(null)
     loadTasks()
@@ -49,7 +54,9 @@ export default function Kanban() {
 
   async function handleDrop(e: React.DragEvent, status: string) {
     const taskId = e.dataTransfer.getData("taskId")
-    await supabase.from("tasks").update({ status }).eq("id", taskId)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from("tasks").update({ status }).eq("id", taskId).eq("user_id", user.id)
     setTasks(tasks.map(t => t.id === taskId ? { ...t, status } : t))
   }
 

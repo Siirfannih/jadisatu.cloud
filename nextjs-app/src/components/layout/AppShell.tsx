@@ -13,7 +13,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isNoShell = noShellRoutes.some(r => pathname?.startsWith(r))
 
   // Creative Hub has its own full-width layout
-  const isFullWidth = pathname === '/creative'
+  const isFullWidth = pathname === '/creative' || pathname === '/notes'
 
   if (isNoShell) {
     return <>{children}</>

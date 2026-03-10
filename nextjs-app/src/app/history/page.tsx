@@ -1,16 +1,19 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-browser"
 import { Calendar } from "lucide-react"
 
 export default function HistoryPage() {
   const [activities, setActivities] = useState<any[]>([])
+  const supabase = createClient()
 
   useEffect(() => { loadActivities() }, [])
 
   async function loadActivities() {
-    const { data } = await supabase.from("activities").select("*").order("created_at", { ascending: false }).limit(50)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from("activities").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50)
     if (data) setActivities(data)
   }
 

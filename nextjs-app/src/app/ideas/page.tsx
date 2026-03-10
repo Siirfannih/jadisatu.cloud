@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-browser"
 import { cn } from "@/lib/utils"
 import { Search, Plus, LayoutGrid, List as ListIcon, Tag, X } from "lucide-react"
 
@@ -20,19 +20,24 @@ export default function Ideas() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [searchQuery, setSearchQuery] = useState("")
   const [newIdea, setNewIdea] = useState("")
+  const supabase = createClient()
 
   useEffect(() => { loadIdeas() }, [])
 
   async function loadIdeas() {
-    const { data } = await supabase.from("ideas").select("*").eq("status", "active").order("created_at", { ascending: false })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from("ideas").select("*").eq("user_id", user.id).eq("status", "active").order("created_at", { ascending: false })
     if (data) setIdeas(data)
   }
 
   async function addIdea() {
     if (!newIdea.trim()) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
     const tags = newIdea.match(/#\w+/g)?.map(t => t.slice(1)) || []
     const title = newIdea.replace(/#\w+/g, "").trim()
-    await supabase.from("ideas").insert({ title, tags, source: "manual" })
+    await supabase.from("ideas").insert({ title, tags, source: "manual", user_id: user.id })
     setNewIdea("")
     loadIdeas()
   }
