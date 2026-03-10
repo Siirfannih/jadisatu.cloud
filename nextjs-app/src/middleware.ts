@@ -59,20 +59,8 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Redirect legacy .html pages to Next.js routes
-  if (pathname.endsWith('.html')) {
-    // Map known legacy pages to Next.js routes
-    const htmlMap: Record<string, string> = {
-      '/dashboard.html': '/',
-      '/creative-hub-view.html': '/creative',
-      '/ai-agent-view.html': '/agents',
-      '/focus-view.html': '/',
-    }
-    const target = htmlMap[pathname] || '/'
-    return NextResponse.redirect(new URL(target, request.url))
-  }
-
   // Allow access to login and auth callback routes
+  // Note: basePath '/light' is stripped before middleware runs
   if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
     // If already logged in, redirect to dashboard
     if (session && pathname === '/login') {
@@ -98,6 +86,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public files (public assets)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/light',
   generateEtags: false,
   async headers() {
     return [

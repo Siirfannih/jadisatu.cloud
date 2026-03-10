@@ -39,8 +39,8 @@ export default function ViewFocus() {
     setLoading(true)
     try {
       const [projRes, taskRes] = await Promise.all([
-        fetch('/api/projects'),
-        fetch('/api/tasks?status=active&limit=100'),
+        fetch('/light/api/projects'),
+        fetch('/light/api/tasks?status=active&limit=100'),
       ])
       if (projRes.ok) {
         const data = await projRes.json()

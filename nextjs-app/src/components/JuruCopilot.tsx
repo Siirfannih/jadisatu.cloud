@@ -74,7 +74,7 @@ export default function JuruCopilot() {
       }
 
       try {
-        const res = await fetch('/api/contents', {
+        const res = await fetch('/light/api/contents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: topic, status: 'idea' }),
@@ -98,7 +98,7 @@ export default function JuruCopilot() {
       }
 
       try {
-        const res = await fetch('/api/narrative/generate', {
+        const res = await fetch('/light/api/narrative/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ topic, angle: topic, platform: 'instagram' }),
@@ -106,7 +106,7 @@ export default function JuruCopilot() {
         if (res.ok) {
           const data = await res.json()
           // Save to creative hub
-          await fetch('/api/contents', {
+          await fetch('/light/api/contents', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -134,7 +134,7 @@ export default function JuruCopilot() {
       }
 
       try {
-        const res = await fetch('/api/narrative/research', {
+        const res = await fetch('/light/api/narrative/research', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ topic }),
@@ -162,7 +162,7 @@ export default function JuruCopilot() {
       }
 
       try {
-        const res = await fetch('/api/tasks', {
+        const res = await fetch('/light/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, status: 'todo', priority: 'medium', domain: 'work' }),

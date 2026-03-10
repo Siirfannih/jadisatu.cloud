@@ -73,9 +73,8 @@ log "Building Next.js..."
 npm run build 2>&1 | tail -5 || fail "Next.js build failed"
 log "Next.js build complete"
 
-# ── 3. Nginx: proxy all traffic to Next.js ─────────────────────
-# The legacy static frontend is replaced by the Next.js app.
-# Install the nginx config that proxies everything to port 3000.
+# ── 3. Nginx: hybrid config (static HTML + Next.js) ──────────
+# Static HTML from frontend/ for dark mode, Next.js under /light for light mode.
 NGINX_CONF_SRC="${REPO_DIR}/deploy/nginx/jadisatu.cloud.conf"
 NGINX_CONF_DEST="/etc/nginx/sites-available/jadisatu.cloud"
 NGINX_ENABLED="/etc/nginx/sites-enabled/jadisatu.cloud"

@@ -35,7 +35,7 @@ function LoginContent() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/light/auth/callback`,
         },
       })
       
@@ -64,7 +64,7 @@ function LoginContent() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: `${window.location.origin}/light/auth/callback`,
           },
         })
         
@@ -77,7 +77,7 @@ function LoginContent() {
         })
         
         if (error) throw error
-        window.location.href = "/"
+        window.location.href = "/light"
       }
     } catch (err: any) {
       setError(err.message || `Failed to ${isSignUp ? "sign up" : "sign in"}`)

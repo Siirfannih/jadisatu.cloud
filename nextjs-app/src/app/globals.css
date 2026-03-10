@@ -3,76 +3,25 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════
-   DARK THEME — Jadisatu.cloud Original
-   Persona: Systematic, focused, glassmorphism
-   ═══════════════════════════════════════════ */
-:root, .dark {
-  --background: #0f0f11;
-  --foreground: #fafafa;
-  --card: #18181b;
-  --card-foreground: #fafafa;
-  --border: #3f3f46;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --accent: #ec4899;
-  --accent-foreground: #fafafa;
-  --destructive: #ef4444;
-  --surface: #18181b;
-  --surface-light: #27272a;
-  --glass-bg: rgba(24, 24, 27, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-strong-bg: rgba(24, 24, 27, 0.9);
-  --scrollbar-thumb: #3f3f46;
-  --scrollbar-thumb-hover: #52525b;
-  --card-radius: 1rem;
-  --card-shadow: none;
-  --card-hover-shadow: none;
-  --sidebar-bg: #18181b;
-  --sidebar-active-bg: rgba(99, 102, 241, 0.1);
-  --sidebar-active-text: #6366f1;
-  --sidebar-text: #a1a1aa;
-  --sidebar-hover-bg: #27272a;
-}
-
-/* ═══════════════════════════════════════════
-   LIGHT THEME — JadisatuLight
+   JadisatuLight — Light Theme Only
    Persona: Creative, warm, clean workspace
    ═══════════════════════════════════════════ */
-.light {
+:root {
   --background: #F8FAFC;
   --foreground: #0f172a;
   --card: #ffffff;
-  --card-foreground: #0f172a;
   --border: #e2e8f0;
   --primary: #2563eb;
   --primary-foreground: #ffffff;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
   --accent: #7c3aed;
-  --accent-foreground: #ffffff;
   --destructive: #ef4444;
-  --surface: #ffffff;
-  --surface-light: #f1f5f9;
-  --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-border: rgba(0, 0, 0, 0.06);
-  --glass-strong-bg: rgba(255, 255, 255, 0.95);
-  --scrollbar-thumb: #cbd5e1;
-  --scrollbar-thumb-hover: #94a3b8;
-  --card-radius: 1.5rem;
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --card-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --sidebar-bg: #ffffff;
-  --sidebar-active-bg: #eff6ff;
-  --sidebar-active-text: #2563eb;
-  --sidebar-text: #64748b;
-  --sidebar-hover-bg: #f8fafc;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: #F8FAFC;
+  color: #0f172a;
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -86,34 +35,9 @@ body {
 .custom-scrollbar::-webkit-scrollbar-track,
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb,
-.custom-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
-.custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
-
-/* ── Glassmorphism (Dark theme signature) ── */
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-}
-.glass-strong {
-  background: var(--glass-strong-bg);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-}
-.glass-hover:hover {
-  background: var(--glass-strong-bg);
-}
-
-/* ── Theme-aware card ─────────────────── */
-.theme-card {
-  border-radius: var(--card-radius);
-  box-shadow: var(--card-shadow);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-.theme-card:hover {
-  box-shadow: var(--card-hover-shadow);
-}
+.custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 /* ── Animations ────────────────────────── */
 .animate-slide-up {
@@ -122,49 +46,4 @@ body {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.hover-lift {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3);
-}
-
-/* Light theme: softer hover lift */
-.light .hover-lift:hover {
-  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.12);
-}
-
-/* ── Kanban ─────────────────────────────── */
-.kanban-col {
-  min-width: 300px;
-  background: var(--glass-bg);
-  border-radius: 12px;
-  border: 1px solid var(--glass-border);
-}
-
-/* ── Domain gradients ──────────────────── */
-.gradient-work { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
-.gradient-learn { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
-.gradient-business { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-.gradient-personal { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
-
-/* ── Pulse glow (dark theme effect) ───── */
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
-  50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.5); }
-}
-.pulse-work { animation: pulse-glow 3s infinite; }
-
-/* ── Stoic quote ───────────────────────── */
-.stoic-text {
-  font-family: 'Playfair Display', serif;
-  font-style: italic;
-}
-
-/* ── Light theme: card border + shadow ── */
-.light .bg-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }

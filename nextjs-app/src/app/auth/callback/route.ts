@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('[AUTH CALLBACK] OAuth provider error:', error, error_description)
       return NextResponse.redirect(
-        `${origin}/login?error=${encodeURIComponent(error_description || error)}`
+        `${origin}/light/login?error=${encodeURIComponent(error_description || error)}`
       )
     }
 
@@ -72,10 +72,10 @@ export async function GET(request: NextRequest) {
       if (exchangeError) {
         console.error('[AUTH CALLBACK] Exchange error:', exchangeError.message, exchangeError.code)
         if (exchangeError.code === 'flow_state_not_found') {
-          return NextResponse.redirect(`${origin}/login?message=Please+try+signing+in+again`)
+          return NextResponse.redirect(`${origin}/light/login?message=Please+try+signing+in+again`)
         }
         return NextResponse.redirect(
-          `${origin}/login?error=${encodeURIComponent(exchangeError.message)}`
+          `${origin}/light/login?error=${encodeURIComponent(exchangeError.message)}`
         )
       }
 
@@ -84,16 +84,16 @@ export async function GET(request: NextRequest) {
         email: data?.user?.email,
       })
 
-      console.log('[AUTH CALLBACK] Redirecting to:', `${origin}/`)
-      return NextResponse.redirect(`${origin}/`)
+      console.log('[AUTH CALLBACK] Redirecting to:', `${origin}/light`)
+      return NextResponse.redirect(`${origin}/light`)
     }
 
     console.warn('[AUTH CALLBACK] Called without code or error')
-    return NextResponse.redirect(`${origin}/login`)
+    return NextResponse.redirect(`${origin}/light/login`)
   } catch (err: any) {
     console.error('[AUTH CALLBACK] Unhandled exception:', err?.message, err?.stack)
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent('Authentication failed. Please try again.')}`
+      `${origin}/light/login?error=${encodeURIComponent('Authentication failed. Please try again.')}`
     )
   }
 }

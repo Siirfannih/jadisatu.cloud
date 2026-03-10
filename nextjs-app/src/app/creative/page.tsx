@@ -67,7 +67,7 @@ export default function CreativeHub() {
   const [editPublishDate, setEditPublishDate] = useState('')
 
   const loadContents = useCallback(async () => {
-    const res = await fetch('/api/contents')
+    const res = await fetch('/light/api/contents')
     if (res.ok) {
       const data = await res.json()
       setContents(data)
@@ -92,7 +92,7 @@ export default function CreativeHub() {
   }, [selected])
 
   async function createContent() {
-    const res = await fetch('/api/contents', {
+    const res = await fetch('/light/api/contents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Untitled Content' }),
@@ -107,7 +107,7 @@ export default function CreativeHub() {
   async function saveContent() {
     if (!selectedId) return
     setSaving(true)
-    await fetch('/api/contents', {
+    await fetch('/light/api/contents', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
