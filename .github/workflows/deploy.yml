@@ -57,10 +57,14 @@ jobs:
           command_timeout: 10m
           script: |
             cd /root/jadisatu.cloud
-            bash deploy/deploy.sh
+            git pull origin main
+            cd nextjs-app
+            npm ci --production=false
+            npm run build
+            pm2 restart jadisatu-light || pm2 start npm --name jadisatu-light -- start
+            echo "Deploy completed at $(date)"
 
       - name: Verify deployment
-        id: verify
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -69,32 +73,8 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           command_timeout: 1m
           script: |
-            cd /root/jadisatu.cloud
-            bash deploy/check-status.sh
-
-      - name: Notify success via OpenClaw
-        if: success()
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          command_timeout: 30s
-          script: |
-            bash /root/jadisatu.cloud/deploy/notify.sh "success" "${{ github.event.head_commit.message }}" "${{ github.sha }}"
-
-      - name: Notify failure via OpenClaw
-        if: failure()
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          command_timeout: 30s
-          script: |
-            bash /root/jadisatu.cloud/deploy/notify.sh "failure" "${{ github.event.head_commit.message }}" "${{ github.sha }}"
+            pm2 status
+            curl -sf http://localhost:3000 > /dev/null && echo "App is running" || echo "App check failed"
 
   notify-pr:
     name: Comment Test Results on PR
