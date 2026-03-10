@@ -25,7 +25,8 @@ module.exports = {
       args: "start -p 3000",
       env: {
         NODE_ENV: "production",
-        PORT: 3000
+        PORT: 3000,
+        ...loadEnv(path.resolve(__dirname, 'nextjs-app/.env.local'))
       },
       instances: 1,
       autorestart: true,

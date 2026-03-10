@@ -53,6 +53,18 @@ COMMIT_AFTER=$(git rev-parse --short HEAD)
 COMMIT_MSG=$(git log -1 --pretty=%s)
 log "Git: ${COMMIT_BEFORE} -> ${COMMIT_AFTER} (${COMMIT_MSG})"
 
+# ── 1b. Ensure NEXT_PUBLIC_SITE_URL is correct in .env.local ─
+NEXTJS_ENV="${NEXTJS_DIR}/.env.local"
+if [ -f "$NEXTJS_ENV" ]; then
+  # Replace localhost URL with production domain
+  if grep -q "NEXT_PUBLIC_SITE_URL=http://localhost" "$NEXTJS_ENV"; then
+    sed -i 's|NEXT_PUBLIC_SITE_URL=http://localhost.*|NEXT_PUBLIC_SITE_URL=https://jadisatu.cloud|' "$NEXTJS_ENV"
+    log "Fixed NEXT_PUBLIC_SITE_URL to https://jadisatu.cloud"
+  fi
+else
+  log "WARNING: ${NEXTJS_ENV} not found - Supabase env vars may be missing"
+fi
+
 # ── 2. Next.js: install & build ──────────────────────────────
 cd "$NEXTJS_DIR"
 log "Installing Next.js dependencies..."
