@@ -27,6 +27,9 @@
     },
     "SUPABASE_SERVICE_KEY": {
       "description": "Supabase service role key"
+    },
+    "GEMINI_API_KEY": {
+      "description": "Google Gemini API key (free at aistudio.google.com/apikey) — used by multi-agent system"
     }
   }
 }

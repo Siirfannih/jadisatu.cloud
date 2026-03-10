@@ -21,17 +21,21 @@ npm install
 
 # Create .env.local from Codespace secrets
 echo ">>> Setting up environment variables..."
-cat > .env.local << 'ENVEOF'
+cat > .env.local << ENVEOF
 NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+GEMINI_API_KEY=${GEMINI_API_KEY}
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ENVEOF
 
-# Replace placeholders with actual secret values
-sed -i "s|\${NEXT_PUBLIC_SUPABASE_URL}|${NEXT_PUBLIC_SUPABASE_URL}|g" .env.local
-sed -i "s|\${NEXT_PUBLIC_SUPABASE_ANON_KEY}|${NEXT_PUBLIC_SUPABASE_ANON_KEY}|g" .env.local
-sed -i "s|\${SUPABASE_SERVICE_KEY}|${SUPABASE_SERVICE_KEY}|g" .env.local
+echo ">>> .env.local created with all secrets"
+
+# Make agent scripts executable
+echo ">>> Setting up agent scripts..."
+cd /workspaces/jadisatu.cloud
+chmod +x agents/*.sh 2>/dev/null || true
+chmod +x run-*.sh 2>/dev/null || true
 
 # Clone companion repos for reference
 echo ">>> Cloning companion repositories..."
@@ -43,13 +47,23 @@ if [ ! -d "jadisatu-narrative-engine" ]; then
   git clone https://github.com/Siirfannih/jadisatu-narrative-engine.git || echo "WARN: Failed to clone narrative engine"
 fi
 
+# Verify setup
 echo ""
 echo "========================================="
 echo "  Setup Complete!"
 echo "========================================="
 echo ""
-echo "To run all phases autonomously:"
-echo "  1. claude login"
-echo "  2. cd /workspaces/jadisatu.cloud"
-echo "  3. bash run-all-phases.sh"
+echo "  Secrets loaded:"
+[ -n "${NEXT_PUBLIC_SUPABASE_URL}" ] && echo "    ✓ SUPABASE_URL" || echo "    ✗ SUPABASE_URL missing"
+[ -n "${NEXT_PUBLIC_SUPABASE_ANON_KEY}" ] && echo "    ✓ SUPABASE_ANON_KEY" || echo "    ✗ SUPABASE_ANON_KEY missing"
+[ -n "${SUPABASE_SERVICE_KEY}" ] && echo "    ✓ SUPABASE_SERVICE_KEY" || echo "    ✗ SUPABASE_SERVICE_KEY missing"
+[ -n "${GEMINI_API_KEY}" ] && echo "    ✓ GEMINI_API_KEY" || echo "    ✗ GEMINI_API_KEY missing (add at github.com/Siirfannih/jadisatu.cloud/settings/secrets/codespaces)"
+echo ""
+echo "  To run multi-agent phases:"
+echo "    1. claude login"
+echo "    2. cd /workspaces/jadisatu.cloud"
+echo "    3. bash run-remaining-multiagent.sh"
+echo ""
+echo "  Or run single-agent phases:"
+echo "    3. bash run-all-phases-10-13.sh"
 echo ""
