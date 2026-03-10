@@ -1,71 +1,77 @@
-import { createClient } from "@/lib/supabase-server"
-import { NextResponse } from "next/server"
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { NextResponse, type NextRequest } from 'next/server'
 
-function getSiteUrl(request: Request) {
-  // Behind nginx proxy, request.url is http://localhost:3000
-  // Use X-Forwarded headers set by nginx to get the real external URL
-  const proto = request.headers.get('x-forwarded-proto') || 'https'
-  const host = request.headers.get('host') || 'jadisatu.cloud'
-  return `${proto}://${host}`
-}
-
-export async function GET(request: Request) {
-  const SITE_URL = getSiteUrl(request)
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
-  const code = requestUrl.searchParams.get("code")
-  const error = requestUrl.searchParams.get("error")
-  const error_description = requestUrl.searchParams.get("error_description")
+  const code = requestUrl.searchParams.get('code')
+  const error = requestUrl.searchParams.get('error')
+  const error_description = requestUrl.searchParams.get('error_description')
 
-  console.log("[AUTH CALLBACK] Triggered:", { 
-    code: code ? "present" : "missing",
+  // Build redirect URL using request.nextUrl (handles proxy correctly)
+  const redirectUrl = request.nextUrl.clone()
+  redirectUrl.searchParams.delete('code')
+  redirectUrl.searchParams.delete('error')
+  redirectUrl.searchParams.delete('error_description')
+
+  console.log('[AUTH CALLBACK] Triggered:', {
+    code: code ? 'present' : 'missing',
     error,
     error_description,
-    siteUrl: SITE_URL,
-    fullUrl: request.url
+    origin: request.nextUrl.origin,
   })
 
-  try {
-    if (error) {
-      console.error("[AUTH CALLBACK] OAuth provider error:", error, error_description)
-      return NextResponse.redirect(
-        SITE_URL + "/login?error=" + encodeURIComponent(error_description || error)
-      )
-    }
-
-    if (code) {
-      console.log("[AUTH CALLBACK] Exchange code for session...")
-      const supabase = await createClient()
-      const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-      
-      if (exchangeError) {
-        console.error("[AUTH CALLBACK] Exchange error:", exchangeError.message, exchangeError.status, exchangeError.code)
-        
-        if (exchangeError.code === "flow_state_not_found") {
-          console.warn("[AUTH CALLBACK] Flow state not found - redirecting to login to retry")
-          return NextResponse.redirect(SITE_URL + "/login?message=Please try signing in again")
-        }
-        
-        return NextResponse.redirect(
-          SITE_URL + "/login?error=" + encodeURIComponent(exchangeError.message)
-        )
-      }
-
-      console.log("[AUTH CALLBACK] Session exchange successful:", {
-        userId: data?.user?.id,
-        email: data?.user?.email
-      })
-      
-      console.log("[AUTH CALLBACK] Redirecting to:", SITE_URL + "/")
-      return NextResponse.redirect(SITE_URL + "/")
-    }
-
-    console.warn("[AUTH CALLBACK] Called without code or error")
-    return NextResponse.redirect(SITE_URL + "/login")
-    
-  } catch (error: any) {
-    console.error("[AUTH CALLBACK] Exception:", error.message, error.stack)
-    return NextResponse.redirect(
-      SITE_URL + "/login?error=" + encodeURIComponent("Authentication failed. Please try again.")
-    )
+  if (error) {
+    console.error('[AUTH CALLBACK] OAuth provider error:', error, error_description)
+    redirectUrl.pathname = '/login'
+    redirectUrl.searchParams.set('error', error_description || error)
+    return NextResponse.redirect(redirectUrl)
   }
+
+  if (code) {
+    const cookieStore = await cookies()
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options })
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: '', ...options })
+          },
+        },
+      }
+    )
+
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (exchangeError) {
+      console.error('[AUTH CALLBACK] Exchange error:', exchangeError.message, exchangeError.code)
+      redirectUrl.pathname = '/login'
+      if (exchangeError.code === 'flow_state_not_found') {
+        redirectUrl.searchParams.set('message', 'Please try signing in again')
+      } else {
+        redirectUrl.searchParams.set('error', exchangeError.message)
+      }
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    console.log('[AUTH CALLBACK] Session exchange successful:', {
+      userId: data?.user?.id,
+      email: data?.user?.email,
+    })
+
+    redirectUrl.pathname = '/'
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  console.warn('[AUTH CALLBACK] Called without code or error')
+  redirectUrl.pathname = '/login'
+  return NextResponse.redirect(redirectUrl)
 }
