@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   Compass, Search, Sparkles, Send, ChevronRight,
   Loader2, Copy, Check, ArrowRight, Youtube, Twitter,
-  Instagram, Video, Linkedin, Globe
+  Instagram, Video, Linkedin, Globe, ExternalLink
 } from 'lucide-react'
 
 interface ContentAngle {
@@ -39,6 +40,7 @@ const PLATFORM_ICONS: Record<string, React.ReactNode> = {
 }
 
 export default function NarrativeEngine() {
+  const router = useRouter()
   const [topic, setTopic] = useState('')
   const [researching, setResearching] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -46,7 +48,8 @@ export default function NarrativeEngine() {
   const [generated, setGenerated] = useState<GenerateResult | null>(null)
   const [selectedAngle, setSelectedAngle] = useState<ContentAngle | null>(null)
   const [copied, setCopied] = useState(false)
-  const [sentToHub, setSentToHub] = useState(false)
+  const [sentToHub, setSentToHub] = useState<string | false>(false)
+  const [sendingAngle, setSendingAngle] = useState<number | null>(null)
 
   async function runResearch() {
     if (!topic.trim()) return
@@ -101,7 +104,7 @@ export default function NarrativeEngine() {
   }
 
   async function sendToCreativeHub() {
-    if (!generated) return
+    if (!generated || !research) return
     setSentToHub(false)
 
     try {
@@ -111,16 +114,44 @@ export default function NarrativeEngine() {
         body: JSON.stringify({
           title: generated.angle || `${generated.topic} Content`,
           script: generated.draft_script,
+          caption: `[Research: ${research.topic}]\n\n${research.research_summary}`,
           platform: generated.platform,
           status: 'draft',
         }),
       })
       if (res.ok) {
-        setSentToHub(true)
-        setTimeout(() => setSentToHub(false), 3000)
+        const data = await res.json()
+        setSentToHub(data.id || 'sent')
+        setTimeout(() => setSentToHub(false), 5000)
       }
     } catch (error) {
       console.error('Failed to send to Creative Hub:', error)
+    }
+  }
+
+  async function sendAngleAsIdea(angle: ContentAngle, index: number) {
+    if (!research) return
+    setSendingAngle(index)
+
+    try {
+      const res = await fetch('/light/api/contents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: angle.angle,
+          script: '',
+          caption: `[From Narrative Engine — ${research.topic}]\n\n${angle.description}\n\nFormat: ${angle.format}\n\nResearch:\n${research.research_summary}`,
+          platform: angle.platform,
+          status: 'idea',
+        }),
+      })
+      if (res.ok) {
+        setSendingAngle(-index - 1) // negative = sent indicator
+        setTimeout(() => setSendingAngle(null), 2000)
+      }
+    } catch (error) {
+      console.error('Failed to send angle to Creative Hub:', error)
+      setSendingAngle(null)
     }
   }
 
@@ -208,16 +239,35 @@ export default function NarrativeEngine() {
                     <span className="text-[10px] px-2 py-0.5 bg-muted/50 dark:bg-white/10 rounded text-muted-foreground">
                       {angle.format}
                     </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedAngle(angle)
-                        generateContent(angle)
-                      }}
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      Generate <ArrowRight size={12} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          sendAngleAsIdea(angle, i)
+                        }}
+                        disabled={sendingAngle === i}
+                        className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
+                      >
+                        {sendingAngle === -(i + 1) ? (
+                          <><Check size={12} className="text-emerald-500" /> Sent</>
+                        ) : sendingAngle === i ? (
+                          <><Loader2 size={12} className="animate-spin" /> Sending</>
+                        ) : (
+                          <><Send size={12} /> Save as Idea</>
+                        )}
+                      </button>
+                      <span className="text-border">|</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedAngle(angle)
+                          generateContent(angle)
+                        }}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        Generate <ArrowRight size={12} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -264,13 +314,24 @@ export default function NarrativeEngine() {
               {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
               {copied ? 'Copied!' : 'Copy Script'}
             </button>
-            <button
-              onClick={sendToCreativeHub}
-              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              <Send size={14} />
-              {sentToHub ? 'Sent to Creative Hub!' : 'Send to Creative Hub'}
-            </button>
+            {sentToHub ? (
+              <button
+                onClick={() => router.push('/light/creative')}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Check size={14} />
+                Sent! Open Creative Hub
+                <ExternalLink size={12} />
+              </button>
+            ) : (
+              <button
+                onClick={sendToCreativeHub}
+                className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Send size={14} />
+                Send to Creative Hub
+              </button>
+            )}
           </div>
         </div>
       )}
