@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
-  Plus, Search, MoreVertical, Type, List, Image, Link2,
-  Hash, Youtube, Twitter, Instagram, FileText, PenTool,
-  Video, ChevronRight, Trash2, Save, Calendar, Tag,
-  Filter, Linkedin, Globe
+  Plus, Search, Type, List, Image, Link2,
+  Youtube, Twitter, Instagram, FileText, PenTool,
+  Video, ChevronRight, Trash2, Save, Globe, Linkedin
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -27,34 +26,40 @@ interface ContentItem {
   updated_at: string
 }
 
+interface Project {
+  id: string
+  name: string
+}
+
 const STATUS_OPTIONS = ['idea', 'draft', 'script', 'ready', 'published'] as const
 const PLATFORM_OPTIONS = ['instagram', 'tiktok', 'youtube', 'linkedin', 'twitter'] as const
 
-const STATUS_COLORS: Record<string, string> = {
-  idea: 'bg-slate-500/20 text-slate-300 dark:text-slate-300 light:text-slate-600',
-  draft: 'bg-blue-500/20 text-blue-400 dark:text-blue-400 light:text-blue-600',
-  script: 'bg-purple-500/20 text-purple-400 dark:text-purple-400 light:text-purple-600',
-  ready: 'bg-emerald-500/20 text-emerald-400 dark:text-emerald-400 light:text-emerald-600',
-  published: 'bg-pink-500/20 text-pink-400 dark:text-pink-400 light:text-pink-600',
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  idea: { bg: 'bg-slate-100', text: 'text-slate-600' },
+  draft: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  script: { bg: 'bg-purple-100', text: 'text-purple-700' },
+  ready: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  published: { bg: 'bg-pink-100', text: 'text-pink-700' },
 }
 
-const PLATFORM_ICONS: Record<string, React.ReactNode> = {
-  instagram: <Instagram size={16} />,
-  tiktok: <Video size={16} />,
-  youtube: <Youtube size={16} />,
-  linkedin: <Linkedin size={16} />,
-  twitter: <Twitter size={16} />,
+const PLATFORM_META: Record<string, { Icon: React.ComponentType<{ className?: string }>; color: string; bgColor: string; label: string }> = {
+  instagram: { Icon: Instagram, color: 'text-pink-500', bgColor: 'bg-pink-50', label: 'Instagram' },
+  tiktok: { Icon: Video, color: 'text-slate-700', bgColor: 'bg-slate-100', label: 'TikTok' },
+  youtube: { Icon: Youtube, color: 'text-red-500', bgColor: 'bg-red-50', label: 'YouTube' },
+  linkedin: { Icon: Linkedin, color: 'text-blue-600', bgColor: 'bg-blue-50', label: 'LinkedIn' },
+  twitter: { Icon: Twitter, color: 'text-blue-400', bgColor: 'bg-blue-50', label: 'Twitter' },
 }
 
 const PIPELINE_STAGES = [
-  { key: 'idea', label: 'Idea', icon: '💡' },
-  { key: 'script', label: 'Script', icon: '📝' },
-  { key: 'ready', label: 'Shoot', icon: '🎬' },
-  { key: 'published', label: 'Publish', icon: '🚀' },
+  { key: 'idea', label: 'Idea', emoji: '\u{1F4A1}' },
+  { key: 'script', label: 'Script', emoji: '\u{1F4DD}' },
+  { key: 'ready', label: 'Shoot', emoji: '\u{1F3AC}' },
+  { key: 'published', label: 'Publish', emoji: '\u{1F680}' },
 ]
 
 export default function CreativeHub() {
   const [contents, setContents] = useState<ContentItem[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -65,18 +70,29 @@ export default function CreativeHub() {
   const [editPlatform, setEditPlatform] = useState('instagram')
   const [editStatus, setEditStatus] = useState('idea')
   const [editPublishDate, setEditPublishDate] = useState('')
+  const [editVideoLink, setEditVideoLink] = useState('')
+  const [editProjectId, setEditProjectId] = useState<string | null>(null)
 
   const loadContents = useCallback(async () => {
-    const res = await fetch('/light/api/contents')
+    const res = await fetch('/api/contents')
     if (res.ok) {
       const data = await res.json()
       setContents(data)
     }
   }, [])
 
+  const loadProjects = useCallback(async () => {
+    const res = await fetch('/api/projects')
+    if (res.ok) {
+      const data = await res.json()
+      setProjects(data)
+    }
+  }, [])
+
   useEffect(() => {
     loadContents()
-  }, [loadContents])
+    loadProjects()
+  }, [loadContents, loadProjects])
 
   const selected = contents.find(c => c.id === selectedId) || null
 
@@ -88,11 +104,13 @@ export default function CreativeHub() {
       setEditPlatform(selected.platform || 'instagram')
       setEditStatus(selected.status || 'idea')
       setEditPublishDate(selected.publish_date ? selected.publish_date.slice(0, 16) : '')
+      setEditVideoLink(selected.video_link || '')
+      setEditProjectId(selected.project_id || null)
     }
   }, [selected])
 
   async function createContent() {
-    const res = await fetch('/light/api/contents', {
+    const res = await fetch('/api/contents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Untitled Content' }),
@@ -107,7 +125,7 @@ export default function CreativeHub() {
   async function saveContent() {
     if (!selectedId) return
     setSaving(true)
-    await fetch('/light/api/contents', {
+    await fetch('/api/contents', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -118,6 +136,8 @@ export default function CreativeHub() {
         platform: editPlatform,
         status: editStatus,
         publish_date: editPublishDate || null,
+        video_link: editVideoLink,
+        project_id: editProjectId,
       }),
     })
     await loadContents()
@@ -126,7 +146,7 @@ export default function CreativeHub() {
 
   async function deleteContent(id: string) {
     if (!confirm('Delete this content?')) return
-    await fetch(`/light/api/contents?id=${id}`, { method: 'DELETE' })
+    await fetch(`/api/contents?id=${id}`, { method: 'DELETE' })
     if (selectedId === id) setSelectedId(null)
     await loadContents()
   }
@@ -142,78 +162,81 @@ export default function CreativeHub() {
   const currentStageIndex = PIPELINE_STAGES.findIndex(s => s.key === editStatus)
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground">
-      {/* Pipeline Stage Indicator */}
-      <div className="border-b border-border/50 dark:border-white/5 px-6 py-3 flex items-center justify-between bg-card/50 dark:bg-zinc-900/50">
-        <div className="flex items-center gap-2">
-          <PenTool size={20} className="text-primary" />
-          <h1 className="text-lg font-bold">Creative Hub</h1>
-        </div>
-        <div className="flex items-center gap-1">
-          {PIPELINE_STAGES.map((stage, i) => {
-            const isActive = currentStageIndex >= i && selectedId
-            const isCurrent = stage.key === editStatus && selectedId
-            return (
-              <div key={stage.key} className="flex items-center">
-                <div
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all',
-                    isCurrent
-                      ? 'bg-primary/20 text-primary font-semibold'
-                      : isActive
-                        ? 'text-foreground/70'
-                        : 'text-muted-foreground/50'
-                  )}
-                >
-                  <span>{stage.icon}</span>
-                  <span className="hidden md:inline">{stage.label}</span>
-                </div>
-                {i < PIPELINE_STAGES.length - 1 && (
-                  <ChevronRight size={14} className="text-muted-foreground/30 mx-1" />
-                )}
-              </div>
-            )
-          })}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header with Pipeline */}
+      <div className="shrink-0 px-8 pt-8 pb-4">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">Creative Hub</h1>
+            <p className="text-slate-500 text-sm">Manage ideas, scripts, and content across platforms.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Pipeline Stage Indicator */}
+            <div className="flex items-center bg-white border border-slate-200 rounded-2xl px-2 py-1.5 shadow-sm">
+              {PIPELINE_STAGES.map((stage, i) => {
+                const isActive = currentStageIndex >= i && selectedId
+                const isCurrent = stage.key === editStatus && selectedId
+                return (
+                  <div key={stage.key} className="flex items-center">
+                    <div
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1 rounded-xl text-sm transition-all',
+                        isCurrent
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : isActive
+                            ? 'text-slate-600'
+                            : 'text-slate-300'
+                      )}
+                    >
+                      <span className="text-sm">{stage.emoji}</span>
+                      <span className="hidden lg:inline text-xs font-medium">{stage.label}</span>
+                    </div>
+                    {i < PIPELINE_STAGES.length - 1 && (
+                      <ChevronRight size={12} className="text-slate-300 mx-0.5" />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              onClick={createContent}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              New Content
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Main 3-Panel Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex gap-6 overflow-hidden min-h-0 px-8 pb-8">
         {/* Left Panel - Content Library */}
-        <div className="w-72 lg:w-80 border-r border-border/50 dark:border-white/5 flex flex-col bg-card/30 dark:bg-zinc-900/30">
-          <div className="p-4 space-y-3 border-b border-border/50 dark:border-white/5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Library</h2>
-              <button
-                onClick={createContent}
-                className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
+        <div className="w-80 flex flex-col bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden shrink-0">
+          <div className="p-4 border-b border-slate-100 space-y-3">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search content..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-background/50 dark:bg-white/5 border border-border/50 dark:border-white/10 outline-none focus:border-primary/50 transition-colors"
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
               {['all', ...STATUS_OPTIONS].map(status => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
                   className={cn(
-                    'px-2.5 py-1 text-xs rounded-md transition-colors capitalize',
+                    'px-3 py-1 text-xs font-medium rounded-lg whitespace-nowrap transition-colors capitalize',
                     filterStatus === status
-                      ? 'bg-primary/20 text-primary font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                   )}
                 >
-                  {status}
+                  {status === 'all' ? 'All' : status}
                 </button>
               ))}
             </div>
@@ -221,73 +244,103 @@ export default function CreativeHub() {
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {filtered.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No content yet</p>
-                <button onClick={createContent} className="mt-2 text-primary hover:underline text-xs">
-                  Create your first content
+              <div className="text-center py-12 px-4">
+                <FileText className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm font-medium text-slate-500 mb-1">No content yet</p>
+                <p className="text-xs text-slate-400 mb-3">Start creating your first piece</p>
+                <button
+                  onClick={createContent}
+                  className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                >
+                  + Create content
                 </button>
               </div>
             ) : (
-              filtered.map(item => (
-                <div
-                  key={item.id}
-                  onClick={() => setSelectedId(item.id)}
-                  className={cn(
-                    'group p-3 rounded-xl cursor-pointer transition-all',
-                    selectedId === item.id
-                      ? 'bg-primary/10 border border-primary/20'
-                      : 'hover:bg-muted/50 dark:hover:bg-white/5 border border-transparent'
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-medium line-clamp-1 flex-1">{item.title}</h3>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteContent(item.id) }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded text-destructive transition-all"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+              filtered.map(item => {
+                const platform = PLATFORM_META[item.platform] || { Icon: Globe, color: 'text-slate-500', bgColor: 'bg-slate-100', label: item.platform }
+                const statusStyle = STATUS_COLORS[item.status] || STATUS_COLORS.idea
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => setSelectedId(item.id)}
+                    className={cn(
+                      'group p-3 rounded-2xl cursor-pointer transition-colors flex gap-3',
+                      selectedId === item.id
+                        ? 'bg-blue-50 border border-blue-100'
+                        : 'hover:bg-slate-50 border border-transparent'
+                    )}
+                  >
+                    <div className={cn(
+                      'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                      platform.bgColor, platform.color
+                    )}>
+                      <platform.Icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0 py-0.5">
+                      <div className="flex items-start justify-between gap-1">
+                        <h3 className={cn(
+                          'font-semibold text-sm line-clamp-1',
+                          selectedId === item.id ? 'text-blue-900' : 'text-slate-900'
+                        )}>
+                          {item.title}
+                        </h3>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteContent(item.id) }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 transition-all shrink-0"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[10px] font-medium text-slate-400">
+                          {new Date(item.updated_at || item.created_at).toLocaleDateString()}
+                        </span>
+                        <span className={cn(
+                          'px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider',
+                          statusStyle.bg, statusStyle.text
+                        )}>
+                          {item.status}
+                        </span>
+                      </div>
+                      {item.script && (
+                        <p className="text-xs text-slate-400 mt-1 line-clamp-1">{item.script}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={cn('text-[10px] px-1.5 py-0.5 rounded capitalize', STATUS_COLORS[item.status] || STATUS_COLORS.idea)}>
-                      {item.status}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {PLATFORM_ICONS[item.platform] || <Globe size={14} />}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">
-                      {new Date(item.updated_at || item.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {item.script && (
-                    <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{item.script}</p>
-                  )}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>
 
         {/* Center Panel - Editor */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
           {selectedId && selected ? (
             <>
-              <div className="flex items-center justify-between px-6 py-3 border-b border-border/50 dark:border-white/5">
-                <div className="flex items-center gap-3">
-                  <button className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground"><Type size={16} /></button>
-                  <button className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground"><List size={16} /></button>
-                  <button className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground"><Image size={16} /></button>
-                  <button className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground"><Link2 size={16} /></button>
+              <div className="h-14 border-b border-slate-100 flex items-center justify-between px-6 shrink-0">
+                <div className="flex items-center gap-1">
+                  <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <Type className="w-4 h-4" />
+                  </button>
+                  <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <List className="w-4 h-4" />
+                  </button>
+                  <div className="w-px h-4 bg-slate-200 mx-2" />
+                  <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <Image className="w-4 h-4" />
+                  </button>
+                  <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <Link2 className="w-4 h-4" />
+                  </button>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs font-medium text-slate-400">
                     {saving ? 'Saving...' : 'Auto-save available'}
                   </span>
                   <button
                     onClick={saveContent}
                     disabled={saving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 font-medium"
                   >
                     <Save size={14} />
                     Save
@@ -295,45 +348,49 @@ export default function CreativeHub() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="Content title..."
-                  className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted-foreground/30"
-                />
-
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Script / Body</label>
-                  <textarea
-                    value={editScript}
-                    onChange={(e) => setEditScript(e.target.value)}
-                    placeholder="Write your script, outline, or content body here..."
-                    className="w-full min-h-[300px] bg-transparent border border-border/30 dark:border-white/5 rounded-lg p-4 text-sm leading-relaxed outline-none focus:border-primary/30 resize-none transition-colors"
+              <div className="flex-1 overflow-y-auto p-10">
+                <div className="max-w-3xl mx-auto">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Content Title"
+                    className="w-full text-4xl font-bold text-slate-900 border-none focus:outline-none focus:ring-0 p-0 mb-6 placeholder-slate-300 bg-transparent"
                   />
-                </div>
 
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Caption</label>
-                  <textarea
-                    value={editCaption}
-                    onChange={(e) => setEditCaption(e.target.value)}
-                    placeholder="Write your caption for social media..."
-                    className="w-full min-h-[120px] bg-transparent border border-border/30 dark:border-white/5 rounded-lg p-4 text-sm leading-relaxed outline-none focus:border-primary/30 resize-none transition-colors"
-                  />
+                  <div className="mb-6">
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Script / Body</label>
+                    <textarea
+                      value={editScript}
+                      onChange={(e) => setEditScript(e.target.value)}
+                      placeholder="Write your script, outline, or content body here..."
+                      className="w-full min-h-[300px] bg-slate-50 border border-slate-200 rounded-2xl p-5 text-base text-slate-700 leading-relaxed outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Caption</label>
+                    <textarea
+                      value={editCaption}
+                      onChange={(e) => setEditCaption(e.target.value)}
+                      placeholder="Write your caption for social media..."
+                      className="w-full min-h-[120px] bg-slate-50 border border-slate-200 rounded-2xl p-5 text-base text-slate-700 leading-relaxed outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
+                    />
+                  </div>
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <PenTool className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="text-lg font-medium mb-1">Select or create content</p>
-                <p className="text-sm">Choose from the library or create something new</p>
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                  <PenTool className="w-8 h-8 text-slate-300" />
+                </div>
+                <p className="text-lg font-semibold text-slate-700 mb-1">Select or create content</p>
+                <p className="text-sm text-slate-400 mb-5">Choose from the library or start something new</p>
                 <button
                   onClick={createContent}
-                  className="mt-4 flex items-center gap-2 mx-auto px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors text-sm"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors text-sm font-medium shadow-sm"
                 >
                   <Plus size={16} />
                   New Content
@@ -345,76 +402,116 @@ export default function CreativeHub() {
 
         {/* Right Panel - Metadata */}
         {selectedId && selected && (
-          <div className="w-64 lg:w-72 border-l border-border/50 dark:border-white/5 overflow-y-auto bg-card/30 dark:bg-zinc-900/30 p-4 space-y-5">
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Status</label>
-              <select
-                value={editStatus}
-                onChange={(e) => setEditStatus(e.target.value)}
-                className="w-full bg-background/50 dark:bg-white/5 border border-border/50 dark:border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary/50 capitalize"
-              >
-                {STATUS_OPTIONS.map(s => (
-                  <option key={s} value={s} className="capitalize bg-card">{s}</option>
-                ))}
-              </select>
+          <div className="w-72 flex flex-col bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden shrink-0">
+            <div className="h-14 border-b border-slate-100 flex items-center px-6 shrink-0">
+              <h3 className="font-semibold text-slate-900">Content Details</h3>
             </div>
 
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Platform</label>
-              <div className="grid grid-cols-3 gap-2">
-                {PLATFORM_OPTIONS.map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setEditPlatform(p)}
-                    className={cn(
-                      'flex flex-col items-center gap-1 p-2 rounded-lg text-xs transition-colors capitalize',
-                      editPlatform === p
-                        ? 'bg-primary/20 text-primary border border-primary/30'
-                        : 'bg-muted/30 dark:bg-white/5 text-muted-foreground hover:text-foreground border border-transparent'
-                    )}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Status</label>
+                <div className="relative">
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium capitalize"
                   >
-                    {PLATFORM_ICONS[p]}
-                    <span className="text-[10px]">{p}</span>
-                  </button>
-                ))}
+                    {STATUS_OPTIONS.map(s => (
+                      <option key={s} value={s} className="capitalize">{s}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                    <svg className="fill-current h-4 w-4" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Publish Date</label>
-              <input
-                type="datetime-local"
-                value={editPublishDate}
-                onChange={(e) => setEditPublishDate(e.target.value)}
-                className="w-full bg-background/50 dark:bg-white/5 border border-border/50 dark:border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary/50"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Video Link</label>
-              <input
-                type="url"
-                value={selected.video_link || ''}
-                readOnly
-                placeholder="No video link"
-                className="w-full bg-background/50 dark:bg-white/5 border border-border/50 dark:border-white/10 rounded-lg px-3 py-2 text-sm outline-none text-muted-foreground"
-              />
-            </div>
-
-            <div className="pt-3 border-t border-border/50 dark:border-white/5">
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>Created: {new Date(selected.created_at).toLocaleDateString()}</p>
-                <p>Updated: {new Date(selected.updated_at || selected.created_at).toLocaleDateString()}</p>
+              {/* Platform */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Platform</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {PLATFORM_OPTIONS.map(p => {
+                    const meta = PLATFORM_META[p]
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setEditPlatform(p)}
+                        className={cn(
+                          'flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-medium transition-colors',
+                          editPlatform === p
+                            ? cn(meta.bgColor, 'border-2 border-current', meta.color)
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        )}
+                      >
+                        <meta.Icon className={cn('w-4 h-4', editPlatform === p ? meta.color : 'text-slate-400')} />
+                        <span className="text-xs">{meta.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
 
-            <button
-              onClick={saveContent}
-              disabled={saving}
-              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+              {/* Project */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project</label>
+                <div className="relative">
+                  <select
+                    value={editProjectId || ''}
+                    onChange={(e) => setEditProjectId(e.target.value || null)}
+                    className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  >
+                    <option value="">No project</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                    <svg className="fill-current h-4 w-4" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Publish Date */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Publish Date</label>
+                <input
+                  type="datetime-local"
+                  value={editPublishDate}
+                  onChange={(e) => setEditPublishDate(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                />
+              </div>
+
+              {/* Video Link */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Video Link</label>
+                <input
+                  type="url"
+                  value={editVideoLink}
+                  onChange={(e) => setEditVideoLink(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
+                />
+              </div>
+
+              {/* Timestamps */}
+              <div className="pt-4 border-t border-slate-100">
+                <div className="text-xs text-slate-400 space-y-1">
+                  <p>Created: {new Date(selected.created_at).toLocaleDateString()}</p>
+                  <p>Updated: {new Date(selected.updated_at || selected.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <button
+                onClick={saveContent}
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         )}
       </div>
