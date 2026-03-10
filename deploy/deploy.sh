@@ -143,7 +143,7 @@ log "Nginx reloaded"
 
 # ── 7. Health checks ─────────────────────────────────────────
 sleep 3
-if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+if curl -sf http://localhost:3000/light/login > /dev/null 2>&1; then
   log "Health: Next.js OK (port 3000)"
 else
   log "WARNING: Next.js health check failed"
