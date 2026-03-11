@@ -15,14 +15,15 @@ function getGenAI(): GoogleGenerativeAI {
 }
 
 /**
- * Embed text using Gemini text-embedding-004 (768 dimensions).
+ * Embed text using Gemini gemini-embedding-001 (768 dimensions).
  * For text-only content. Fast and cost-effective.
  */
 export async function embedText(text: string): Promise<number[]> {
   const genai = getGenAI()
-  const model = genai.getGenerativeModel({ model: 'text-embedding-004' })
+  const model = genai.getGenerativeModel({ model: 'gemini-embedding-001' })
   const result = await model.embedContent(text)
-  return result.embedding.values
+  // Truncate to 768 dims (Matryoshka representation — first N dims are valid)
+  return result.embedding.values.slice(0, 768)
 }
 
 /**
@@ -31,13 +32,13 @@ export async function embedText(text: string): Promise<number[]> {
  */
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   const genai = getGenAI()
-  const model = genai.getGenerativeModel({ model: 'text-embedding-004' })
+  const model = genai.getGenerativeModel({ model: 'gemini-embedding-001' })
   const result = await model.batchEmbedContents({
     requests: texts.map(text => ({
       content: { role: 'user', parts: [{ text }] },
     })),
   })
-  return result.embeddings.map(e => e.values)
+  return result.embeddings.map(e => e.values.slice(0, 768))
 }
 
 /**
