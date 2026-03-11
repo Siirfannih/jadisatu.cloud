@@ -45,11 +45,11 @@ export default function TopNav() {
 
       <div className="flex items-center gap-4 ml-auto">
         <button
-          onClick={toggleTheme}
+          onClick={() => window.location.href = 'https://jadisatu.cloud/'}
           className="relative w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          title="Switch to Dark Mode (Jadisatu Focus)"
         >
-          {theme === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+          <Moon className="w-[18px] h-[18px]" />
         </button>
 
         <button className="relative text-muted-foreground hover:text-foreground transition-colors">

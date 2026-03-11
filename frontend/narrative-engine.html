@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Narrative Engine — JadiSatu OS</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        bg: '#0f0f11', surface: '#18181b', 'surface-light': '#27272a',
+                        border: '#3f3f46',
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body { background: #0f0f11; }
+        .animate-slide-up { animation: slideUp .3s ease-out; }
+        @keyframes slideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .angle-card:hover { transform: translateY(-2px); }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen text-gray-200 font-sans">
+    <script src="js/config.js"></script>
+    <script src="js/auth-helper.js"></script>
+
+    <!-- Top Bar -->
+    <header class="h-14 bg-surface border-b border-white/5 flex items-center px-6 sticky top-0 z-20">
+        <a href="dashboard.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mr-6">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span class="text-sm">Dashboard</span>
+        </a>
+        <div class="flex items-center gap-2">
+            <i data-lucide="book-open" class="w-5 h-5 text-violet-400"></i>
+            <h1 class="text-base font-bold text-white">Narrative Engine</h1>
+        </div>
+        <div class="ml-auto text-xs text-gray-500">Content Research & Script Generation</div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-6 space-y-6 animate-slide-up">
+
+        <!-- Step 1: Topic Input -->
+        <section id="step-topic" class="bg-surface border border-white/10 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 text-sm font-bold">1</div>
+                <div>
+                    <h2 class="text-lg font-bold text-white">Masukkan Topik</h2>
+                    <p class="text-sm text-gray-500">Apa yang ingin kamu riset dan buat kontennya?</p>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <input id="topic-input" type="text" placeholder="e.g., personal branding di era AI"
+                    class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30" />
+                <button id="btn-research" onclick="startResearch()"
+                    class="px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                    Riset
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 2: Research Results -->
+        <section id="step-research" class="hidden bg-surface border border-white/10 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm font-bold">2</div>
+                <div>
+                    <h2 class="text-lg font-bold text-white">Hasil Riset</h2>
+                    <p class="text-sm text-gray-500">Summary dan content angles yang ditemukan</p>
+                </div>
+            </div>
+            <div id="research-summary" class="bg-white/5 rounded-xl p-4 mb-6 text-sm text-gray-300 whitespace-pre-wrap border border-white/5"></div>
+            <h3 class="text-sm font-semibold text-white mb-3">Pilih Content Angle:</h3>
+            <div id="research-angles" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+        </section>
+
+        <!-- Step 3: Generated Script -->
+        <section id="step-script" class="hidden bg-surface border border-white/10 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 text-sm font-bold">3</div>
+                <div>
+                    <h2 class="text-lg font-bold text-white">Draft Script</h2>
+                    <p id="script-meta" class="text-sm text-gray-500"></p>
+                </div>
+            </div>
+            <div id="script-content" class="bg-white/5 rounded-xl p-4 text-sm text-gray-300 whitespace-pre-wrap border border-white/5 max-h-[500px] overflow-y-auto custom-scroll"></div>
+            <div class="flex gap-3 mt-4">
+                <button onclick="copyScript()" id="btn-copy"
+                    class="flex-1 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                    Copy Script
+                </button>
+                <button onclick="sendToCreativeHub()" id="btn-send-hub"
+                    class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    Kirim ke Creative Hub
+                </button>
+            </div>
+        </section>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="hidden text-center py-12">
+            <div class="inline-flex items-center gap-3 text-gray-400">
+                <svg class="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.3"/><path d="M4 12a8 8 0 0 1 8-8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                <span class="text-sm" id="loading-text">Sedang meneliti topik...</span>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Auth guard
+        (async function() {
+            const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            window.supabaseClient = sb;
+            const { data: { user } } = await sb.auth.getUser();
+            if (!user) { window.location.href = 'login.html'; return; }
+            window.currentUser = user;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        })();
+
+        let currentResearch = null;
+        let currentScript = '';
+        let currentAngle = '';
+        let currentPlatform = '';
+
+        // ── Script Templates ──
+        const SCRIPTS = {
+            youtube: (t, a) => `[INTRO - Hook]\n"Most people are completely wrong about ${t}. Here's what they're missing..."\n\n[SECTION 1 - Context]\n"Let me break down what's actually happening with ${t}..."\n- Set the scene with current data\n- Reference 2-3 key statistics\n- Establish credibility\n\n[SECTION 2 - Main Insight]\n"The real story behind ${a}..."\n- Present your unique perspective\n- Use examples and analogies\n- Show data that supports your view\n\n[SECTION 3 - Practical Application]\n"Here's how you can use this..."\n- Step-by-step breakdown\n- Real examples\n- Common mistakes to avoid\n\n[OUTRO - CTA]\n"If this helped you understand ${t}, hit subscribe."`,
+            instagram: (t, a) => `[SLIDE 1 - Hook]\n"${a}" (bold text, eye-catching visual)\n\n[SLIDE 2 - Problem]\nMost creators struggle with ${t} because they focus on the wrong things.\n\n[SLIDE 3 - Insight 1]\nKey finding: [Data point about ${t}]\n\n[SLIDE 4 - Insight 2]\nWhat the data actually shows...\n\n[SLIDE 5 - Insight 3]\nThe pattern most people miss...\n\n[SLIDE 6 - Action Step]\nHere's what to do next:\n1. [Step 1]\n2. [Step 2]\n3. [Step 3]\n\n[SLIDE 7 - CTA]\nSave this for later. Follow for more on ${t}.`,
+            tiktok: (t, a) => `[0-3s HOOK]\n"Stop scrolling if you care about ${t}"\n\n[3-15s PROBLEM]\n"Everyone is talking about this wrong..."\n\n[15-40s MAIN CONTENT]\n"Here's what's actually happening with ${a}..."\n- Point 1 (with visual)\n- Point 2 (with visual)\n- Point 3 (with visual)\n\n[40-55s VALUE]\n"The one thing you need to know..."\n\n[55-60s CTA]\n"Follow for more. Link in bio."`,
+            twitter: (t, a) => `THREAD: ${a}\n\n1/ Let's talk about ${t}. Here's what actually matters...\n\n2/ First, the context: [Key background info]\n\n3/ Most takes are surface-level. Here's what they're missing...\n\n4/ The data tells a different story: [Specific data point]\n\n5/ Why this matters for you: [Practical implication]\n\n6/ Here's the move: [Actionable advice]\n\n7/ TL;DR:\n- [Key point 1]\n- [Key point 2]\n- [Key point 3]`,
+            linkedin: (t, a) => `${a}\n\nI've been deep in the data on ${t}, and here's what I found:\n\nThe conventional wisdom says one thing.\nThe data says another.\n\nHere are 3 key insights:\n\n1. [Insight with supporting evidence]\n\n2. [Counter-intuitive finding]\n\n3. [Actionable takeaway]\n\nWhat's your take? Drop a comment below.`,
+        };
+
+        const PLATFORM_ICONS = { youtube: '🎬', twitter: '🐦', instagram: '📸', tiktok: '🎵', linkedin: '💼' };
+        const PLATFORM_COLORS = { youtube: 'border-red-500/30 bg-red-500/10', twitter: 'border-blue-400/30 bg-blue-400/10', instagram: 'border-pink-500/30 bg-pink-500/10', tiktok: 'border-cyan-400/30 bg-cyan-400/10', linkedin: 'border-blue-600/30 bg-blue-600/10' };
+
+        function startResearch() {
+            const topic = document.getElementById('topic-input').value.trim();
+            if (!topic) return;
+
+            const btn = document.getElementById('btn-research');
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.3"/><path d="M4 12a8 8 0 0 1 8-8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg> Meneliti...';
+
+            // Simulate API delay
+            setTimeout(() => {
+                currentResearch = {
+                    research_summary: `Hasil riset untuk "${topic}":\n\n` +
+                        `Temuan utama dari analisis tren dan data terkini:\n` +
+                        `1. Minat terhadap ${topic} terus meningkat di berbagai platform sosial media\n` +
+                        `2. Kreator top mendekati topik ini dari sudut yang unik dan personal\n` +
+                        `3. Engagement audiens paling tinggi saat menggabungkan cerita personal dengan data\n` +
+                        `4. Konten paling viral tentang ${topic} menggunakan hook yang kontrarian`,
+                    content_angles: [
+                        { angle: `The Hidden Truth About ${topic}`, platform: 'youtube', format: 'Long-form video (8-12 min)', description: `Deep dive analysis revealing what most people miss about ${topic}` },
+                        { angle: `${topic}: What Nobody Tells You`, platform: 'twitter', format: 'Thread (8-10 tweets)', description: `Contrarian thread breaking down common misconceptions` },
+                        { angle: `I Tried ${topic} for 30 Days`, platform: 'instagram', format: 'Carousel (7-10 slides)', description: `Personal experiment documenting real results and lessons` },
+                        { angle: `Why ${topic} Changes Everything`, platform: 'tiktok', format: 'Short-form video (30-60s)', description: `Quick-hit hook with surprising data points` },
+                        { angle: `${topic}: A Professional's Take`, platform: 'linkedin', format: 'Article post', description: `In-depth professional perspective with 3 key insights` },
+                    ],
+                    topic,
+                };
+
+                document.getElementById('research-summary').textContent = currentResearch.research_summary;
+
+                const anglesContainer = document.getElementById('research-angles');
+                anglesContainer.innerHTML = currentResearch.content_angles.map((a, i) => `
+                    <button onclick="selectAngle(${i})" class="angle-card text-left p-4 rounded-xl border ${PLATFORM_COLORS[a.platform] || 'border-white/10 bg-white/5'} hover:border-white/30 transition-all duration-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-lg">${PLATFORM_ICONS[a.platform] || '📝'}</span>
+                            <span class="text-xs font-medium text-gray-400 uppercase">${a.platform}</span>
+                            <span class="text-xs text-gray-600">• ${a.format}</span>
+                        </div>
+                        <p class="text-sm font-semibold text-white mb-1">${a.angle}</p>
+                        <p class="text-xs text-gray-500">${a.description}</p>
+                    </button>
+                `).join('');
+
+                document.getElementById('step-research').classList.remove('hidden');
+                document.getElementById('step-script').classList.add('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="search" class="w-4 h-4"></i> Riset';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }, 1500);
+        }
+
+        function selectAngle(index) {
+            if (!currentResearch) return;
+            const angle = currentResearch.content_angles[index];
+            currentAngle = angle.angle;
+            currentPlatform = angle.platform;
+
+            const scriptFn = SCRIPTS[angle.platform] || SCRIPTS.instagram;
+            currentScript = scriptFn(currentResearch.topic, angle.angle);
+
+            document.getElementById('script-meta').textContent = `${PLATFORM_ICONS[angle.platform]} ${angle.platform.toUpperCase()} • ${angle.format}`;
+            document.getElementById('script-content').textContent = currentScript;
+            document.getElementById('step-script').classList.remove('hidden');
+            document.getElementById('step-script').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function copyScript() {
+            navigator.clipboard.writeText(currentScript).then(() => {
+                const btn = document.getElementById('btn-copy');
+                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Copied!';
+                btn.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/30');
+                setTimeout(() => {
+                    btn.innerHTML = '<i data-lucide="copy" class="w-4 h-4"></i> Copy Script';
+                    btn.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/30');
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }, 2000);
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        }
+
+        async function sendToCreativeHub() {
+            if (!window.currentUser || !currentScript) return;
+            const btn = document.getElementById('btn-send-hub');
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.3"/><path d="M4 12a8 8 0 0 1 8-8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg> Mengirim...';
+
+            try {
+                const { error } = await window.supabaseClient.from('contents').insert({
+                    title: currentAngle || currentResearch.topic,
+                    script: currentScript,
+                    platform: currentPlatform || 'instagram',
+                    status: 'script',
+                    user_id: window.currentUser.id,
+                });
+                if (error) throw error;
+
+                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Terkirim ke Creative Hub!';
+                btn.classList.remove('bg-emerald-600');
+                btn.classList.add('bg-emerald-500/20', 'text-emerald-400');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } catch (e) {
+                btn.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i> Gagal: ' + e.message;
+                btn.classList.remove('bg-emerald-600');
+                btn.classList.add('bg-red-500/20', 'text-red-400');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                btn.disabled = false;
+            }
+        }
+
+        // Enter to research
+        document.getElementById('topic-input')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') startResearch();
+        });
+    </script>
+</body>
+</html>

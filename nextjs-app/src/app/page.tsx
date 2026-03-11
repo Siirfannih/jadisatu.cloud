@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -9,6 +10,11 @@ import {
   MessageSquare, GitCommit, FileEdit, CheckCircle2, Circle,
   ArrowRight, Trash2, ChevronLeft, ChevronRight as ChevronRightIcon
 } from 'lucide-react'
+
+const MorningBriefing = dynamic(() => import('@/components/dashboard/MorningBriefing'), {
+  ssr: false,
+  loading: () => null,
+})
 
 type Task = { id: string; title: string; status: string; domain: string; priority: string; created_at: string }
 type Project = { id: string; name: string; description: string | null; status: string }
@@ -221,6 +227,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      <MorningBriefing />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

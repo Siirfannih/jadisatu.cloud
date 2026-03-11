@@ -6,8 +6,8 @@ class CreativeContentService {
     constructor(supabaseClient) {
         if (!supabaseClient) throw new Error('Supabase client is required');
         this.client = supabaseClient;
-        this.TABLE = 'creative_content';
-        this.STATUSES = ['idea', 'scripting', 'ready', 'published'];
+        this.TABLE = 'contents';
+        this.STATUSES = ['idea', 'scripting', 'script', 'ready', 'published'];
     }
 
     async getItems(userId, opts) {
@@ -21,13 +21,13 @@ class CreativeContentService {
 
             var platformFilter = (opts && opts.platform) ? String(opts.platform).toLowerCase() : null;
             if (platformFilter && platformFilter !== 'all') {
-                query = query.contains('platform', [platformFilter]);
+                query = query.eq('platform', platformFilter);
             }
 
             var res = await query;
-            console.log('[CreativeContentService.getItems] response error=', res.error, 'data.length=', (res.data && res.data.length) || 0, 'data=', res.data);
+            console.log('[CreativeContentService.getItems] response error=', res.error, 'data.length=', (res.data && res.data.length) || 0);
             if (res.error) throw res.error;
-            return res.data || [];
+            return (res.data || []).map(this._mapFromDb);
         } catch (e) {
             console.error('CreativeContent getItems failed (RLS or network?):', e);
             return [];
@@ -44,7 +44,7 @@ class CreativeContentService {
                 .maybeSingle();
 
             if (res.error) throw res.error;
-            return res.data;
+            return res.data ? this._mapFromDb(res.data) : null;
         } catch (e) {
             console.error('CreativeContent getItem failed:', e);
             return null;
@@ -53,17 +53,19 @@ class CreativeContentService {
 
     async addIdea(userId, title, platforms) {
         try {
+            var platformStr = Array.isArray(platforms) ? (platforms[0] || 'instagram') : (platforms || 'instagram');
             var row = {
                 user_id: userId,
                 title: String(title || '').trim() || 'Tanpa judul',
                 hook_text: '',
                 value_text: '',
                 cta_text: '',
-                full_script: '',
+                script: '',
+                caption: '',
                 status: 'idea',
-                platform: Array.isArray(platforms) ? platforms : (platforms ? [platforms] : []),
+                platform: String(platformStr).toLowerCase(),
                 published_url: null,
-                scheduled_date: null
+                publish_date: null
             };
 
             var res = await this.client
@@ -74,7 +76,7 @@ class CreativeContentService {
 
             if (res.error) throw res.error;
             console.log('✅ Creative idea saved to Supabase');
-            return res.data;
+            return this._mapFromDb(res.data);
         } catch (e) {
             console.error('CreativeContent addIdea failed:', e);
             throw e;
@@ -94,15 +96,21 @@ class CreativeContentService {
             if (updates.cta_text !== undefined)
                 allowed.cta_text = updates.cta_text;
             if (updates.full_script !== undefined)
-                allowed.full_script = updates.full_script;
+                allowed.script = updates.full_script;
+            if (updates.script !== undefined)
+                allowed.script = updates.script;
             if (updates.status !== undefined && this.STATUSES.indexOf(updates.status) !== -1)
                 allowed.status = updates.status;
-            if (updates.platform !== undefined)
-                allowed.platform = Array.isArray(updates.platform) ? updates.platform : [updates.platform];
+            if (updates.platform !== undefined) {
+                var p = updates.platform;
+                allowed.platform = Array.isArray(p) ? (p[0] || 'instagram') : String(p).toLowerCase();
+            }
             if (updates.published_url !== undefined)
                 allowed.published_url = updates.published_url;
             if (updates.scheduled_date !== undefined)
-                allowed.scheduled_date = updates.scheduled_date ? String(updates.scheduled_date).split('T')[0] : null;
+                allowed.publish_date = updates.scheduled_date ? String(updates.scheduled_date).split('T')[0] : null;
+            if (updates.publish_date !== undefined)
+                allowed.publish_date = updates.publish_date ? String(updates.publish_date).split('T')[0] : null;
             if (updates.canva_design_id !== undefined) allowed.canva_design_id = updates.canva_design_id;
             if (updates.canva_template_url !== undefined) allowed.canva_template_url = updates.canva_template_url;
             if (updates.carousel_slide_count !== undefined) allowed.carousel_slide_count = updates.carousel_slide_count;
@@ -125,7 +133,7 @@ class CreativeContentService {
 
             if (res.error) throw res.error;
             console.log('✅ Creative item updated in Supabase');
-            return res.data;
+            return this._mapFromDb(res.data);
         } catch (e) {
             console.error('CreativeContent updateItem failed:', e);
             throw e;
@@ -180,6 +188,34 @@ class CreativeContentService {
         }
     }
 
+    /** Map contents table row to Dark mode expected format */
+    _mapFromDb(row) {
+        if (!row) return row;
+        return {
+            id: row.id,
+            user_id: row.user_id,
+            title: row.title,
+            hook_text: row.hook_text || '',
+            value_text: row.value_text || '',
+            cta_text: row.cta_text || '',
+            full_script: row.script || '',
+            script: row.script || '',
+            caption: row.caption || '',
+            status: row.status === 'script' ? 'scripting' : row.status,
+            platform: row.platform ? [row.platform] : [],
+            published_url: row.published_url || null,
+            scheduled_date: row.publish_date || null,
+            publish_date: row.publish_date || null,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            canva_template_url: row.canva_template_url || null,
+            canva_design_id: row.canva_design_id || null,
+            carousel_slide_count: row.carousel_slide_count || 0,
+            approval_rate: row.approval_rate || null,
+            export_timestamp: row.export_timestamp || null,
+        };
+    }
+
     async getNextAction(userId, platformFilter) {
         try {
             var query = this.client
@@ -191,12 +227,12 @@ class CreativeContentService {
                 .limit(1);
 
             if (platformFilter && platformFilter !== 'all') {
-                query = query.contains('platform', [platformFilter]);
+                query = query.eq('platform', platformFilter);
             }
 
             var res = await query.maybeSingle();
             if (res.error) throw res.error;
-            return res.data;
+            return res.data ? this._mapFromDb(res.data) : null;
         } catch (e) {
             console.error('CreativeContent getNextAction failed:', e);
             return null;

@@ -1,5 +1,27 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
+import { embedText, composeContentText } from '@/lib/rag/gemini'
+
+/**
+ * Fire-and-forget: embed content after save.
+ * Runs async without blocking the response.
+ */
+async function autoEmbed(contentId: string, content: Record<string, unknown>) {
+  try {
+    if (!process.env.GEMINI_API_KEY) return // skip if no key
+    const text = composeContentText(content as Parameters<typeof composeContentText>[0])
+    if (!text.trim()) return
+
+    const embedding = await embedText(text)
+    const supabase = await createClient()
+    await supabase
+      .from('contents')
+      .update({ embedding: JSON.stringify(embedding), embedded_at: new Date().toISOString() })
+      .eq('id', contentId)
+  } catch (e) {
+    console.warn('[RAG] Auto-embed failed:', e instanceof Error ? e.message : e)
+  }
+}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -64,6 +86,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Auto-embed in background (fire-and-forget)
+  if (data?.id) autoEmbed(data.id, data)
+
   return NextResponse.json(data, { status: 201 })
 }
 
@@ -107,6 +132,12 @@ export async function PATCH(request: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Auto-embed in background on content text changes
+  const textFields = ['title', 'script', 'caption', 'hook_text', 'value_text', 'cta_text']
+  if (data?.id && textFields.some(f => body[f] !== undefined)) {
+    autoEmbed(data.id, data)
   }
 
   return NextResponse.json(data)

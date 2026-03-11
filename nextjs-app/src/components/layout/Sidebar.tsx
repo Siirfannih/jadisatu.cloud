@@ -9,7 +9,8 @@ import {
   Bot, BrainCircuit, History, Settings,
   PenTool, Compass, Moon, Sparkles,
   ChevronLeft, ChevronRight, Calendar, Target,
-  CheckSquare, Users, StickyNote, LogOut, ExternalLink
+  CheckSquare, Users, StickyNote, LogOut, ExternalLink,
+  Briefcase, BookOpen, TrendingUp, Image
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
@@ -23,8 +24,14 @@ const navItems = [
   { icon: KanbanSquare, label: 'Kanban', to: '/kanban' },
   { icon: FolderKanban, label: 'Projects', to: '/projects' },
   { type: 'divider' as const },
+  { type: 'label' as const, text: 'Domains' },
+  { icon: Briefcase, label: 'Work & Career', to: '/domains/work' },
+  { icon: BookOpen, label: 'Learning', to: '/domains/learn' },
+  { icon: TrendingUp, label: 'Business', to: '/domains/business' },
+  { type: 'divider' as const },
   { type: 'label' as const, text: 'Creative' },
   { icon: PenTool, label: 'Creative Studio', to: '/creative' },
+  { icon: Image, label: 'Content Studio', to: '/content-studio' },
   { icon: Compass, label: 'Narrative Engine', to: '/narrative-engine' },
   { icon: Bot, label: 'AI Agents', to: '/agents' },
   { icon: Users, label: 'My Network', to: '/crm' },
@@ -45,6 +52,18 @@ export default function Sidebar() {
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
+  }
+
+  const handleSwitchToMonkMode = async () => {
+    // Ensure session is in localStorage so Dark mode can read it
+    // The @supabase/ssr browser client stores in both cookies and localStorage
+    // so the Dark mode's Supabase JS client can pick it up
+    try {
+      await supabase.auth.getSession()
+    } catch {
+      // ignore
+    }
+    window.location.href = '/'
   }
 
   return (
@@ -87,7 +106,7 @@ export default function Sidebar() {
             )
           }
           const Icon = item.icon!
-          const active = pathname === item.to
+          const active = pathname === item.to || (item.to!.startsWith('/domains/') && pathname === item.to)
           return (
             <Link
               key={item.to}
@@ -117,8 +136,8 @@ export default function Sidebar() {
 
       {/* Bottom: Monk Mode + Settings */}
       <div className="p-3 mt-auto border-t border-border space-y-1">
-        <a
-          href="/"
+        <button
+          onClick={handleSwitchToMonkMode}
           className={cn(
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 group',
             collapsed && 'justify-center px-2'
@@ -130,7 +149,7 @@ export default function Sidebar() {
               Monk Mode <ExternalLink className="w-3 h-3 opacity-50" />
             </span>
           )}
-        </a>
+        </button>
         <Link
           href="/settings"
           className={cn(

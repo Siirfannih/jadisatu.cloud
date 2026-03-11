@@ -1,12 +1,26 @@
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
-  Plus, Search, X, Save,
-  Youtube, Twitter, Instagram, Video, Globe, Linkedin,
-  FileText, ArrowRight, ChevronRight, Sparkles
+  Plus, Search, X, Save, Trash2, Wand2, Loader2,
+  Youtube, Twitter, Instagram, Video, Globe, Linkedin, BookOpen,
+  ChevronRight, Sparkles, GripVertical, Calendar as CalendarIcon,
+  Bold, Italic, List, ListOrdered, Link2, Type
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  type DragStartEvent,
+  type DragEndEvent,
+  useDroppable,
+} from '@dnd-kit/core'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface ContentItem {
   id: string
@@ -23,18 +37,29 @@ interface ContentItem {
   project_id: string | null
   created_at: string
   updated_at: string
+  hook_text?: string
+  value_text?: string
+  cta_text?: string
+  tags?: string
 }
 
 const STATUS_FLOW = ['idea', 'draft', 'script', 'ready', 'published'] as const
-const PLATFORM_OPTIONS = ['instagram', 'tiktok', 'youtube', 'linkedin', 'twitter'] as const
+const PLATFORM_OPTIONS = [
+  { key: 'twitter', label: 'Twitter', Icon: Twitter, color: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-500/10' },
+  { key: 'youtube', label: 'YouTube', Icon: Youtube, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10' },
+  { key: 'instagram', label: 'Instagram', Icon: Instagram, color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-500/10' },
+  { key: 'linkedin', label: 'LinkedIn', Icon: Linkedin, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+  { key: 'tiktok', label: 'TikTok', Icon: Video, color: 'text-foreground', bg: 'bg-muted' },
+  { key: 'blog', label: 'Blog', Icon: BookOpen, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+] as const
 
-const PIPELINE_STAGES = [
-  { key: 'idea', label: 'Idea', emoji: '💡', color: 'border-yellow-400/40 bg-yellow-50/50 dark:bg-yellow-500/5' },
-  { key: 'draft', label: 'Draft', emoji: '📝', color: 'border-blue-400/40 bg-blue-50/50 dark:bg-blue-500/5' },
-  { key: 'script', label: 'Script', emoji: '🎬', color: 'border-purple-400/40 bg-purple-50/50 dark:bg-purple-500/5' },
-  { key: 'ready', label: 'Ready', emoji: '🚀', color: 'border-emerald-400/40 bg-emerald-50/50 dark:bg-emerald-500/5' },
-  { key: 'published', label: 'Published', emoji: '✨', color: 'border-pink-400/40 bg-pink-50/50 dark:bg-pink-500/5' },
-]
+const STAGE_META: Record<string, { label: string; emoji: string; color: string }> = {
+  idea: { label: 'Idea', emoji: '💡', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-400' },
+  draft: { label: 'Draft', emoji: '📝', color: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400' },
+  script: { label: 'Script', emoji: '🎬', color: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400' },
+  ready: { label: 'Ready', emoji: '🚀', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' },
+  published: { label: 'Published', emoji: '✨', color: 'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-400' },
+}
 
 const NEXT_STAGE: Record<string, string> = {
   idea: 'draft',
@@ -43,28 +68,155 @@ const NEXT_STAGE: Record<string, string> = {
   ready: 'published',
 }
 
-const PLATFORM_META: Record<string, { Icon: React.ComponentType<{ className?: string; size?: number }>; color: string; bgColor: string; label: string }> = {
-  instagram: { Icon: Instagram, color: 'text-pink-500', bgColor: 'bg-pink-50 dark:bg-pink-500/10', label: 'IG' },
-  tiktok: { Icon: Video, color: 'text-foreground', bgColor: 'bg-muted', label: 'TikTok' },
-  youtube: { Icon: Youtube, color: 'text-red-500', bgColor: 'bg-red-50 dark:bg-red-500/10', label: 'YT' },
-  linkedin: { Icon: Linkedin, color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-500/10', label: 'LinkedIn' },
-  twitter: { Icon: Twitter, color: 'text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-500/10', label: 'Twitter' },
+// ── Droppable Stage Tab ──────────────────────────────
+function StageDropZone({ stageKey, count, isActive, onClick, isOver }: {
+  stageKey: string; count: number; isActive: boolean; onClick: () => void; isOver: boolean
+}) {
+  const { setNodeRef } = useDroppable({ id: `stage-${stageKey}` })
+  const meta = STAGE_META[stageKey]
+
+  return (
+    <button
+      ref={setNodeRef}
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap',
+        isActive
+          ? cn(meta.color, 'shadow-sm')
+          : 'text-muted-foreground hover:bg-muted',
+        isOver && 'ring-2 ring-primary ring-offset-2 scale-105'
+      )}
+    >
+      <span>{meta.emoji}</span>
+      <span>{meta.label}</span>
+      <span className={cn(
+        'text-[10px] font-bold px-1.5 py-0.5 rounded-md',
+        isActive ? 'bg-white/30 dark:bg-black/20' : 'bg-muted'
+      )}>{count}</span>
+    </button>
+  )
 }
 
-export default function CreativeHub() {
+// ── Draggable Content Card ───────────────────────────
+function DraggableContentCard({ item, isSelected, onClick }: {
+  item: ContentItem; isSelected: boolean; onClick: () => void
+}) {
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  const platform = PLATFORM_OPTIONS.find(p => p.key === item.platform)
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'group flex items-start gap-2 p-3 rounded-xl border cursor-pointer transition-all',
+        isSelected
+          ? 'bg-primary/5 border-primary/30 shadow-sm'
+          : 'bg-card border-border hover:border-primary/20 hover:shadow-sm',
+        isDragging && 'opacity-50 shadow-lg'
+      )}
+      onClick={onClick}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="mt-0.5 p-0.5 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing shrink-0"
+        onClick={e => e.stopPropagation()}
+      >
+        <GripVertical size={14} />
+      </button>
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-semibold text-foreground line-clamp-1 mb-1">
+          {item.title || 'Untitled'}
+        </h4>
+        <div className="flex items-center gap-2">
+          {platform && (
+            <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md', platform.bg, platform.color)}>
+              <platform.Icon className="w-2.5 h-2.5" />
+              {platform.label}
+            </span>
+          )}
+          <span className="text-[10px] text-muted-foreground">
+            {new Date(item.updated_at || item.created_at).toLocaleDateString()}
+          </span>
+        </div>
+        {item.script && (
+          <p className="text-[11px] text-muted-foreground line-clamp-1 mt-1">{item.script}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Drag Overlay Card ────────────────────────────────
+function DragOverlayCard({ item }: { item: ContentItem }) {
+  const platform = PLATFORM_OPTIONS.find(p => p.key === item.platform)
+  return (
+    <div className="flex items-start gap-2 p-3 rounded-xl border border-primary/30 bg-card shadow-xl w-[260px]">
+      <GripVertical size={14} className="mt-0.5 text-muted-foreground/40 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-semibold text-foreground line-clamp-1 mb-1">{item.title || 'Untitled'}</h4>
+        {platform && (
+          <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md', platform.bg, platform.color)}>
+            <platform.Icon className="w-2.5 h-2.5" />
+            {platform.label}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Component ───────────────────────────────────
+export default function CreativeStudio() {
   const [contents, setContents] = useState<ContentItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeFilter, setActiveFilter] = useState<string>('all')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [newContent, setNewContent] = useState({ title: '', platform: 'instagram', script: '' })
+  const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [dragActiveId, setDragActiveId] = useState<string | null>(null)
+  const [overStage, setOverStage] = useState<string | null>(null)
 
+  // Editor state
+  const [editTitle, setEditTitle] = useState('')
+  const [editScript, setEditScript] = useState('')
+  const [editCaption, setEditCaption] = useState('')
+  const [editPlatform, setEditPlatform] = useState('instagram')
+  const [editStage, setEditStage] = useState('idea')
+  const [editTags, setEditTags] = useState('')
+  const [editPublishDate, setEditPublishDate] = useState('')
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  const [generating, setGenerating] = useState(false)
+  const editorRef = useRef<HTMLTextAreaElement>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
+  // ── Data fetching ──────────────────────────────────
   const loadContents = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/light/api/contents')
-    if (res.ok) {
-      const data = await res.json()
-      setContents(data)
+    try {
+      const res = await fetch('/light/api/contents')
+      if (res.ok) {
+        const data = await res.json()
+        setContents(data)
+      }
+    } catch {
+      // silent
     }
     setLoading(false)
   }, [])
@@ -73,34 +225,81 @@ export default function CreativeHub() {
     loadContents()
   }, [loadContents])
 
-  async function moveToStage(id: string, newStatus: string) {
-    await fetch('/light/api/contents', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: newStatus }),
-    })
-    setContents(prev =>
-      prev.map(c => c.id === id ? { ...c, status: newStatus } : c)
-    )
+  // ── Selection ──────────────────────────────────────
+  const selectedItem = contents.find(c => c.id === selectedId)
+
+  useEffect(() => {
+    if (selectedItem) {
+      setEditTitle(selectedItem.title || '')
+      setEditScript(selectedItem.script || '')
+      setEditCaption(selectedItem.caption || '')
+      setEditPlatform(selectedItem.platform || 'instagram')
+      setEditStage(selectedItem.status || 'idea')
+      setEditTags((selectedItem as ContentItem & { tags?: string }).tags || '')
+      setEditPublishDate(selectedItem.publish_date ? selectedItem.publish_date.split('T')[0] : '')
+      setHasUnsavedChanges(false)
+    }
+  }, [selectedId, selectedItem?.updated_at])
+
+  // ── CRUD ───────────────────────────────────────────
+  async function saveContent() {
+    if (!selectedId || !selectedItem) return
+    setSaving(true)
+    try {
+      await fetch('/light/api/contents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedId,
+          title: editTitle,
+          script: editScript,
+          caption: editCaption,
+          platform: editPlatform,
+          status: editStage,
+          publish_date: editPublishDate || null,
+        }),
+      })
+      setContents(prev => prev.map(c =>
+        c.id === selectedId ? {
+          ...c,
+          title: editTitle,
+          script: editScript,
+          caption: editCaption,
+          platform: editPlatform,
+          status: editStage,
+          publish_date: editPublishDate || null,
+          updated_at: new Date().toISOString(),
+        } : c
+      ))
+      setHasUnsavedChanges(false)
+    } catch {
+      // silent
+    }
+    setSaving(false)
   }
 
   async function createContent() {
-    if (!newContent.title.trim()) return
+    if (!newTitle.trim()) return
     setCreating(true)
-    const res = await fetch('/light/api/contents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: newContent.title,
-        platform: newContent.platform,
-        script: newContent.script,
-        status: 'idea',
-      }),
-    })
-    if (res.ok) {
-      setNewContent({ title: '', platform: 'instagram', script: '' })
-      setShowCreateForm(false)
-      await loadContents()
+    try {
+      const res = await fetch('/light/api/contents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTitle,
+          platform: 'instagram',
+          status: 'idea',
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setContents(prev => [data, ...prev])
+        setNewTitle('')
+        setShowCreateForm(false)
+        setSelectedId(data.id)
+      }
+    } catch {
+      // silent
     }
     setCreating(false)
   }
@@ -109,238 +308,469 @@ export default function CreativeHub() {
     if (!confirm('Delete this content?')) return
     await fetch(`/light/api/contents?id=${id}`, { method: 'DELETE' })
     setContents(prev => prev.filter(c => c.id !== id))
+    if (selectedId === id) {
+      setSelectedId(null)
+    }
   }
 
-  const filtered = contents.filter(c =>
-    !searchQuery ||
-    c.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.script?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  function getStageContents(stageKey: string) {
-    return filtered.filter(c => c.status === stageKey)
+  async function generateScript() {
+    if (!selectedItem || !editTitle.trim()) return
+    setGenerating(true)
+    try {
+      const res = await fetch('/light/api/narrative/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: editTitle,
+          angle: editTitle,
+          platform: editPlatform,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setEditScript(data.draft_script || '')
+        setHasUnsavedChanges(true)
+        // Auto-advance to script stage if currently in idea/draft
+        if (editStage === 'idea' || editStage === 'draft') {
+          setEditStage('script')
+        }
+      }
+    } catch {
+      // silent
+    }
+    setGenerating(false)
   }
 
+  async function advanceStage() {
+    if (!selectedItem || !NEXT_STAGE[editStage]) return
+    const next = NEXT_STAGE[editStage]
+    setEditStage(next)
+    setSaving(true)
+    try {
+      await fetch('/light/api/contents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedId, status: next }),
+      })
+      setContents(prev => prev.map(c =>
+        c.id === selectedId ? { ...c, status: next, updated_at: new Date().toISOString() } : c
+      ))
+    } catch {
+      // silent
+    }
+    setSaving(false)
+  }
+
+  async function moveToStage(id: string, newStatus: string) {
+    await fetch('/light/api/contents', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: newStatus }),
+    })
+    setContents(prev => prev.map(c =>
+      c.id === id ? { ...c, status: newStatus, updated_at: new Date().toISOString() } : c
+    ))
+    if (selectedId === id) {
+      setEditStage(newStatus)
+    }
+  }
+
+  // ── Filtering ──────────────────────────────────────
+  const filtered = contents.filter(c => {
+    const matchesSearch = !searchQuery ||
+      c.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.script?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesFilter = activeFilter === 'all' || c.status === activeFilter
+    return matchesSearch && matchesFilter
+  })
+
+  function getStageCount(stage: string) {
+    return contents.filter(c => c.status === stage).length
+  }
+
+  // ── Drag & Drop ────────────────────────────────────
+  function handleDragStart(event: DragStartEvent) {
+    setDragActiveId(event.active.id as string)
+  }
+
+  function handleDragOver(event: { over: { id: string | number } | null }) {
+    if (event.over) {
+      const overId = String(event.over.id)
+      if (overId.startsWith('stage-')) {
+        setOverStage(overId.replace('stage-', ''))
+      } else {
+        setOverStage(null)
+      }
+    } else {
+      setOverStage(null)
+    }
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    setDragActiveId(null)
+    setOverStage(null)
+
+    if (!over) return
+    const overId = String(over.id)
+
+    if (overId.startsWith('stage-')) {
+      const targetStage = overId.replace('stage-', '')
+      const itemId = active.id as string
+      const item = contents.find(c => c.id === itemId)
+      if (item && item.status !== targetStage) {
+        moveToStage(itemId, targetStage)
+      }
+    }
+  }
+
+  const dragItem = dragActiveId ? contents.find(c => c.id === dragActiveId) : null
+
+  // ── Auto-resize textarea ───────────────────────────
+  function handleEditorChange(value: string) {
+    setEditScript(value)
+    setHasUnsavedChanges(true)
+    if (editorRef.current) {
+      editorRef.current.style.height = 'auto'
+      editorRef.current.style.height = editorRef.current.scrollHeight + 'px'
+    }
+  }
+
+  // ── Keyboard shortcut ──────────────────────────────
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        if (hasUnsavedChanges && selectedId) {
+          saveContent()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [hasUnsavedChanges, selectedId, editTitle, editScript, editCaption, editPlatform, editStage, editPublishDate])
+
+  // ── Render ─────────────────────────────────────────
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="shrink-0 px-8 pt-8 pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight mb-1">🎨 Creative Studio</h1>
-            <p className="text-muted-foreground text-sm">
-              Your content pipeline — from spark to publish
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="relative max-w-xs">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search content..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-              />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="shrink-0 px-6 pt-6 pb-3">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground tracking-tight">Content Studio</h1>
+              <p className="text-muted-foreground text-sm">Write, structure, and publish your content.</p>
             </div>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              New Content
-            </button>
-          </div>
-        </div>
-
-        {/* Pipeline summary */}
-        <div className="flex items-center gap-2 bg-card border border-border rounded-2xl px-4 py-2.5 shadow-sm w-fit">
-          {PIPELINE_STAGES.map((stage, i) => {
-            const count = getStageContents(stage.key).length
-            return (
-              <div key={stage.key} className="flex items-center">
-                <div className="flex items-center gap-1.5 px-2 py-0.5">
-                  <span className="text-sm">{stage.emoji}</span>
-                  <span className="text-xs font-medium text-muted-foreground">{stage.label}</span>
-                  <span className="text-xs font-bold text-foreground">{count}</span>
-                </div>
-                {i < PIPELINE_STAGES.length - 1 && (
-                  <ChevronRight size={12} className="text-muted-foreground/40 mx-0.5" />
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Quick Create Modal */}
-      {showCreateForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateForm(false)}>
-          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold">✨ New Content Idea</h2>
-              <button onClick={() => setShowCreateForm(false)} className="p-1 hover:bg-muted rounded-lg">
-                <X size={18} />
+            <div className="flex items-center gap-3">
+              {selectedItem && NEXT_STAGE[editStage] && (
+                <button
+                  onClick={advanceStage}
+                  className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                >
+                  Advance <ChevronRight size={14} />
+                </button>
+              )}
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm"
+              >
+                <Plus size={14} />
+                New Content
               </button>
             </div>
-            <div className="space-y-3">
+          </div>
+
+          {/* Stage filter tabs (droppable) */}
+          <div className="flex items-center gap-1.5 bg-card border border-border rounded-2xl px-2 py-1.5 w-fit">
+            <button
+              onClick={() => setActiveFilter('all')}
+              className={cn(
+                'px-3 py-1.5 rounded-xl text-xs font-medium transition-all',
+                activeFilter === 'all'
+                  ? 'bg-foreground/10 text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-muted'
+              )}
+            >
+              All {contents.length}
+            </button>
+            {STATUS_FLOW.map(stageKey => (
+              <StageDropZone
+                key={stageKey}
+                stageKey={stageKey}
+                count={getStageCount(stageKey)}
+                isActive={activeFilter === stageKey}
+                onClick={() => setActiveFilter(stageKey)}
+                isOver={overStage === stageKey}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Create Modal */}
+        {showCreateForm && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateForm(false)}>
+            <div className="bg-card border border-border rounded-2xl p-5 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold">New Content Idea</h2>
+                <button onClick={() => setShowCreateForm(false)} className="p-1 hover:bg-muted rounded-lg">
+                  <X size={16} />
+                </button>
+              </div>
               <input
                 type="text"
-                placeholder="Content title *"
-                value={newContent.title}
-                onChange={e => setNewContent(p => ({ ...p, title: e.target.value }))}
-                className="w-full bg-muted border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-              />
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Platform</label>
-                <div className="flex gap-2">
-                  {PLATFORM_OPTIONS.map(p => {
-                    const meta = PLATFORM_META[p]
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setNewContent(prev => ({ ...prev, platform: p }))}
-                        className={cn(
-                          'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors',
-                          newContent.platform === p
-                            ? cn(meta.bgColor, meta.color, 'border-2 border-current')
-                            : 'bg-muted border border-border text-muted-foreground hover:bg-muted/80'
-                        )}
-                      >
-                        <meta.Icon className="w-3.5 h-3.5" />
-                        <span className="text-xs">{meta.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-              <textarea
-                placeholder="Script or notes (optional)"
-                value={newContent.script}
-                onChange={e => setNewContent(p => ({ ...p, script: e.target.value }))}
-                rows={4}
-                className="w-full bg-muted border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary resize-none"
+                placeholder="What's your content idea?"
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && createContent()}
+                autoFocus
+                className="w-full bg-muted border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary mb-3"
               />
               <button
                 onClick={createContent}
-                disabled={!newContent.title.trim() || creating}
+                disabled={!newTitle.trim() || creating}
                 className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {creating ? 'Creating...' : 'Add to Pipeline'}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Kanban Pipeline */}
-      <div className="flex-1 flex gap-4 overflow-x-auto px-8 pb-8 min-h-0">
-        {PIPELINE_STAGES.map(stage => {
-          const stageContents = getStageContents(stage.key)
-          return (
-            <div
-              key={stage.key}
-              className={cn(
-                'flex-1 min-w-[240px] flex flex-col rounded-3xl border-2 overflow-hidden',
-                stage.color
-              )}
-            >
-              {/* Column Header */}
-              <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">{stage.emoji}</span>
-                  <h3 className="font-semibold text-sm">{stage.label}</h3>
-                  <span className="bg-foreground/10 text-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-md">
-                    {stageContents.length}
-                  </span>
-                </div>
-                {stage.key === 'idea' && (
-                  <button
-                    onClick={() => setShowCreateForm(true)}
-                    className="p-1 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <Plus size={14} />
-                  </button>
-                )}
-              </div>
-
-              {/* Cards */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                {loading ? (
-                  <div className="space-y-2">
-                    {[1, 2].map(i => (
-                      <div key={i} className="bg-card border border-border rounded-2xl p-3.5 animate-pulse">
-                        <div className="h-4 bg-muted rounded w-3/4 mb-2" />
-                        <div className="h-3 bg-muted rounded w-1/2" />
-                      </div>
-                    ))}
-                  </div>
-                ) : stageContents.length === 0 ? (
-                  <div className="text-center py-8 px-3">
-                    <Sparkles className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
-                    <p className="text-xs text-muted-foreground/60">
-                      {stage.key === 'idea'
-                        ? 'Your creative pipeline is ready — drop an idea in! 🌟'
-                        : `Move content here when it reaches ${stage.label.toLowerCase()} stage`}
-                    </p>
-                  </div>
-                ) : (
-                  stageContents.map(item => {
-                    const platform = PLATFORM_META[item.platform] || { Icon: Globe, color: 'text-muted-foreground', bgColor: 'bg-muted', label: item.platform || 'Other' }
-                    return (
-                      <div
-                        key={item.id}
-                        className="bg-card border border-border rounded-2xl p-3.5 hover:shadow-md hover:border-primary/20 transition-all group"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <h4 className="font-semibold text-sm line-clamp-2">{item.title}</h4>
-                          <button
-                            onClick={() => deleteContent(item.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded text-red-400 hover:text-red-600 transition-all shrink-0"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-
-                        {/* Platform badge */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={cn(
-                            'inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md',
-                            platform.bgColor, platform.color
-                          )}>
-                            <platform.Icon className="w-3 h-3" />
-                            {platform.label}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(item.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-
-                        {item.script && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{item.script}</p>
-                        )}
-
-                        {/* Move button */}
-                        {NEXT_STAGE[stage.key] && (
-                          <div className="flex items-center justify-end">
-                            <button
-                              onClick={() => moveToStage(item.id, NEXT_STAGE[stage.key])}
-                              className="flex items-center gap-1 text-[10px] font-medium text-primary hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-all"
-                            >
-                              Move to {PIPELINE_STAGES.find(s => s.key === NEXT_STAGE[stage.key])?.label}
-                              <ArrowRight size={10} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
-                )}
+        {/* 3-Panel Layout */}
+        <div className="flex-1 flex min-h-0 border-t border-border">
+          {/* ── Left Panel: Content List ── */}
+          <div className="w-[300px] shrink-0 flex flex-col border-r border-border bg-card/50">
+            {/* Search */}
+            <div className="p-3 border-b border-border">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full bg-muted border border-border rounded-xl pl-8 pr-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary"
+                />
               </div>
             </div>
-          )
-        })}
+
+            {/* Content list */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+              {loading ? (
+                <div className="space-y-2 p-2">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="bg-muted rounded-xl p-3 animate-pulse">
+                      <div className="h-3.5 bg-muted-foreground/10 rounded w-3/4 mb-2" />
+                      <div className="h-2.5 bg-muted-foreground/10 rounded w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <Sparkles className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground/60">
+                    {searchQuery ? 'No matching content' : 'Start by adding your first content idea'}
+                  </p>
+                </div>
+              ) : (
+                filtered.map(item => (
+                  <DraggableContentCard
+                    key={item.id}
+                    item={item}
+                    isSelected={selectedId === item.id}
+                    onClick={() => setSelectedId(item.id)}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Item count */}
+            <div className="px-3 py-2 border-t border-border text-[10px] text-muted-foreground">
+              {filtered.length} items
+            </div>
+          </div>
+
+          {/* ── Middle Panel: Editor ── */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {selectedItem ? (
+              <>
+                {/* Editor toolbar */}
+                <div className="shrink-0 px-6 py-2 border-b border-border flex items-center gap-1">
+                  {[
+                    { icon: Bold, label: 'Bold' },
+                    { icon: Italic, label: 'Italic' },
+                    { icon: Type, label: 'Heading' },
+                    { icon: List, label: 'Bullet List' },
+                    { icon: ListOrdered, label: 'Numbered List' },
+                    { icon: Link2, label: 'Link' },
+                  ].map(btn => (
+                    <button
+                      key={btn.label}
+                      title={btn.label}
+                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <btn.icon size={15} />
+                    </button>
+                  ))}
+                  <div className="flex-1" />
+                  <button
+                    onClick={generateScript}
+                    disabled={generating || !editTitle.trim()}
+                    className="flex items-center gap-1.5 bg-accent hover:bg-accent/90 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 mr-2"
+                  >
+                    {generating ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                    {generating ? 'Generating...' : 'Generate Script'}
+                  </button>
+                  <span className="text-[10px] text-muted-foreground mr-2">
+                    {editScript.split(/\s+/).filter(Boolean).length} words
+                  </span>
+                  {hasUnsavedChanges && (
+                    <button
+                      onClick={saveContent}
+                      disabled={saving}
+                      className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      <Save size={12} />
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Title + Content area */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="max-w-3xl mx-auto px-8 py-6">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={e => { setEditTitle(e.target.value); setHasUnsavedChanges(true) }}
+                      placeholder="Untitled"
+                      className="w-full text-2xl font-bold text-foreground bg-transparent outline-none placeholder:text-muted-foreground/40 mb-4"
+                    />
+                    <textarea
+                      ref={editorRef}
+                      value={editScript}
+                      onChange={e => handleEditorChange(e.target.value)}
+                      placeholder="Start writing your script, outline, caption, or content draft here..."
+                      className="w-full min-h-[400px] text-sm text-foreground bg-transparent outline-none resize-none placeholder:text-muted-foreground/40 leading-relaxed"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <Sparkles className="w-12 h-12 mx-auto mb-3 text-muted-foreground/20" />
+                  <h3 className="text-lg font-semibold text-muted-foreground/60 mb-1">Select content to edit</h3>
+                  <p className="text-sm text-muted-foreground/40">
+                    Choose an item from the list or create a new one
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Right Panel: Production ── */}
+          {selectedItem && (
+            <div className="w-[280px] shrink-0 border-l border-border bg-card/50 overflow-y-auto">
+              <div className="p-5 space-y-5">
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Production</h3>
+
+                {/* Stage */}
+                <div>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Stage</label>
+                  <select
+                    value={editStage}
+                    onChange={e => { setEditStage(e.target.value); setHasUnsavedChanges(true) }}
+                    className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {STATUS_FLOW.map(s => (
+                      <option key={s} value={s}>{STAGE_META[s].emoji} {STAGE_META[s].label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Platform */}
+                <div>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Platform</label>
+                  <div className="flex flex-wrap gap-2">
+                    {PLATFORM_OPTIONS.map(p => (
+                      <button
+                        key={p.key}
+                        onClick={() => { setEditPlatform(p.key); setHasUnsavedChanges(true) }}
+                        className={cn(
+                          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all',
+                          editPlatform === p.key
+                            ? cn(p.bg, p.color, 'ring-1 ring-current/30')
+                            : 'bg-muted border border-border text-muted-foreground hover:bg-muted/80'
+                        )}
+                      >
+                        <p.Icon size={12} />
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tags */}
+                <div>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Tags</label>
+                  <input
+                    type="text"
+                    value={editTags}
+                    onChange={e => { setEditTags(e.target.value); setHasUnsavedChanges(true) }}
+                    placeholder="tag1, tag2"
+                    className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Publish Date */}
+                <div>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Publish Date</label>
+                  <div className="relative">
+                    <CalendarIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      type="date"
+                      value={editPublishDate}
+                      onChange={e => { setEditPublishDate(e.target.value); setHasUnsavedChanges(true) }}
+                      className="w-full bg-muted border border-border rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <button
+                  onClick={saveContent}
+                  disabled={saving || !hasUnsavedChanges}
+                  className="w-full flex items-center justify-center gap-2 bg-foreground hover:bg-foreground/90 text-background py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-40"
+                >
+                  <Save size={14} />
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+
+                {/* Delete */}
+                <button
+                  onClick={() => deleteContent(selectedItem.id)}
+                  className="w-full flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 py-2 rounded-xl text-xs font-medium transition-colors"
+                >
+                  <Trash2 size={12} />
+                  Delete Content
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Drag Overlay */}
+      <DragOverlay>
+        {dragItem ? <DragOverlayCard item={dragItem} /> : null}
+      </DragOverlay>
+    </DndContext>
   )
 }

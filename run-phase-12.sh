@@ -23,11 +23,21 @@ PROMPT='Read /workspaces/jadisatu.cloud/CLAUDE.md for project context.
 ## CONTEXT
 
 Phase 10 unified the database. Phase 11 ported missing features to Light Mode with Creator personality.
-Now we need to:
+
+### CRITICAL FIXES ALREADY APPLIED (DO NOT REVERT):
+- Database unified: Both modes now use `contents` table (NOT `creative_content`)
+- Dark mode creative-hub-service.js updated to use `contents` table with column mapping
+- Auth session bridge created at /light/auth/bridge for cross-mode session sync
+- Dark mode "Light Mode" link now goes to /light/auth/bridge
+- Light mode sidebar uses handleSwitchToMonkMode for session sync
+- Creative Studio in Light mode rebuilt with 3-panel layout (list + editor + production panel) + @dnd-kit drag & drop
+- Performance: removed framer-motion & recharts (unused), fixed Cache-Control headers, lazy-loaded JuruCopilot
+- SQL migration: sql/unify-creative-tables.sql must be run on Supabase
+
+### REMAINING TASKS:
 1. Backport Light-only features to Dark Mode
 2. Polish the Dark Mode "Monk Mode" personality
-3. Ensure cross-mode navigation works smoothly
-4. Final validation of both modes
+3. Final validation of both modes
 
 ## THE TWO PERSONALITIES
 
@@ -196,7 +206,14 @@ Cross-mode:
 - SQL migrations go in sql/
 - Read existing files before modifying
 - Do NOT break existing functionality
-- Both modes MUST use the same Supabase tables for the same features'
+- Both modes MUST use the same Supabase `contents` table for creative content (NOT `creative_content`)
+- Do NOT remove the auth session bridge at /light/auth/bridge
+- Do NOT add framer-motion or recharts back — they were removed for performance
+- Do NOT set Cache-Control to no-store on all routes — only API routes should be no-store
+- Do NOT replace the 3-panel Creative Studio layout with kanban-only view
+- Do NOT change creative-hub-service.js TABLE variable from "contents" back to "creative_content"
+- Light mode Creative Studio MUST keep the editor panel (not just kanban cards)
+- When adding features, use the SAME design style as the existing mode (dont copy-paste Dark mode design to Light mode)'
 
 claude --dangerously-skip-permissions -p "$PROMPT"
 

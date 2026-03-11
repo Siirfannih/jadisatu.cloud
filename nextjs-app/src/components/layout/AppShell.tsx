@@ -1,9 +1,15 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import Sidebar from './Sidebar'
 import TopNav from './TopNav'
-import JuruCopilot from '../JuruCopilot'
+
+// Lazy load JuruCopilot - it's not needed for initial page render
+const JuruCopilot = dynamic(() => import('../JuruCopilot'), {
+  ssr: false,
+  loading: () => null,
+})
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

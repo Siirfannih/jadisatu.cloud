@@ -1,0 +1,110 @@
+name: Diagnose & Fix VPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose-fix:
+    name: Diagnose and Fix Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Diagnose VPS issues
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          command_timeout: 5m
+          script: |
+            echo "========================================="
+            echo "  DIAGNOSIS START: $(date)"
+            echo "========================================="
+
+            export NVM_DIR="/root/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+            echo ""
+            echo "--- PM2 Status ---"
+            pm2 status
+
+            echo ""
+            echo "--- PM2 Error Logs (last 50 lines) ---"
+            pm2 logs jadisatu-nextjs --err --nostream --lines 50 2>/dev/null || cat /root/.pm2/logs/jadisatu-nextjs-error.log 2>/dev/null | tail -50
+
+            echo ""
+            echo "--- PM2 Out Logs (last 30 lines) ---"
+            pm2 logs jadisatu-nextjs --out --nostream --lines 30 2>/dev/null || cat /root/.pm2/logs/jadisatu-nextjs-out.log 2>/dev/null | tail -30
+
+            echo ""
+            echo "--- Node Version ---"
+            node --version
+
+            echo ""
+            echo "--- Disk Space ---"
+            df -h / | tail -1
+
+            echo ""
+            echo "--- Memory ---"
+            free -m
+
+            echo ""
+            echo "--- Next.js .env check ---"
+            if [ -f /root/jadisatu.cloud/nextjs-app/.env.local ]; then
+              echo ".env.local exists"
+              grep -c "=" /root/jadisatu.cloud/nextjs-app/.env.local
+              echo "variables defined"
+            else
+              echo "WARNING: .env.local NOT FOUND"
+            fi
+
+            echo ""
+            echo "--- Git Status ---"
+            cd /root/jadisatu.cloud
+            git log -3 --oneline
+
+            echo ""
+            echo "--- Health Check ---"
+            curl -sf http://localhost:3000/light/login -o /dev/null && echo "Next.js: OK" || echo "Next.js: FAIL"
+            curl -sf http://localhost:3000/light -o /dev/null && echo "Dashboard: OK" || echo "Dashboard: FAIL"
+
+            echo ""
+            echo "========================================="
+            echo "  ATTEMPTING FIX..."
+            echo "========================================="
+
+            cd /root/jadisatu.cloud
+
+            # Pull latest
+            git fetch origin main
+            git merge origin/main --ff-only || echo "Already up to date"
+
+            # Rebuild
+            cd nextjs-app
+            npm ci --production=false 2>&1 | tail -3
+            echo "Building Next.js..."
+            npm run build 2>&1 | tail -10
+
+            # Restart PM2
+            cd /root/jadisatu.cloud
+            pm2 reload ecosystem.config.js --update-env
+            sleep 3
+
+            echo ""
+            echo "--- Post-fix Health Check ---"
+            curl -sf http://localhost:3000/light/login -o /dev/null && echo "Next.js: OK" || echo "Next.js: STILL FAIL"
+            curl -sf http://localhost:3000/light -o /dev/null && echo "Dashboard: OK" || echo "Dashboard: STILL FAIL"
+
+            echo ""
+            echo "--- PM2 Status After Fix ---"
+            pm2 status
+
+            echo ""
+            echo "========================================="
+            echo "  DIAGNOSIS COMPLETE: $(date)"
+            echo "========================================="

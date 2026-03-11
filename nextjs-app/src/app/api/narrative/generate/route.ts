@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
+import { embedText, generateWithContext } from '@/lib/rag/gemini'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -15,19 +16,54 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Topic is required' }, { status: 400 })
   }
 
-  // TODO: Replace with actual Gemini 2.5 Pro API call when GEMINI_API_KEY is available
-  // The Narrative Engine workflow uses Gemini 2.5 Pro for content synthesis:
-  //
-  // const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-  // const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
-  // const result = await model.generateContent(
-  //   `Based on this research: ${research_summary}\n\n` +
-  //   `Generate a ${platform} content script about "${topic}" with angle: "${angle}"`
-  // )
-
   const selectedAngle = angle || `Deep Dive into ${topic}`
   const selectedPlatform = platform || 'instagram'
 
+  // Use RAG-powered generation when GEMINI_API_KEY is available
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const prompt = research_summary
+        ? `Berdasarkan riset berikut:\n${research_summary}\n\nBuatkan script ${selectedPlatform} tentang "${topic}" dengan angle: "${selectedAngle}"`
+        : `Buatkan script ${selectedPlatform} tentang "${topic}" dengan angle: "${selectedAngle}"`
+
+      // Retrieve similar past content
+      const queryEmbedding = await embedText(topic + ' ' + selectedAngle)
+      const { data: matches } = await supabase.rpc('match_contents', {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_threshold: 0.3,
+        match_count: 5,
+        filter_user_id: user.id,
+      })
+
+      const retrievedDocs = (matches || []).map((m: {
+        title: string | null; script: string | null; caption: string | null;
+        platform: string | null; hook_text: string | null; similarity: number
+      }) => ({
+        title: m.title, script: m.script, caption: m.caption,
+        platform: m.platform, hook_text: m.hook_text, similarity: m.similarity,
+      }))
+
+      const draft_script = await generateWithContext(prompt, retrievedDocs, {
+        type: 'script',
+        platform: selectedPlatform,
+        userName: user.email?.split('@')[0],
+      })
+
+      return NextResponse.json({
+        draft_script,
+        topic,
+        angle: selectedAngle,
+        platform: selectedPlatform,
+        generated_at: new Date().toISOString(),
+        rag_enabled: true,
+        context_sources: retrievedDocs.length,
+      })
+    } catch (e) {
+      console.warn('[RAG] Gemini generation failed, falling back to mock:', e instanceof Error ? e.message : e)
+    }
+  }
+
+  // Fallback: mock script when no API key or on error
   const draft_script = generateMockScript(topic, selectedAngle, selectedPlatform)
 
   return NextResponse.json({
@@ -36,6 +72,7 @@ export async function POST(request: NextRequest) {
     angle: selectedAngle,
     platform: selectedPlatform,
     generated_at: new Date().toISOString(),
+    rag_enabled: false,
   })
 }
 

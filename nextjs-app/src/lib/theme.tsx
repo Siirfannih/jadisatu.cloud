@@ -11,32 +11,22 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: 'light',
-  toggleTheme: () => {},
+  toggleTheme: () => { },
 })
 
+// Jadisatu Light is exclusively light mode. 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // On server, default to light. On client, the inline script already set the class.
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-    }
-    return 'light'
-  })
+  const [theme, setTheme] = useState<Theme>('light')
 
   useEffect(() => {
     const root = document.documentElement
-    if (theme === 'dark') {
-      root.classList.add('dark')
-      root.classList.remove('light')
-    } else {
-      root.classList.remove('dark')
-      root.classList.add('light')
-    }
-    localStorage.setItem('jadisatu-theme', theme)
+    root.classList.remove('dark')
+    root.classList.add('light')
   }, [theme])
 
   function toggleTheme() {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+    // We do not allow changing theme internally anymore since Next.js IS Jadisatu Light
+    // The TopNav now redirects to jadisatu.cloud (Dark Mode)
   }
 
   return (
