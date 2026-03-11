@@ -4,31 +4,33 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { useTheme } from '@/lib/theme'
 import {
-  LayoutDashboard, Lightbulb, KanbanSquare, FolderKanban,
+  LayoutDashboard, KanbanSquare, FolderKanban,
   Bot, BrainCircuit, History, Settings,
-  PenTool, Compass, Moon, Sun, Sparkles,
+  PenTool, Compass, Moon, Sparkles,
   ChevronLeft, ChevronRight, Calendar, Target,
-  CheckSquare, Users, StickyNote, LogOut
+  CheckSquare, Users, StickyNote, LogOut, ExternalLink
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 
 const navItems = [
+  { type: 'label' as const, text: 'Workspace' },
   { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
   { icon: Calendar, label: 'Calendar', to: '/calendar' },
-  { icon: Target, label: 'Focus Mode', to: '/focus' },
+  { icon: Target, label: 'Focus Zone', to: '/focus' },
   { icon: CheckSquare, label: 'Tasks', to: '/tasks' },
   { icon: KanbanSquare, label: 'Kanban', to: '/kanban' },
   { icon: FolderKanban, label: 'Projects', to: '/projects' },
   { type: 'divider' as const },
-  { icon: PenTool, label: 'Creative Hub', to: '/creative' },
+  { type: 'label' as const, text: 'Creative' },
+  { icon: PenTool, label: 'Creative Studio', to: '/creative' },
   { icon: Compass, label: 'Narrative Engine', to: '/narrative-engine' },
   { icon: Bot, label: 'AI Agents', to: '/agents' },
-  { icon: Users, label: 'CRM', to: '/crm' },
-  { icon: StickyNote, label: 'Notes', to: '/notes' },
+  { icon: Users, label: 'My Network', to: '/crm' },
+  { icon: StickyNote, label: 'Notes & Ideas', to: '/notes' },
   { type: 'divider' as const },
+  { type: 'label' as const, text: 'Insights' },
   { icon: History, label: 'History', to: '/history' },
   { icon: BrainCircuit, label: 'Context Hub', to: '/context' },
 ]
@@ -37,7 +39,6 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { theme, toggleTheme } = useTheme()
   const supabase = createClient()
 
   const handleLogout = async () => {
@@ -75,7 +76,15 @@ export default function Sidebar() {
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 no-scrollbar">
         {navItems.map((item, index) => {
           if ('type' in item && item.type === 'divider') {
-            return <div key={index} className="my-2 mx-2 border-t border-border" />
+            return <div key={`d${index}`} className="my-2 mx-2 border-t border-border" />
+          }
+          if ('type' in item && item.type === 'label') {
+            if (collapsed) return null
+            return (
+              <p key={`l${index}`} className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                {(item as { type: 'label'; text: string }).text}
+              </p>
+            )
           }
           const Icon = item.icon!
           const active = pathname === item.to
@@ -86,16 +95,16 @@ export default function Sidebar() {
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative',
                 active
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 font-semibold'
+                  : 'text-muted-foreground hover:bg-orange-50/50 dark:hover:bg-orange-500/5 hover:text-foreground',
                 collapsed && 'justify-center px-2'
               )}
             >
               <Icon className={cn(
                 'w-5 h-5 shrink-0',
-                active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+                active ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground group-hover:text-foreground'
               )} />
-              {!collapsed && <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>}
+              {!collapsed && <span className="text-sm whitespace-nowrap">{item.label}</span>}
               {collapsed && (
                 <div className="absolute left-full ml-2 px-2 py-1 bg-card text-foreground text-xs rounded border border-border shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
                   {item.label}
@@ -106,22 +115,22 @@ export default function Sidebar() {
         })}
       </div>
 
-      {/* Bottom: Theme toggle + Settings */}
+      {/* Bottom: Monk Mode + Settings */}
       <div className="p-3 mt-auto border-t border-border space-y-1">
-        <button
-          onClick={toggleTheme}
+        <a
+          href="/"
           className={cn(
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 group',
             collapsed && 'justify-center px-2'
           )}
         >
-          {theme === 'dark' ? (
-            <Sun className="w-5 h-5 shrink-0 text-muted-foreground group-hover:text-foreground" />
-          ) : (
-            <Moon className="w-5 h-5 shrink-0 text-muted-foreground group-hover:text-foreground" />
+          <Moon className="w-5 h-5 shrink-0 text-muted-foreground group-hover:text-foreground" />
+          {!collapsed && (
+            <span className="font-medium text-sm whitespace-nowrap flex items-center gap-2">
+              Monk Mode <ExternalLink className="w-3 h-3 opacity-50" />
+            </span>
           )}
-          {!collapsed && <span className="font-medium text-sm whitespace-nowrap">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
-        </button>
+        </a>
         <Link
           href="/settings"
           className={cn(

@@ -15,6 +15,7 @@ type Project = { id: string; name: string; description: string | null; status: s
 type ActivityItem = { id: string; type?: string; action?: string; description: string; created_at: string }
 type Idea = { id: string; title: string; tags?: string[]; source: string; status: string; created_at: string }
 type ScheduleBlock = { id: string; title: string; start_time: string; end_time: string; domain: string | null; type: string; date: string }
+type Content = { id: string; title: string; status: string }
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -24,6 +25,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [ideas, setIdeas] = useState<Idea[]>([])
+  const [contents, setContents] = useState<Content[]>([])
   const [loading, setLoading] = useState(true)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending'>('pending')
@@ -47,16 +49,18 @@ export default function DashboardPage() {
   async function loadData() {
     setLoading(true)
     const todayStr = new Date().toISOString().split('T')[0]
-    const [tRes, pRes, aRes, sRes] = await Promise.all([
+    const [tRes, pRes, aRes, sRes, cRes] = await Promise.all([
       fetch('/light/api/tasks?status=active&limit=100'),
       fetch('/light/api/projects'),
       fetch('/light/api/activities?limit=5'),
       fetch(`/light/api/schedule?date=${todayStr}`),
+      fetch('/light/api/contents'),
     ])
     if (tRes.ok) { const d = await tRes.json(); setTasks(Array.isArray(d) ? d : []) }
     if (pRes.ok) { const d = await pRes.json(); setProjects(Array.isArray(d) ? d : []) }
     if (aRes.ok) { const d = await aRes.json(); setActivities(Array.isArray(d) ? d : []) }
     if (sRes.ok) { const d = await sRes.json(); setSchedule(Array.isArray(d) ? d : []) }
+    if (cRes.ok) { const d = await cRes.json(); setContents(Array.isArray(d) ? d : []) }
 
     const { data: { user: u } } = await supabase.auth.getUser()
     if (u) {
@@ -140,7 +144,15 @@ export default function DashboardPage() {
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Creator'
   const greeting = () => {
     const h = new Date().getHours()
-    return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+    if (h < 12) return 'Good morning'
+    if (h < 17) return 'Good afternoon'
+    return 'Good evening'
+  }
+  const greetingEmoji = () => {
+    const h = new Date().getHours()
+    if (h < 12) return '☀️'
+    if (h < 17) return '🚀'
+    return '🌙'
   }
   const completedCount = tasks.filter(t => t.status === 'done').length
   const activeProjectCount = projects.filter(p => p.status === 'active').length
@@ -163,8 +175,46 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-muted-foreground text-lg">Loading your dashboard...</p>
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header skeleton */}
+        <div>
+          <div className="h-4 w-32 bg-muted rounded-lg animate-pulse mb-3" />
+          <div className="h-10 w-80 bg-muted rounded-lg animate-pulse mb-3" />
+          <div className="h-5 w-64 bg-muted rounded-lg animate-pulse" />
+        </div>
+        {/* Cards skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-card rounded-3xl p-6 border border-border shadow-sm">
+              <div className="w-12 h-12 rounded-2xl bg-muted animate-pulse mb-6" />
+              <div className="h-3 w-24 bg-muted rounded animate-pulse mb-3" />
+              <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+        {/* Content skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <div className="bg-card rounded-3xl p-6 border border-border shadow-sm">
+              <div className="h-6 w-40 bg-muted rounded animate-pulse mb-6" />
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 p-4 mb-3">
+                  <div className="w-5 h-5 rounded bg-muted animate-pulse" />
+                  <div className="flex-1">
+                    <div className="h-4 w-3/4 bg-muted rounded animate-pulse mb-2" />
+                    <div className="h-3 w-1/3 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="bg-card rounded-3xl p-6 border border-border shadow-sm">
+              <div className="h-6 w-24 bg-muted rounded animate-pulse mb-4" />
+              <div className="h-48 bg-muted rounded-xl animate-pulse" />
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -174,13 +224,13 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-muted-foreground font-medium mb-1">{greeting()}</p>
+          <p className="text-muted-foreground font-medium mb-1">{today}</p>
           <h1 className="text-4xl font-bold text-foreground tracking-tight mb-3">
-            Welcome back, {userName}!
+            {greeting()}, {userName}! {greetingEmoji()}
           </h1>
           <p className="text-muted-foreground text-lg">
-            You have <span className="text-blue-600 dark:text-blue-400 font-medium">{pendingTasks.length} tasks</span> due today
-            and <span className="text-purple-600 dark:text-purple-400 font-medium">{activeProjectCount} projects</span> in progress.
+            You have <span className="text-orange-600 dark:text-orange-400 font-medium">{pendingTasks.length} tasks</span> to tackle
+            and <span className="text-purple-600 dark:text-purple-400 font-medium">{activeProjectCount} projects</span> in motion.
           </p>
         </div>
         <Link
@@ -238,8 +288,8 @@ export default function DashboardPage() {
           </div>
           <p className="text-sm text-muted-foreground font-medium mb-2 relative z-10">Creative Output</p>
           <div className="flex items-baseline gap-3 relative z-10">
-            <h3 className="text-4xl font-bold text-foreground tracking-tight">{ideas.length}</h3>
-            <span className="text-sm font-medium text-muted-foreground">items</span>
+            <h3 className="text-4xl font-bold text-foreground tracking-tight">{contents.length + ideas.length}</h3>
+            <span className="text-sm font-medium text-muted-foreground">pieces</span>
           </div>
         </div>
       </div>
@@ -308,7 +358,10 @@ export default function DashboardPage() {
                 )
               })}
               {displayTasks.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-6">No tasks yet</p>
+                <div className="text-center py-8">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-300 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">All clear! Add a task to get started ✨</p>
+                </div>
               )}
               <div className="flex gap-2 mt-2">
                 <input
@@ -373,10 +426,10 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <PenTool className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No creative content yet</p>
-                <Link href="/creative" className="text-sm text-blue-600 dark:text-blue-400 font-medium mt-1 inline-block">
-                  Create your first content &rarr;
+                <PenTool className="w-10 h-10 text-orange-300 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground mb-1">Your canvas is blank — what will you create? 🎨</p>
+                <Link href="/creative" className="text-sm text-orange-600 dark:text-orange-400 font-medium inline-block">
+                  Start creating &rarr;
                 </Link>
               </div>
             )}
@@ -451,7 +504,7 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-2">No events today</p>
+                <p className="text-xs text-muted-foreground text-center py-2">Free day ahead — time to create! ✨</p>
               )}
             </div>
           </div>
@@ -489,7 +542,7 @@ export default function DashboardPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+              <p className="text-sm text-muted-foreground text-center py-4">Your story starts now — make your first move 🌟</p>
             )}
           </div>
 
