@@ -86,6 +86,7 @@ def prepare_ai_template(
         "slide_number": slide_data.get("slide_number", ""),
         "icon": icon_svg,
         "icon_svg": icon_svg,
+        "icon_name": slide_data.get("icon_name", "star"),
         "illustration_url": illustration_url,
         "cta_text": slide_data.get("cta_text", ""),
         # Brand colors available for inline styles

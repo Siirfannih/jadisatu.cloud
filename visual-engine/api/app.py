@@ -152,13 +152,12 @@ async def extract_templates(req: ExtractTemplatesRequest):
             user_id=req.user_id,
         )
 
-        # Create folder and save
+        # Create folder (save after previews so preview_url is persisted)
         folder = TemplateFolder(
             name=result["folder_name"],
             templates=result["templates"],
             user_id=req.user_id,
         )
-        saved = await store.save_folder(folder)
 
         # Generate preview thumbnails for each template
         previews = []
@@ -178,6 +177,9 @@ async def extract_templates(req: ExtractTemplatesRequest):
                 template["preview_url"] = None
 
             previews.append(template)
+
+        # Save folder AFTER previews so preview_url is persisted in store
+        saved = await store.save_folder(folder)
 
         return ExtractTemplatesResponse(
             success=True,
@@ -379,31 +381,38 @@ async def _generate_slide_content(
 
     points_text = "\n".join(f"- {p}" for p in value_points) if value_points else ""
 
-    prompt = f"""Generate content for a {num_slides}-slide Instagram carousel about: {topic}
+    prompt = f"""You are a viral Instagram carousel copywriter. Generate content for a {num_slides}-slide carousel.
 
-{"Hook/Opening: " + hook if hook else ""}
-{"Key points:" + chr(10) + points_text if points_text else ""}
-{"Call to action: " + cta if cta else ""}
+TOPIC: {topic}
+{"HOOK/OPENING: " + hook if hook else ""}
+{"KEY POINTS:" + chr(10) + points_text if points_text else ""}
+{"CALL TO ACTION: " + cta if cta else ""}
 
-Return a JSON array with {num_slides} slides. Each slide must have:
+Return a JSON array with exactly {num_slides} slides.
+
+Each slide object MUST have these fields:
 {{
   "type": "cover" | "content" | "cta",
-  "headline": "short punchy headline",
-  "body": "1-2 sentences of supporting text",
-  "subheadline": "optional subtitle",
-  "icon_name": "lucide icon name (lowercase, e.g. rocket, brain, target, heart, zap)",
-  "slide_number": "01"
+  "subheadline": "small label text above headline (e.g. TANDA 01, THE TRUTH, DID YOU KNOW)",
+  "headline": "punchy headline, max 8 words. Use *asterisks* around ONE keyword to highlight",
+  "body": "1-2 sentences supporting text, max 30 words",
+  "icon_name": "valid lucide icon name (lowercase)",
+  "cta_text": "footer CTA text like 'Swipe →' or 'Follow untuk tips lainnya'"
 }}
 
-Rules:
-- Slide 1 = cover (hook/attention grabber)
-- Last slide = cta
-- Middle slides = content (one key point per slide)
-- Headlines: max 8 words, punchy
-- Body: max 25 words, clear
-- Icon names must be valid Lucide icons
+SLIDE STRUCTURE:
+- Slide 1: type=cover — attention-grabbing hook headline, subheadline as category label
+- Slides 2 to {num_slides - 1}: type=content — one point per slide, numbered subheadlines
+- Slide {num_slides}: type=cta — closing statement with call to action
 
-Return ONLY the JSON array."""
+COPYWRITING RULES:
+- Headlines: SHORT, punchy, conversational. Use *asterisks* on the ONE most impactful word
+- Subheadlines: Use as LABELS (uppercase, short: "TANDA 01", "FAKTA", "LANGKAH 3")
+- Body: Conversational tone, relatable, no filler words
+- Write in the SAME LANGUAGE as the topic (if topic is Indonesian, write in Indonesian)
+- Valid Lucide icon names: shield, target, brain, heart, zap, star, flame, eye, compass, hand-heart, book-open, lightbulb, rocket, trophy, users, clock, check-circle, alert-triangle, smile, sun, moon
+
+Return ONLY the JSON array. No explanations, no markdown fences."""
 
     response = await model.generate_content_async(
         prompt,
@@ -420,9 +429,13 @@ Return ONLY the JSON array."""
 
     slides = json.loads(text.strip())
 
-    # Ensure slide numbers
+    # Ensure slide numbers and defaults
     for i, slide in enumerate(slides):
         slide["slide_number"] = f"{i+1:02d}"
+        if not slide.get("icon_name"):
+            slide["icon_name"] = "star"
+        if not slide.get("cta_text"):
+            slide["cta_text"] = "Swipe →" if slide.get("type") != "cta" else "Follow →"
 
     return slides
 

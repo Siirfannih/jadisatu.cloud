@@ -13,6 +13,7 @@ Supports:
 """
 
 import os
+import re
 import base64
 import asyncio
 from pathlib import Path
@@ -23,137 +24,107 @@ from datetime import datetime
 # Gemini Vision prompt — the heart of Smart Extractor v2
 # ---------------------------------------------------------------------------
 
-EXTRACT_TEMPLATE_PROMPT = """You are an expert frontend developer specializing in converting visual designs into pixel-perfect HTML/CSS.
+EXTRACT_TEMPLATE_PROMPT = """You are an elite frontend developer who converts design screenshots into pixel-perfect HTML/CSS.
 
-TASK: Convert this design screenshot into a single, self-contained HTML file.
+TASK: Convert this design screenshot into a single, self-contained HTML file that replicates the EXACT visual style.
 
-REQUIREMENTS:
-1. Output a complete HTML file with ALL CSS inline in a <style> tag
-2. Canvas size: 1080px × 1080px (fixed, no responsive)
-3. Use Google Fonts via @import (pick fonts that match the design)
+CRITICAL REQUIREMENTS:
+1. Output a COMPLETE HTML file — must start with <!DOCTYPE html> and end with </html>
+2. Canvas size: exactly 1080px × 1080px (fixed, no responsive, no scrollbar)
+3. Use Google Fonts via @import (pick fonts that closely match the design)
 4. Match colors, spacing, typography, and layout as closely as possible
+5. ALL CSS must be inside a <style> tag in the <head> — no external CSS files
+6. The output HTML must be COMPLETE and VALID — never cut it short
 
-PLACEHOLDER SYSTEM — Use these exact placeholders:
-- {{headline}} — main headline text
-- {{body}} — body/description text
-- {{subheadline}} — optional subtitle
-- {{brand_name}} — brand name in header/footer
+PLACEHOLDER SYSTEM — Use these EXACT Jinja2 placeholders for dynamic content:
+- {{headline}} — main headline text (the biggest, boldest text)
+- {{body}} — body/description text (supporting paragraph)
+- {{subheadline}} — optional subtitle or label above the headline
+- {{brand_name}} — brand name in header/footer area
 - {{slide_number}} — slide number (e.g., "01", "02")
 - {{cta_text}} — call to action text (if applicable)
+- {{icon_name}} — Lucide icon name for dynamic icons
 
 ICON SUPPORT — For icons in the design:
-- Use Lucide icons via CDN: <script src="https://unpkg.com/lucide@latest"></script>
-- Place icons with: <i data-lucide="icon-name"></i>
-- Then initialize: <script>lucide.createIcons()</script>
-- Use a placeholder comment where the main icon should go:
-  <div class="icon-area"><!-- ICON:{{icon_name}} --><i data-lucide="{{icon_name}}" style="width:48px;height:48px"></i></div>
-- Choose appropriate Lucide icon names that match what you see (e.g., "rocket", "brain", "target", "heart", "zap", "star")
+- Include Lucide CDN in <head>: <script src="https://unpkg.com/lucide@latest"></script>
+- Place icons: <i data-lucide="{{icon_name}}" style="width:48px;height:48px"></i>
+- Initialize at end of body: <script>lucide.createIcons()</script>
+- For SPECIFIC icons visible in the design (not dynamic), use the actual Lucide name directly:
+  <i data-lucide="mail" ...></i>  (for email icon)
+  <i data-lucide="code" ...></i>  (for code icon)
+  <i data-lucide="calendar" ...></i>  (for calendar icon)
 
-ILLUSTRATION / IMAGE AREAS — For photos, illustrations, or large visual areas:
-- Use a placeholder div with a CSS background:
-  <div class="illustration-area" style="background: linear-gradient(135deg, var(--primary), var(--accent)); width: 100%; height: 300px; border-radius: 16px; display: flex; align-items: center; justify-content: center;">
-    <i data-lucide="{{icon_name}}" style="width:80px;height:80px;color:white;opacity:0.5"></i>
-  </div>
-- For photo backgrounds, use a gradient placeholder with a comment: <!-- PHOTO_AREA: description of what image should be here -->
-- For decorative illustrations, recreate them with CSS shapes, gradients, or SVG
+VISUAL ELEMENTS — Recreate design elements with CSS:
 
-DECORATIVE ELEMENTS — Recreate with CSS:
-- Geometric shapes → CSS shapes with ::before/::after pseudo-elements
-- Gradient overlays → CSS gradients
-- Dot patterns → CSS radial-gradient patterns
-- Lines/dividers → CSS borders or pseudo-elements
-- Circles/blobs → border-radius: 50% with gradients
-
-BRAND COLORS — Use CSS variables at :root level:
-  :root {
-    --bg: [extracted background color];
-    --primary: [extracted primary/accent color];
-    --secondary: [extracted secondary color];
-    --accent: [extracted highlight/accent color];
-    --text: [extracted text color];
-    --text-muted: [extracted muted text color];
-    --surface: [extracted card/surface color];
+For 3D / raised card effects:
+  .card-3d {
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.1);
+    transform: perspective(500px) rotateX(2deg);
   }
 
+For hub/circle diagrams:
+  .hub-circle {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 2px solid var(--secondary);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+For gradient overlays, dot patterns, decorative shapes:
+  Use CSS ::before/::after pseudo-elements, gradients, border-radius
+
+For highlighted/italic keywords in headlines:
+  <span class="highlight">keyword</span>
+  .highlight { color: var(--accent); font-style: italic; }
+
+BRAND COLORS — Extract and define as CSS variables:
+  :root {
+    --bg: [background color from design];
+    --primary: [main accent/brand color];
+    --secondary: [secondary color];
+    --accent: [highlight color, often used on keywords];
+    --text: [main text color];
+    --text-muted: [lighter/muted text color];
+    --surface: [card/container background color];
+  }
+
+LAYOUT STRUCTURE:
+  body {
+    margin: 0; padding: 0;
+    width: 1080px; height: 1080px;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: 'Inter', sans-serif;
+  }
+  .slide {
+    width: 1080px; height: 1080px;
+    padding: 60px 72px;
+    box-sizing: border-box;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+
+FOOTER — If the design has a footer with brand handle + "Swipe →":
+  .footer {
+    position: absolute; bottom: 40px; left: 72px; right: 72px;
+    display: flex; justify-content: space-between;
+    font-size: 13px; color: var(--text-muted);
+  }
+  Use {{brand_name}} placeholder for the handle.
+
 RULES:
-- DO NOT copy actual text content from the image — use placeholders instead
+- DO NOT copy actual text content from the image — use {{placeholders}} instead
 - DO extract and replicate the exact visual STYLE (colors, fonts, layout, spacing)
-- The HTML must render correctly at exactly 1080x1080px
-- All styling must be in the <style> tag (no external CSS files except Google Fonts)
-- Include the Lucide CDN script tag for icons
-- Make the design look professional and pixel-perfect
-- Keep the HTML clean and well-structured
+- Recreate ALL decorative elements (circles, cards, shapes, patterns) with CSS
+- The design MUST look professional and match the reference closely
+- ENSURE the HTML is COMPLETE — always close all tags and end with </html>
 
-OUTPUT: Return ONLY the HTML code. No explanations, no markdown code fences.
-Start with <!DOCTYPE html> and end with </html>."""
-
-
-EXTRACT_TEMPLATE_PROMPT_MULTI = """You are an expert frontend developer. I'm sending you {count} design screenshots.
-
-For EACH design, create a SEPARATE complete HTML file that replicates its visual style.
-
-IMPORTANT: Output a JSON array with one entry per design image, in the same order as the images.
-
-```json
-[
-  {{
-    "name": "descriptive-style-name",
-    "description": "Brief description of the design style",
-    "html": "<!DOCTYPE html>..."
-  }},
-  {{
-    "name": "another-style-name",
-    "description": "Brief description",
-    "html": "<!DOCTYPE html>..."
-  }}
-]
-```
-
-For EACH HTML template, follow these rules:
-
-1. Complete HTML with ALL CSS inline in <style> tag
-2. Canvas: 1080px × 1080px (fixed)
-3. Google Fonts via @import
-4. Match colors, spacing, typography exactly
-
-PLACEHOLDER SYSTEM:
-- {{{{headline}}}} — main headline
-- {{{{body}}}} — body text
-- {{{{subheadline}}}} — subtitle
-- {{{{brand_name}}}} — brand name
-- {{{{slide_number}}}} — slide number
-- {{{{cta_text}}}} — call to action
-- {{{{icon_name}}}} — Lucide icon name
-
-ICONS: Use Lucide CDN
-- <script src="https://unpkg.com/lucide@latest"></script>
-- <i data-lucide="{{{{icon_name}}}}"></i>
-- <script>lucide.createIcons()</script>
-
-ILLUSTRATION AREAS: Use gradient placeholders
-- <div class="illustration-area" style="background: linear-gradient(...);">
-    <i data-lucide="{{{{icon_name}}}}" style="width:80px;height:80px;color:white;opacity:0.5"></i>
-  </div>
-
-BRAND COLORS as CSS variables:
-  :root {{
-    --bg: [extracted color];
-    --primary: [extracted color];
-    --secondary: [extracted color];
-    --accent: [extracted color];
-    --text: [extracted color];
-    --text-muted: [extracted color];
-    --surface: [extracted color];
-  }}
-
-RULES:
-- DO NOT copy text from images — use placeholders
-- DO replicate exact visual STYLE
-- Each HTML must be self-contained and complete
-- Include Lucide CDN for icons
-- Decorative elements → CSS (shapes, gradients, patterns)
-
-OUTPUT: Return ONLY the JSON array. No markdown fences, no explanations."""
+OUTPUT: Return ONLY the complete HTML code.
+Start with <!DOCTYPE html> and end with </html>.
+Do NOT wrap in markdown code fences. Do NOT add explanations."""
 
 
 # ---------------------------------------------------------------------------
@@ -171,10 +142,47 @@ class SmartExtractorV2:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.model = "gemini-2.5-flash"
+        self.max_retries = 2
+
+    def _validate_html(self, html: str) -> bool:
+        """Check if HTML is complete and valid enough to render."""
+        if not html or len(html) < 500:
+            return False
+        if not html.strip().startswith("<!DOCTYPE html>") and not html.strip().startswith("<html"):
+            return False
+        if "</html>" not in html:
+            return False
+        if "</style>" not in html:
+            return False
+        if "</body>" not in html:
+            return False
+        return True
+
+    def _clean_html(self, raw: str) -> str:
+        """Clean Gemini response: strip code fences and whitespace."""
+        html = raw.strip()
+        # Remove markdown code fences
+        if html.startswith("```html"):
+            html = html[7:]
+        elif html.startswith("```"):
+            html = html[3:]
+        if html.endswith("```"):
+            html = html[:-3]
+        html = html.strip()
+
+        # If HTML doesn't start properly, try to find the start
+        doctype_idx = html.find("<!DOCTYPE html>")
+        if doctype_idx == -1:
+            doctype_idx = html.find("<html")
+        if doctype_idx > 0:
+            html = html[doctype_idx:]
+
+        return html
 
     async def extract_single(self, image_base64: str) -> dict:
         """
         Extract a single template from one reference image.
+        Includes validation and retry for truncated HTML.
 
         Returns:
             {
@@ -190,55 +198,97 @@ class SmartExtractorV2:
         genai.configure(api_key=self.api_key)
         model = genai.GenerativeModel(self.model)
 
-        # Decode image
         image_data = base64.b64decode(image_base64)
 
-        response = await model.generate_content_async(
-            [
-                EXTRACT_TEMPLATE_PROMPT,
-                {"mime_type": "image/png", "data": image_data},
-            ],
-            generation_config={
-                "temperature": 0.2,  # Low temp for accurate reproduction
-                "max_output_tokens": 8192,
-            },
-        )
+        html = ""
+        for attempt in range(1, self.max_retries + 1):
+            print(f"  [Extraction attempt {attempt}/{self.max_retries}]")
 
-        html = response.text.strip()
+            response = await model.generate_content_async(
+                [
+                    EXTRACT_TEMPLATE_PROMPT,
+                    {"mime_type": "image/png", "data": image_data},
+                ],
+                generation_config={
+                    "temperature": 0.2,
+                    "max_output_tokens": 16384,  # 16K tokens for complete HTML
+                },
+            )
 
-        # Clean up if AI wrapped in code fences
-        if html.startswith("```html"):
-            html = html[7:]
-        if html.startswith("```"):
-            html = html[3:]
-        if html.endswith("```"):
-            html = html[:-3]
-        html = html.strip()
+            html = self._clean_html(response.text)
+
+            if self._validate_html(html):
+                print(f"  [Extraction OK] {len(html)} chars, valid HTML")
+                break
+            else:
+                print(f"  [Extraction INCOMPLETE] {len(html)} chars, "
+                      f"has </html>: {'</html>' in html}")
+                if attempt < self.max_retries:
+                    print(f"  [Retrying...]")
+
+        # If still invalid after retries, try to salvage
+        if not self._validate_html(html):
+            html = self._salvage_html(html)
+            print(f"  [Salvaged] {len(html)} chars")
 
         # Extract CSS variables from the generated HTML
         colors = self._extract_css_variables(html)
-
-        # Generate a name from the design
         name = self._generate_template_name(html, colors)
 
         return {
             "name": name,
-            "description": f"AI-extracted template from reference design",
+            "description": "AI-extracted template from reference design",
             "html": html,
             "colors": colors,
             "created_at": datetime.utcnow().isoformat(),
         }
 
+    def _salvage_html(self, html: str) -> str:
+        """Try to fix incomplete HTML by closing missing tags."""
+        if not html:
+            return self._fallback_template()
+
+        # Close unclosed tags
+        if "</style>" not in html and "<style" in html:
+            html += "\n    </style>"
+        if "</head>" not in html and "<head" in html:
+            html += "\n</head>"
+        if "<body" not in html:
+            html += "\n<body>\n<div class='slide'>\n<h1>{{headline}}</h1>\n<p>{{body}}</p>\n</div>"
+        if "</body>" not in html:
+            html += "\n</body>"
+        if "</html>" not in html:
+            html += "\n</html>"
+        return html
+
+    def _fallback_template(self) -> str:
+        """Minimal fallback template when extraction completely fails."""
+        return """<!DOCTYPE html>
+<html><head>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+:root { --bg: #f5f4f0; --primary: #111; --accent: #66CC99; --text: #333; --text-muted: #999; --surface: #fff; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 1080px; height: 1080px; overflow: hidden; background: var(--bg); font-family: 'Inter', sans-serif; }
+.slide { width: 1080px; height: 1080px; padding: 80px; display: flex; flex-direction: column; justify-content: center; }
+h1 { font-size: 64px; font-weight: 700; color: var(--primary); line-height: 1.1; margin-bottom: 24px; }
+.highlight { color: var(--accent); font-style: italic; }
+p { font-size: 22px; color: var(--text-muted); line-height: 1.6; }
+.footer { position: absolute; bottom: 40px; left: 80px; right: 80px; display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); }
+</style>
+</head><body>
+<div class="slide">
+<h1>{{headline}}</h1>
+<p>{{body}}</p>
+<div class="footer"><span>{{brand_name}}</span><span>{{cta_text}}</span></div>
+</div>
+</body></html>"""
+
     async def extract_multiple(self, images_base64: list[str]) -> list[dict]:
         """
         Extract multiple templates from multiple reference images.
-        Each image is processed individually for reliability — embedding
-        HTML inside JSON strings from LLM output causes frequent parse errors.
-
-        Returns: List of template dicts (same format as extract_single)
+        Each image is processed individually for reliability.
         """
-        # Process each image individually — much more reliable than asking
-        # Gemini to return a JSON array with embedded HTML strings
         tasks = [self.extract_single(img) for img in images_base64]
         templates = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -249,12 +299,13 @@ class SmartExtractorV2:
                 results.append({
                     "name": f"error-{i+1}",
                     "description": f"Extraction failed: {str(t)[:100]}",
-                    "html": "",
-                    "colors": {},
+                    "html": self._fallback_template(),
+                    "colors": {"bg": "#f5f4f0", "primary": "#111", "accent": "#66CC99"},
                     "created_at": datetime.utcnow().isoformat(),
                 })
             else:
-                print(f"  [Image {i+1}] OK: {t.get('name', 'unknown')}")
+                print(f"  [Image {i+1}] OK: {t.get('name', 'unknown')} "
+                      f"({len(t.get('html', ''))} chars)")
                 results.append(t)
 
         return results
@@ -265,19 +316,7 @@ class SmartExtractorV2:
         folder_name: str,
         user_id: Optional[str] = None,
     ) -> dict:
-        """
-        Full pipeline: extract templates from images → create folder.
-
-        Returns:
-            {
-                "folder_name": "My Design Styles",
-                "template_count": 3,
-                "templates": [
-                    { "name": "...", "html": "...", "colors": {...} },
-                    ...
-                ]
-            }
-        """
+        """Full pipeline: extract templates from images → create folder."""
         templates = await self.extract_multiple(images_base64)
 
         return {
@@ -290,7 +329,6 @@ class SmartExtractorV2:
 
     def _extract_css_variables(self, html: str) -> dict:
         """Extract CSS custom properties (--var) from HTML."""
-        import re
         colors = {}
         pattern = r"--(\w[\w-]*)\s*:\s*([^;]+);"
         matches = re.findall(pattern, html)
@@ -300,11 +338,20 @@ class SmartExtractorV2:
 
     def _generate_template_name(self, html: str, colors: dict) -> str:
         """Generate a descriptive name based on design characteristics."""
-        bg = colors.get("bg", "#ffffff").lower()
+        bg = colors.get("bg", "#ffffff").lower().strip()
 
-        # Determine if dark or light
-        is_dark = bg in ("#000", "#000000", "#111", "#1a1a1a", "#0a0a0a") or \
-                  bg.startswith("#0") or bg.startswith("#1") or bg.startswith("#2")
+        # Determine if dark or light based on hex brightness
+        is_dark = False
+        if bg.startswith("#"):
+            hex_clean = bg.lstrip("#")
+            if len(hex_clean) >= 6:
+                r, g, b = int(hex_clean[0:2], 16), int(hex_clean[2:4], 16), int(hex_clean[4:6], 16)
+                brightness = (r * 299 + g * 587 + b * 114) / 1000
+                is_dark = brightness < 128
+            elif len(hex_clean) == 3:
+                r, g, b = int(hex_clean[0]*2, 16), int(hex_clean[1]*2, 16), int(hex_clean[2]*2, 16)
+                brightness = (r * 299 + g * 587 + b * 114) / 1000
+                is_dark = brightness < 128
 
         theme = "dark" if is_dark else "light"
 
@@ -314,6 +361,17 @@ class SmartExtractorV2:
             for font in ["playfair", "georgia", "merriweather", "lora", "cormorant"]
         )
 
-        style = "editorial" if has_serif else "modern"
+        # Check for monospace / code fonts
+        has_mono = any(
+            font in html.lower()
+            for font in ["fira code", "jetbrains", "source code", "ibm plex mono"]
+        )
+
+        if has_serif:
+            style = "editorial"
+        elif has_mono:
+            style = "technical"
+        else:
+            style = "modern"
 
         return f"{theme}-{style}"
