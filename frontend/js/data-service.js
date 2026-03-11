@@ -318,6 +318,7 @@ class ProjectService {
                 .single();
 
             if (error) throw error;
+            this._logActivity(data.user_id, 'project_created', 'project', data.id, data.title, data.domain || 'work', null);
             console.log('✅ Project created:', data.title);
             return data;
         } catch (error) {
@@ -336,6 +337,7 @@ class ProjectService {
                 .single();
 
             if (error) throw error;
+            this._logActivity(data.user_id, 'project_updated', 'project', projectId, data.title, data.domain || 'work', null);
             console.log('✅ Project updated:', projectId);
             return data;
         } catch (error) {
@@ -346,18 +348,38 @@ class ProjectService {
 
     async deleteProject(projectId) {
         try {
+            var projectRow = null;
+            try {
+                var r = await this.client.from('projects').select('id, user_id, title, domain').eq('id', projectId).single();
+                projectRow = r.data;
+            } catch (_) { }
             const { error } = await this.client
                 .from('projects')
                 .delete()
                 .eq('id', projectId);
 
             if (error) throw error;
+            if (projectRow) this._logActivity(projectRow.user_id, 'project_deleted', 'project', projectId, projectRow.title, projectRow.domain || 'work', null);
             console.log('✅ Project deleted:', projectId);
             return true;
         } catch (error) {
             console.error('❌ Error deleting project:', error);
             throw error;
         }
+    }
+
+    _logActivity(userId, action, entityType, entityId, title, domain, details) {
+        if (!userId) return;
+        this.client.from('activity_log').insert([{
+            user_id: userId,
+            action: action,
+            entity_type: entityType || 'project',
+            entity_id: entityId || null,
+            title: title || null,
+            domain: domain || null,
+            details: details || null,
+            created_at: new Date().toISOString()
+        }]).then(function () { }).catch(function (err) { console.warn('Activity log insert skipped:', err.message); });
     }
 }
 
@@ -410,6 +432,7 @@ class NoteService {
                 .single();
 
             if (error) throw error;
+            this._logActivity(data.user_id, 'note_created', 'note', data.id, data.title, data.domain || 'personal', null);
             console.log('✅ Note created:', data.title);
             return data;
         } catch (error) {
@@ -428,6 +451,7 @@ class NoteService {
                 .single();
 
             if (error) throw error;
+            this._logActivity(data.user_id, 'note_updated', 'note', noteId, data.title, data.domain || 'personal', null);
             console.log('✅ Note updated:', noteId);
             return data;
         } catch (error) {
@@ -438,18 +462,38 @@ class NoteService {
 
     async deleteNote(noteId) {
         try {
+            var noteRow = null;
+            try {
+                var r = await this.client.from('notes').select('id, user_id, title, domain').eq('id', noteId).single();
+                noteRow = r.data;
+            } catch (_) { }
             const { error } = await this.client
                 .from('notes')
                 .delete()
                 .eq('id', noteId);
 
             if (error) throw error;
+            if (noteRow) this._logActivity(noteRow.user_id, 'note_deleted', 'note', noteId, noteRow.title, noteRow.domain || 'personal', null);
             console.log('✅ Note deleted:', noteId);
             return true;
         } catch (error) {
             console.error('❌ Error deleting note:', error);
             throw error;
         }
+    }
+
+    _logActivity(userId, action, entityType, entityId, title, domain, details) {
+        if (!userId) return;
+        this.client.from('activity_log').insert([{
+            user_id: userId,
+            action: action,
+            entity_type: entityType || 'note',
+            entity_id: entityId || null,
+            title: title || null,
+            domain: domain || null,
+            details: details || null,
+            created_at: new Date().toISOString()
+        }]).then(function () { }).catch(function (err) { console.warn('Activity log insert skipped:', err.message); });
     }
 }
 
@@ -505,6 +549,7 @@ class ContactService {
                 .single();
 
             if (error) throw error;
+            this._logActivity(data.user_id, 'contact_created', 'contact', data.id, data.name, data.domain || 'business', null);
             console.log('✅ Contact created:', data.name);
             return data;
         } catch (error) {
@@ -523,6 +568,7 @@ class ContactService {
                 .single();
 
             if (error) throw error;
+            this._logActivity(data.user_id, 'contact_updated', 'contact', contactId, data.name, data.domain || 'business', null);
             console.log('✅ Contact updated:', contactId);
             return data;
         } catch (error) {
@@ -533,18 +579,38 @@ class ContactService {
 
     async deleteContact(contactId) {
         try {
+            var contactRow = null;
+            try {
+                var r = await this.client.from('contacts').select('id, user_id, name, domain').eq('id', contactId).single();
+                contactRow = r.data;
+            } catch (_) { }
             const { error } = await this.client
                 .from('contacts')
                 .delete()
                 .eq('id', contactId);
 
             if (error) throw error;
+            if (contactRow) this._logActivity(contactRow.user_id, 'contact_deleted', 'contact', contactId, contactRow.name, contactRow.domain || 'business', null);
             console.log('✅ Contact deleted:', contactId);
             return true;
         } catch (error) {
             console.error('❌ Error deleting contact:', error);
             throw error;
         }
+    }
+
+    _logActivity(userId, action, entityType, entityId, title, domain, details) {
+        if (!userId) return;
+        this.client.from('activity_log').insert([{
+            user_id: userId,
+            action: action,
+            entity_type: entityType || 'contact',
+            entity_id: entityId || null,
+            title: title || null,
+            domain: domain || null,
+            details: details || null,
+            created_at: new Date().toISOString()
+        }]).then(function () { }).catch(function (err) { console.warn('Activity log insert skipped:', err.message); });
     }
 }
 

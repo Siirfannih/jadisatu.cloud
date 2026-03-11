@@ -7,6 +7,9 @@
 (function () {
     function syncSidebarMetrics() {
         var tasks = window.allTasks || [];
+        var allCount = tasks.length;
+        var completed = tasks.filter(function (t) { var s = (t.status || '').toLowerCase(); return s === 'completed' || s === 'done'; });
+        var completionPct = allCount > 0 ? Math.round((completed.length / allCount) * 100) : 0;
         var active = tasks.filter(function (t) { var s = (t.status || '').toLowerCase(); return s !== 'completed' && s !== 'done'; });
         var total = active.length;
 
@@ -19,7 +22,7 @@
         var pctBusiness = total ? Math.round((countBusiness / total) * 100) : 0;
 
         var pctEl = document.getElementById('sidebar-life-balance-pct');
-        if (pctEl) pctEl.textContent = total;
+        if (pctEl) pctEl.textContent = completionPct + '%';
 
         var barWork = document.getElementById('sidebar-bar-work');
         var barLearn = document.getElementById('sidebar-bar-learn');

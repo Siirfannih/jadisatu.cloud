@@ -1,26 +1,22 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase-server'
 
 /**
  * Context digest untuk agent (OpenClaw, Antigravity).
  * Response kecil agar hemat token — agent cek version; jika sama tidak perlu fetch konteks lengkap.
- * Lihat ARCHITECTURE.md untuk alur sync.
  */
 export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) {
-    return NextResponse.json(
-      { error: 'Supabase not configured', version: 'no-db' },
-      { status: 503 }
-    )
-  }
-
-  const supabase = createClient(url, key)
-
   try {
+    const supabase = await createClient()
+
+    // Auth guard
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const [tasksRes, memoryRes] = await Promise.all([
-      supabase.from('tasks').select('id,status,title').in('status', ['in-progress', 'todo']).limit(10),
+      supabase.from('tasks').select('id,status,title').eq('user_id', user.id).in('status', ['in-progress', 'todo']).limit(10),
       supabase.from('shared_memory').select('key,value,updated_at').order('key'),
     ])
 
