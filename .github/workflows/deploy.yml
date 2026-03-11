@@ -69,9 +69,10 @@ jobs:
           
           # Restart with PM2
           cd ..
-          npx pm2 restart jadisatu-nextjs 2>/dev/null || npx pm2 start npm --name jadisatu-nextjs -- start --prefix nextjs-app
+          npx pm2 delete jadisatu-nextjs || true
+          npx pm2 start ecosystem.config.js --only jadisatu-nextjs --env production
           npx pm2 save
-          echo "✅ App restarted"
+          echo "✅ App restarted via ecosystem"
           echo "=== Deploy finished at $(date) ==="
 
       - name: Verify deployment
