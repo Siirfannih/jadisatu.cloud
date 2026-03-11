@@ -1,196 +1,291 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { Search, Users, TrendingUp, AlertTriangle, ExternalLink, Filter } from 'lucide-react'
+import {
+  Search, Users, Plus, Phone, Mail, Calendar,
+  DollarSign, ArrowRight, X, UserPlus, TrendingUp
+} from 'lucide-react'
 
-interface Lead {
+interface Contact {
   id: string
   title: string
   body: string
   url: string
   source: string
   platform: string
-  subreddit: string
-  pain_score: number
-  opportunity_level: string
   category: string
   status: string
-  keywords_extracted: string[]
+  pain_score: number
   scraped_at: string
 }
 
-interface Stats {
-  total_collected: number
-  today_new: number
-  high_opportunity: number
-  avg_pain_score: number
-}
+const PIPELINE_STAGES = [
+  { key: 'lead', label: 'Lead', emoji: '🎯', color: 'border-blue-400/40 bg-blue-50/50 dark:bg-blue-500/5' },
+  { key: 'prospect', label: 'Prospect', emoji: '💬', color: 'border-amber-400/40 bg-amber-50/50 dark:bg-amber-500/5' },
+  { key: 'client', label: 'Client', emoji: '🤝', color: 'border-emerald-400/40 bg-emerald-50/50 dark:bg-emerald-500/5' },
+  { key: 'completed', label: 'Completed', emoji: '✅', color: 'border-purple-400/40 bg-purple-50/50 dark:bg-purple-500/5' },
+]
 
-const OPP_STYLE: Record<string, string> = {
-  'Very High': 'bg-red-500/10 text-red-600 dark:text-red-400',
-  'High': 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-  'Medium': 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-  'Low': 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+const NEXT_STAGE: Record<string, string> = {
+  lead: 'prospect',
+  prospect: 'client',
+  client: 'completed',
 }
 
 export default function CRMPage() {
-  const [leads, setLeads] = useState<Lead[]>([])
-  const [stats, setStats] = useState<Stats | null>(null)
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterCategory, setFilterCategory] = useState('All')
-  const [categories, setCategories] = useState<string[]>([])
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newContact, setNewContact] = useState({ title: '', body: '', platform: '', category: '' })
+
+  const loadContacts = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch('/light/api/leads?limit=200')
+    if (res.ok) {
+      const data = await res.json()
+      setContacts(data.data || [])
+    }
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
-    loadStats()
-    loadLeads()
-  }, [filterCategory])
+    loadContacts()
+  }, [loadContacts])
 
-  async function loadStats() {
-    const res = await fetch('/light/api/leads?stats=true')
-    if (res.ok) {
-      const data = await res.json()
-      setStats(data)
-      if (data.categories) {
-        setCategories(Object.keys(data.categories))
-      }
-    }
+  async function moveToStage(id: string, newStatus: string) {
+    await fetch('/light/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: newStatus }),
+    })
+    setContacts(prev =>
+      prev.map(c => c.id === id ? { ...c, status: newStatus } : c)
+    )
   }
 
-  async function loadLeads() {
-    const params = new URLSearchParams({ limit: '50' })
-    if (filterCategory !== 'All') params.set('category', filterCategory)
-    const res = await fetch(`/light/api/leads?${params}`)
-    if (res.ok) {
-      const data = await res.json()
-      setLeads(data.data || [])
-    }
+  async function addContact() {
+    if (!newContact.title.trim()) return
+    await fetch('/light/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: crypto.randomUUID(),
+        status: 'lead',
+        title: newContact.title,
+        body: newContact.body,
+        platform: newContact.platform,
+        category: newContact.category,
+      }),
+    })
+    setNewContact({ title: '', body: '', platform: '', category: '' })
+    setShowAddForm(false)
+    await loadContacts()
   }
 
-  const filtered = leads.filter(l =>
+  const filtered = contacts.filter(c =>
     !searchQuery ||
-    l.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    l.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    l.category?.toLowerCase().includes(searchQuery.toLowerCase())
+    c.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.category?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  function getStageContacts(stageKey: string) {
+    if (stageKey === 'lead') {
+      return filtered.filter(c => !c.status || c.status === 'lead' || c.status === 'new')
+    }
+    return filtered.filter(c => c.status === stageKey)
+  }
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">CRM</h1>
-        <p className="text-muted-foreground">Track leads and pain points from the Hunter Agent.</p>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 px-8 pt-8 pb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight mb-1">🤝 My Network</h1>
+            <p className="text-muted-foreground text-sm">
+              Build relationships, close deals, grow your network
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative max-w-xs">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search contacts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm text-sm"
+            >
+              <UserPlus className="w-4 h-4" />
+              Add Contact
+            </button>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-4 gap-3">
+          {PIPELINE_STAGES.map(stage => {
+            const count = getStageContacts(stage.key).length
+            return (
+              <div key={stage.key} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3">
+                <span className="text-lg">{stage.emoji}</span>
+                <div>
+                  <p className="text-xs text-muted-foreground">{stage.label}</p>
+                  <p className="text-xl font-bold">{count}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Stats */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Users size={14} className="text-primary" />
-              <p className="text-xs text-muted-foreground">Total Leads</p>
+      {/* Add Contact Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAddForm(false)}>
+          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Add New Contact</h2>
+              <button onClick={() => setShowAddForm(false)} className="p-1 hover:bg-muted rounded-lg">
+                <X size={18} />
+              </button>
             </div>
-            <p className="text-2xl font-bold">{stats.total_collected}</p>
-          </div>
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp size={14} className="text-green-500" />
-              <p className="text-xs text-muted-foreground">Today New</p>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Name *"
+                value={newContact.title}
+                onChange={e => setNewContact(p => ({ ...p, title: e.target.value }))}
+                className="w-full bg-muted border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              <input
+                type="text"
+                placeholder="Email or phone"
+                value={newContact.body}
+                onChange={e => setNewContact(p => ({ ...p, body: e.target.value }))}
+                className="w-full bg-muted border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              <input
+                type="text"
+                placeholder="Platform (e.g. Instagram, WhatsApp)"
+                value={newContact.platform}
+                onChange={e => setNewContact(p => ({ ...p, platform: e.target.value }))}
+                className="w-full bg-muted border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              <input
+                type="text"
+                placeholder="Category (e.g. Brand, Agency)"
+                value={newContact.category}
+                onChange={e => setNewContact(p => ({ ...p, category: e.target.value }))}
+                className="w-full bg-muted border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button
+                onClick={addContact}
+                disabled={!newContact.title.trim()}
+                className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                Add to Pipeline
+              </button>
             </div>
-            <p className="text-2xl font-bold">{stats.today_new}</p>
-          </div>
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle size={14} className="text-red-500" />
-              <p className="text-xs text-muted-foreground">High Opportunity</p>
-            </div>
-            <p className="text-2xl font-bold">{stats.high_opportunity}</p>
-          </div>
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp size={14} className="text-purple-500" />
-              <p className="text-xs text-muted-foreground">Avg Pain Score</p>
-            </div>
-            <p className="text-2xl font-bold">{stats.avg_pain_score}</p>
           </div>
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input type="text" placeholder="Search leads..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
-        </div>
-        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
-          className="bg-card border border-border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
-          <option value="All">All Categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
-
-      {/* Leads List */}
-      <div className="space-y-3">
-        {filtered.length === 0 ? (
-          <div className="bg-card border border-border rounded-3xl p-16 text-center">
-            <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-            <p className="text-sm font-medium text-muted-foreground">No leads found</p>
-          </div>
-        ) : (
-          filtered.map(lead => (
-            <div key={lead.id} className="bg-card border border-border rounded-2xl p-5 hover:border-primary/30 hover:shadow-md transition-all group">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-sm line-clamp-1">{lead.title}</h3>
-                    {lead.url && (
-                      <a href={lead.url} target="_blank" rel="noopener noreferrer"
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all shrink-0">
-                        <ExternalLink size={14} />
-                      </a>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{lead.body}</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-lg">
-                      {lead.source || lead.platform}
-                    </span>
-                    {lead.subreddit && (
-                      <span className="text-[10px] font-medium bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-lg">
-                        r/{lead.subreddit}
-                      </span>
-                    )}
-                    {lead.category && (
-                      <span className="text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-lg">
-                        {lead.category}
-                      </span>
-                    )}
-                    {lead.keywords_extracted?.slice(0, 3).map(kw => (
-                      <span key={kw} className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                        {kw}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <span className={cn(
-                    'text-[10px] font-bold uppercase px-2 py-1 rounded-lg',
-                    OPP_STYLE[lead.opportunity_level] || OPP_STYLE.Low
-                  )}>
-                    {lead.opportunity_level}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-bold text-foreground">{lead.pain_score}</span>
-                    <span className="text-[10px] text-muted-foreground">pain</span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">
-                    {lead.scraped_at ? new Date(lead.scraped_at).toLocaleDateString() : ''}
+      {/* Kanban Pipeline */}
+      <div className="flex-1 flex gap-4 overflow-x-auto px-8 pb-8 min-h-0">
+        {PIPELINE_STAGES.map(stage => {
+          const stageContacts = getStageContacts(stage.key)
+          return (
+            <div
+              key={stage.key}
+              className={cn(
+                'flex-1 min-w-[260px] flex flex-col rounded-3xl border-2 overflow-hidden',
+                stage.color
+              )}
+            >
+              {/* Column Header */}
+              <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{stage.emoji}</span>
+                  <h3 className="font-semibold text-sm">{stage.label}</h3>
+                  <span className="bg-foreground/10 text-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                    {stageContacts.length}
                   </span>
                 </div>
               </div>
+
+              {/* Cards */}
+              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                {stageContacts.length === 0 ? (
+                  <div className="text-center py-8 px-3">
+                    <Users className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+                    <p className="text-xs text-muted-foreground/60">
+                      {stage.key === 'lead'
+                        ? 'Add your first contact to get started! 🌟'
+                        : `Move contacts here when they become ${stage.label.toLowerCase()}s`}
+                    </p>
+                  </div>
+                ) : (
+                  stageContacts.map(contact => (
+                    <div
+                      key={contact.id}
+                      className="bg-card border border-border rounded-2xl p-3.5 hover:shadow-md hover:border-primary/20 transition-all group"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h4 className="font-semibold text-sm line-clamp-1">{contact.title}</h4>
+                        {contact.pain_score > 0 && (
+                          <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                            <TrendingUp size={10} />
+                            {contact.pain_score}
+                          </span>
+                        )}
+                      </div>
+
+                      {contact.body && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{contact.body}</p>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                        {contact.platform && (
+                          <span className="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-md">
+                            {contact.platform}
+                          </span>
+                        )}
+                        {contact.category && (
+                          <span className="text-[10px] font-medium bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-md">
+                            {contact.category}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">
+                          {contact.scraped_at ? new Date(contact.scraped_at).toLocaleDateString() : 'Just added'}
+                        </span>
+                        {NEXT_STAGE[stage.key] && (
+                          <button
+                            onClick={() => moveToStage(contact.id, NEXT_STAGE[stage.key])}
+                            className="flex items-center gap-1 text-[10px] font-medium text-primary hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            Move to {PIPELINE_STAGES.find(s => s.key === NEXT_STAGE[stage.key])?.label}
+                            <ArrowRight size={10} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-          ))
-        )}
+          )
+        })}
       </div>
     </div>
   )
