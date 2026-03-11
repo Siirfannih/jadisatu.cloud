@@ -135,39 +135,39 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden min-h-0">
       {/* Header */}
-      <div className="shrink-0 px-8 pt-8 pb-4">
-        <div className="flex items-center justify-between mb-2">
+      <div className="shrink-0 px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">📝 Notes & Ideas</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Notes & Ideas</h1>
             <p className="text-muted-foreground text-sm mt-1">Capture thoughts, organize with tags, build on your ideas.</p>
           </div>
           <button
             onClick={createNote}
-            className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-medium hover:bg-primary/90 transition-colors text-sm shadow-sm"
+            className="flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-medium hover:bg-primary/90 transition-colors text-sm shadow-sm shrink-0"
           >
             <Plus size={16} /> New Note
           </button>
         </div>
       </div>
 
-      {/* 3-Panel Layout */}
-      <div className="flex-1 flex gap-4 overflow-hidden min-h-0 px-8 pb-8">
+      {/* 3-Panel Layout — stacks on small screens */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden min-h-0 px-4 sm:px-6 lg:px-8 pb-6 lg:pb-8">
         {/* Left Panel — Note List */}
-        <div className="w-72 xl:w-80 flex flex-col bg-card rounded-3xl border border-border shadow-sm overflow-hidden shrink-0">
-          <div className="p-4 border-b border-border">
+        <div className="w-full lg:w-72 xl:w-80 flex flex-col bg-card rounded-2xl lg:rounded-3xl border border-border shadow-sm overflow-hidden shrink-0 lg:min-h-[320px]">
+          <div className="p-3 sm:p-4 border-b border-border">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search notes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-xl bg-muted border-none text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-muted border border-transparent text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/30"
               />
             </div>
-            <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center justify-between mt-2 sm:mt-3">
               <span className="text-xs text-muted-foreground">{notes.length} notes</span>
             </div>
           </div>
@@ -249,7 +249,7 @@ export default function NotesPage() {
         </div>
 
         {/* Center Panel — Editor */}
-        <div className="flex-1 bg-card rounded-3xl border border-border shadow-sm flex flex-col overflow-hidden min-w-0">
+        <div className="flex-1 min-h-[280px] lg:min-h-0 bg-card rounded-2xl lg:rounded-3xl border border-border shadow-sm flex flex-col overflow-hidden min-w-0">
           {selected ? (
             <>
               <div className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0">

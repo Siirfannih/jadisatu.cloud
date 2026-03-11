@@ -44,7 +44,7 @@ export default function JuruCopilot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hi! I\'m Juru, your AI copilot. I can help you create content ideas, generate scripts, break scripts into carousel slides, research topics, and manage tasks. What would you like to do?',
+      content: 'Halo! Aku Juru, AI copilot kamu di JadiSatu. Mau diskusi ide konten, generate script, riset topik, atau apa aja — tanya aja! ✨',
     }
   ])
   const [loading, setLoading] = useState(false)
@@ -70,6 +70,34 @@ export default function JuruCopilot() {
     setMessages(prev => [...prev, msg])
   }, [])
 
+  async function chatWithAI(userMessage: string): Promise<Message> {
+    // Build history from messages (exclude the initial greeting)
+    const chatHistory = messages
+      .filter((_, i) => i > 0) // skip initial greeting
+      .map(m => ({ role: m.role, content: m.content }))
+
+    try {
+      const res = await fetch('/light/api/juru/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          history: chatHistory.slice(-10),
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        return { role: 'assistant', content: data.reply }
+      }
+    } catch { /* fall through */ }
+
+    return {
+      role: 'assistant',
+      content: 'Maaf, aku sedang tidak bisa merespons. Coba lagi ya, atau gunakan salah satu quick action di bawah! 👇',
+    }
+  }
+
   async function handleSend() {
     if (!input.trim() || loading) return
 
@@ -79,12 +107,13 @@ export default function JuruCopilot() {
     setLoading(true)
 
     try {
+      // Try command processing first, fall back to AI chat
       const response = await processCommand(userMessage)
       addMessage(response)
     } catch {
       addMessage({
         role: 'assistant',
-        content: 'Sorry, something went wrong. Please try again.',
+        content: 'Maaf, ada yang error. Coba lagi ya!',
       })
     } finally {
       setLoading(false)
@@ -346,19 +375,8 @@ export default function JuruCopilot() {
       }
     }
 
-    // Help / default
-    return {
-      role: 'assistant',
-      content: `Here's what I can do:\n\n` +
-        `- **Create content idea about [topic]** → adds to Creative Hub\n` +
-        `- **Generate script for [topic]** → creates a content script\n` +
-        `- **Break into carousel slides [title]** → splits script into slides\n` +
-        `- **Create tasks from [content title]** → generates tasks from content\n` +
-        `- **Create task [title]** → adds a single task\n` +
-        `- **Research [topic]** → runs Narrative Engine research\n` +
-        `- **List content** → shows your recent content\n\n` +
-        `Try one of these commands!`,
-    }
+    // No command matched → send to AI for conversational response
+    return chatWithAI(input)
   }
 
   function refreshContent() {
@@ -379,15 +397,16 @@ export default function JuruCopilot() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-primary hover:bg-primary/90 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 bg-primary hover:bg-primary/90 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 safe-area-bottom"
+          aria-label="Open Juru"
         >
-          <Sparkles size={24} />
+          <Sparkles size={22} className="sm:w-6 sm:h-6" />
         </button>
       )}
 
       {/* Chat Panel */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 w-96 h-[32rem] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-slide-up">
+        <div className="fixed inset-4 sm:inset-auto sm:bottom-6 sm:right-6 sm:left-auto z-50 w-[calc(100vw-2rem)] sm:w-96 max-w-full sm:max-w-none h-[calc(100vh-2rem)] sm:h-[32rem] max-h-[85vh] sm:max-h-[32rem] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-slide-up">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-primary/5">
             <div className="flex items-center gap-2">

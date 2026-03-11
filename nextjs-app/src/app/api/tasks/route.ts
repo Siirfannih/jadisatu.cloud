@@ -15,19 +15,21 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const limit = searchParams.get("limit") || "10"
     const status = searchParams.get("status")
+    const project_id = searchParams.get("project_id")
 
     let query = supabase
       .from("tasks")
       .select("*")
-      .eq("user_id", user.id)  // Filter by user_id
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(parseInt(limit, 10))
 
+    if (project_id) query = query.eq("project_id", project_id)
     if (status && status !== "active") {
       query = query.eq("status", status)
     }
     if (status === "active") {
-      query = query.in("status", ["todo", "in-progress"])
+      query = query.in("status", ["todo", "in_progress"])
     }
 
     const { data, error } = await query

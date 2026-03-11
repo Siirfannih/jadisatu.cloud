@@ -39,6 +39,8 @@ export default function CRMPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newContact, setNewContact] = useState({ title: '', body: '', platform: '', category: '' })
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
 
   const loadContacts = useCallback(async () => {
     setLoading(true)
@@ -55,14 +57,45 @@ export default function CRMPage() {
   }, [loadContacts])
 
   async function moveToStage(id: string, newStatus: string) {
-    await fetch('/light/api/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: newStatus }),
-    })
     setContacts(prev =>
       prev.map(c => c.id === id ? { ...c, status: newStatus } : c)
     )
+    try {
+      await fetch('/light/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      })
+    } catch {
+      loadContacts()
+    }
+  }
+
+  function handleDragStart(e: React.DragEvent, id: string) {
+    e.dataTransfer.setData('contactId', id)
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggingId(id)
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null)
+    setDropTarget(null)
+  }
+
+  function handleDrop(e: React.DragEvent, stageKey: string) {
+    e.preventDefault()
+    setDropTarget(null)
+    const id = e.dataTransfer.getData('contactId')
+    if (!id) return
+    const status = stageKey === 'lead' ? 'lead' : stageKey
+    moveToStage(id, status)
+    setDraggingId(null)
+  }
+
+  function handleDragOver(e: React.DragEvent, stageKey: string) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDropTarget(stageKey)
   }
 
   async function addContact() {
@@ -101,7 +134,7 @@ export default function CRMPage() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 px-8 pt-8 pb-4">
+      <div className="shrink-0 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-4">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground tracking-tight mb-1">🤝 My Network</h1>
@@ -199,16 +232,20 @@ export default function CRMPage() {
       )}
 
       {/* Kanban Pipeline */}
-      <div className="flex-1 flex gap-4 overflow-x-auto px-8 pb-8 min-h-0">
+      <div className="flex-1 flex gap-3 sm:gap-4 overflow-x-auto overflow-y-hidden px-4 sm:px-6 lg:px-8 pb-4 sm:pb-8 min-h-0 scrollbar-hide">
         {PIPELINE_STAGES.map(stage => {
           const stageContacts = getStageContacts(stage.key)
           return (
             <div
               key={stage.key}
               className={cn(
-                'flex-1 min-w-[260px] flex flex-col rounded-3xl border-2 overflow-hidden',
-                stage.color
+                'flex-1 min-w-[240px] sm:min-w-[260px] flex-shrink-0 flex flex-col rounded-2xl sm:rounded-3xl border-2 overflow-hidden transition-colors',
+                stage.color,
+                dropTarget === stage.key && 'ring-2 ring-primary ring-offset-2'
               )}
+              onDrop={(e) => handleDrop(e, stage.key)}
+              onDragOver={(e) => handleDragOver(e, stage.key)}
+              onDragLeave={() => setDropTarget(null)}
             >
               {/* Column Header */}
               <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between shrink-0">
@@ -236,7 +273,13 @@ export default function CRMPage() {
                   stageContacts.map(contact => (
                     <div
                       key={contact.id}
-                      className="bg-card border border-border rounded-2xl p-3.5 hover:shadow-md hover:border-primary/20 transition-all group"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, contact.id)}
+                      onDragEnd={handleDragEnd}
+                      className={cn(
+                        'bg-card border border-border rounded-2xl p-3.5 hover:shadow-md hover:border-primary/20 transition-all group cursor-grab active:cursor-grabbing',
+                        draggingId === contact.id && 'opacity-50'
+                      )}
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className="font-semibold text-sm line-clamp-1">{contact.title}</h4>
@@ -271,7 +314,8 @@ export default function CRMPage() {
                         </span>
                         {NEXT_STAGE[stage.key] && (
                           <button
-                            onClick={() => moveToStage(contact.id, NEXT_STAGE[stage.key])}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveToStage(contact.id, NEXT_STAGE[stage.key]); }}
                             className="flex items-center gap-1 text-[10px] font-medium text-primary hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-all"
                           >
                             Move to {PIPELINE_STAGES.find(s => s.key === NEXT_STAGE[stage.key])?.label}

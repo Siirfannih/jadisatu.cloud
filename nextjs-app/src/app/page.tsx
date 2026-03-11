@@ -34,6 +34,8 @@ export default function DashboardPage() {
   const [contents, setContents] = useState<Content[]>([])
   const [loading, setLoading] = useState(true)
   const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [newTaskDomain, setNewTaskDomain] = useState('personal')
+  const [newTaskStatus, setNewTaskStatus] = useState('todo')
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending'>('pending')
   const [noteText, setNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -41,6 +43,7 @@ export default function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
   const [fadingIds, setFadingIds] = useState<Set<string>>(new Set())
+  const [addingTempIds, setAddingTempIds] = useState<Set<string>>(new Set())
 
   useEffect(() => { checkUser() }, [])
 
@@ -49,73 +52,101 @@ export default function DashboardPage() {
     if (error || !u) { router.push('/login'); return }
     setUser(u)
     fetch('/light/api/init-user', { method: 'POST' }).catch(() => {})
-    await loadData()
+    await loadData(u.id)
   }
 
-  async function loadData() {
+  async function loadData(userId: string) {
     setLoading(true)
     const todayStr = new Date().toISOString().split('T')[0]
-    const [tRes, pRes, aRes, sRes, cRes] = await Promise.all([
-      fetch('/light/api/tasks?status=active&limit=100'),
+    const [tRes, pRes, aRes, sRes, cRes, ideasRes] = await Promise.all([
+      fetch('/light/api/tasks?limit=100'),
       fetch('/light/api/projects'),
       fetch('/light/api/activities?limit=5'),
       fetch(`/light/api/schedule?date=${todayStr}`),
       fetch('/light/api/contents'),
+      (async () => {
+        const { data } = await supabase
+          .from('ideas')
+          .select('*')
+          .eq('user_id', userId)
+          .neq('status', 'deleted')
+          .order('created_at', { ascending: false })
+          .limit(3)
+        return data ?? []
+      })(),
     ])
     if (tRes.ok) { const d = await tRes.json(); setTasks(Array.isArray(d) ? d : []) }
     if (pRes.ok) { const d = await pRes.json(); setProjects(Array.isArray(d) ? d : []) }
     if (aRes.ok) { const d = await aRes.json(); setActivities(Array.isArray(d) ? d : []) }
     if (sRes.ok) { const d = await sRes.json(); setSchedule(Array.isArray(d) ? d : []) }
     if (cRes.ok) { const d = await cRes.json(); setContents(Array.isArray(d) ? d : []) }
-
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (u) {
-      const { data: ideasData } = await supabase
-        .from('ideas')
-        .select('*')
-        .eq('user_id', u.id)
-        .neq('status', 'deleted')
-        .order('created_at', { ascending: false })
-        .limit(3)
-      if (ideasData) setIdeas(ideasData)
-    }
+    setIdeas(Array.isArray(ideasRes) ? ideasRes : [])
     setLoading(false)
   }
 
   async function addTask() {
     if (!newTaskTitle.trim()) return
-    await fetch('/light/api/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newTaskTitle, status: 'todo', priority: 'medium', domain: 'personal' }),
-    })
+    const title = newTaskTitle.trim()
+    const domain = newTaskDomain || 'personal'
+    const status = newTaskStatus || 'todo'
+    const tempId = `temp_${crypto.randomUUID()}`
+    const optimistic: Task = {
+      id: tempId,
+      title,
+      status,
+      priority: 'medium',
+      domain,
+      created_at: new Date().toISOString(),
+    }
+    setAddingTempIds(prev => new Set(prev).add(tempId))
+    setTasks(prev => [optimistic, ...prev])
     setNewTaskTitle('')
-    await loadData()
+    try {
+      const res = await fetch('/light/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, status, priority: 'medium', domain }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setTasks(prev => prev.map(t => t.id === tempId ? { ...t, ...created } : t))
+      } else {
+        setTasks(prev => prev.filter(t => t.id !== tempId))
+      }
+    } catch {
+      setTasks(prev => prev.filter(t => t.id !== tempId))
+    } finally {
+      setTimeout(() => {
+        setAddingTempIds(prev => { const s = new Set(prev); s.delete(tempId); return s })
+      }, 450)
+    }
   }
 
   async function toggleTask(id: string, status: string) {
     const ns = status === 'done' ? 'todo' : 'done'
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: ns } : t))
     if (ns === 'done') {
       setCompletingIds(prev => new Set(prev).add(id))
       setTimeout(() => setFadingIds(prev => new Set(prev).add(id)), 800)
       setTimeout(async () => {
+        try {
+          await fetch('/light/api/tasks', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, status: ns }),
+          })
+        } catch { /* ignore */ }
+        setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s })
+        setFadingIds(prev => { const s = new Set(prev); s.delete(id); return s })
+      }, 1400)
+    } else {
+      try {
         await fetch('/light/api/tasks', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, status: ns }),
         })
-        setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s })
-        setFadingIds(prev => { const s = new Set(prev); s.delete(id); return s })
-        await loadData()
-      }, 1400)
-    } else {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: ns } : t))
-      await fetch('/light/api/tasks', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: ns }),
-      })
-      await loadData()
+      } catch { /* ignore */ }
     }
   }
 
@@ -226,16 +257,16 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
       <MorningBriefing />
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-muted-foreground font-medium mb-1">{today}</p>
-          <h1 className="text-4xl font-bold text-foreground tracking-tight mb-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-muted-foreground font-medium mb-1 text-sm sm:text-base">{today}</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight mb-2 sm:mb-3 break-words">
             {greeting()}, {userName}! {greetingEmoji()}
           </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground text-sm sm:text-lg">
             You have <span className="text-orange-600 dark:text-orange-400 font-medium">{pendingTasks.length} tasks</span> to tackle
             and <span className="text-purple-600 dark:text-purple-400 font-medium">{activeProjectCount} projects</span> in motion.
           </p>
@@ -249,63 +280,63 @@ export default function DashboardPage() {
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-card rounded-3xl p-6 border border-border shadow-sm relative overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border shadow-sm relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-50 dark:bg-blue-500/5 rounded-full opacity-50"></div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mb-6 relative z-10">
-            <Check className="w-6 h-6 text-blue-600 dark:text-blue-400" strokeWidth={3} />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mb-4 sm:mb-6 relative z-10">
+            <Check className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" strokeWidth={3} />
           </div>
-          <p className="text-sm text-muted-foreground font-medium mb-2 relative z-10">Tasks Completed</p>
-          <div className="flex items-baseline gap-3 relative z-10">
-            <h3 className="text-4xl font-bold text-foreground tracking-tight">{completedCount}</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1 sm:mb-2 relative z-10">Tasks Completed</p>
+          <div className="flex items-baseline gap-2 sm:gap-3 relative z-10">
+            <h3 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">{completedCount}</h3>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 relative z-10">this session</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 sm:mt-2 relative z-10">this session</p>
         </div>
 
-        <div className="bg-card rounded-3xl p-6 border border-border shadow-sm relative overflow-hidden">
+        <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border shadow-sm relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-purple-50 dark:bg-purple-500/5 rounded-full opacity-50"></div>
-          <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center mb-6 relative z-10">
-            <Rocket className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center mb-4 sm:mb-6 relative z-10">
+            <Rocket className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
           </div>
-          <p className="text-sm text-muted-foreground font-medium mb-2 relative z-10">Active Projects</p>
-          <div className="flex items-baseline gap-3 relative z-10">
-            <h3 className="text-4xl font-bold text-foreground tracking-tight">{activeProjectCount}</h3>
-            <span className="text-sm font-medium text-muted-foreground">{projects.length} total</span>
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1 sm:mb-2 relative z-10">Active Projects</p>
+          <div className="flex items-baseline gap-2 sm:gap-3 relative z-10">
+            <h3 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">{activeProjectCount}</h3>
+            <span className="text-xs sm:text-sm font-medium text-muted-foreground">{projects.length} total</span>
           </div>
         </div>
 
-        <div className="bg-card rounded-3xl p-6 border border-border shadow-sm relative overflow-hidden">
+        <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border shadow-sm relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-orange-50 dark:bg-orange-500/5 rounded-full opacity-50"></div>
-          <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center mb-6 relative z-10">
-            <Clock className="w-6 h-6 text-orange-500 dark:text-orange-400" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center mb-4 sm:mb-6 relative z-10">
+            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500 dark:text-orange-400" />
           </div>
-          <p className="text-sm text-muted-foreground font-medium mb-2 relative z-10">Pending Tasks</p>
-          <div className="flex items-baseline gap-3 relative z-10 mb-4">
-            <h3 className="text-4xl font-bold text-foreground tracking-tight">{pendingTasks.length}</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1 sm:mb-2 relative z-10">Pending Tasks</p>
+          <div className="flex items-baseline gap-2 sm:gap-3 relative z-10 mb-3 sm:mb-4">
+            <h3 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">{pendingTasks.length}</h3>
           </div>
           <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden relative z-10">
             <div className="h-full bg-orange-500 rounded-full" style={{ width: `${tasks.length > 0 ? (pendingTasks.length / tasks.length) * 100 : 0}%` }}></div>
           </div>
         </div>
 
-        <div className="bg-card rounded-3xl p-6 border border-border shadow-sm relative overflow-hidden">
+        <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border shadow-sm relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-pink-50 dark:bg-pink-500/5 rounded-full opacity-50"></div>
-          <div className="w-12 h-12 rounded-2xl bg-pink-50 dark:bg-pink-500/10 flex items-center justify-center mb-6 relative z-10">
-            <PenTool className="w-6 h-6 text-pink-500 dark:text-pink-400" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-pink-50 dark:bg-pink-500/10 flex items-center justify-center mb-4 sm:mb-6 relative z-10">
+            <PenTool className="w-5 h-5 sm:w-6 sm:h-6 text-pink-500 dark:text-pink-400" />
           </div>
-          <p className="text-sm text-muted-foreground font-medium mb-2 relative z-10">Creative Output</p>
-          <div className="flex items-baseline gap-3 relative z-10">
-            <h3 className="text-4xl font-bold text-foreground tracking-tight">{contents.length + ideas.length}</h3>
-            <span className="text-sm font-medium text-muted-foreground">pieces</span>
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1 sm:mb-2 relative z-10">Creative Output</p>
+          <div className="flex items-baseline gap-2 sm:gap-3 relative z-10">
+            <h3 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">{contents.length + ideas.length}</h3>
+            <span className="text-xs sm:text-sm font-medium text-muted-foreground">pieces</span>
           </div>
         </div>
       </div>
 
       {/* Main Grid: 2/3 + 1/3 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+        <div className="lg:col-span-2 space-y-6 sm:space-y-8">
           {/* Today's Tasks */}
-          <div className="bg-card rounded-3xl p-6 border border-border shadow-sm">
+          <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-foreground">Today&apos;s Tasks</h2>
@@ -322,17 +353,19 @@ export default function DashboardPage() {
                 >Pending</button>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 transition-all duration-300 ease-out">
               {displayTasks.slice(0, 6).map(task => {
                 const isC = completingIds.has(task.id)
                 const isF = fadingIds.has(task.id)
+                const isNew = addingTempIds.has(task.id)
                 return (
                   <div
                     key={task.id}
-                    className={`group flex items-center gap-4 p-4 rounded-2xl border border-border hover:border-primary/30 transition-colors bg-card relative ${isC ? 'task-completing bg-emerald-50/50 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20' : ''} ${isF ? 'task-fade-out' : ''}`}
+                    className={`group flex items-center gap-4 p-4 rounded-2xl border border-border hover:border-primary/30 transition-[transform,opacity,border-color] duration-300 ease-out bg-card relative ${isNew ? 'task-enter' : ''} ${isC ? 'task-completing bg-emerald-50/50 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20' : ''} ${isF ? 'task-fade-out' : ''}`}
                   >
                     <button
-                      onClick={() => toggleTask(task.id, task.status)}
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleTask(task.id, task.status); }}
                       className={`w-5 h-5 rounded flex items-center justify-center border transition-colors shrink-0 ${task.status === 'done' || isC ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/30 hover:border-blue-500'} ${isC ? 'check-pop' : ''}`}
                     >
                       {(task.status === 'done' || isC) && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
@@ -351,11 +384,14 @@ export default function DashboardPage() {
                           {task.title}
                         </h4>
                       </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        <span>{task.domain}</span><span>•</span><span>{task.status}</span>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                        <span className="capitalize">{task.domain}</span>
+                        <span>•</span>
+                        <span className="capitalize">{task.status.replace(/_/g, ' ')}</span>
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => deleteTask(task.id)}
                       className="p-1.5 text-muted-foreground/30 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
                     >
@@ -370,22 +406,47 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted-foreground">All clear! Add a task to get started ✨</p>
                 </div>
               )}
-              <div className="flex gap-2 mt-2">
-                <input
-                  type="text"
-                  value={newTaskTitle}
-                  onChange={e => setNewTaskTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addTask()}
-                  placeholder="Add a new task..."
-                  className="flex-1 bg-muted border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground text-foreground"
-                />
-                <button
-                  onClick={addTask}
-                  disabled={!newTaskTitle.trim()}
-                  className="px-4 py-3 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white rounded-xl text-sm font-medium flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />Add
-                </button>
+              <div className="space-y-3 mt-3">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <select
+                    value={newTaskDomain}
+                    onChange={e => setNewTaskDomain(e.target.value)}
+                    className="bg-muted border border-border rounded-lg px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="work">Work</option>
+                    <option value="learn">Learn</option>
+                    <option value="business">Business</option>
+                    <option value="personal">Personal</option>
+                  </select>
+                  <select
+                    value={newTaskStatus}
+                    onChange={e => setNewTaskStatus(e.target.value)}
+                    className="bg-muted border border-border rounded-lg px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="backlog">Backlog</option>
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="review">Review</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTaskTitle}
+                    onChange={e => setNewTaskTitle(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addTask()}
+                    placeholder="Add a new task..."
+                    className="flex-1 bg-muted border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground text-foreground transition-shadow duration-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={addTask}
+                    disabled={!newTaskTitle.trim()}
+                    className="px-4 py-3 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white rounded-xl text-sm font-medium flex items-center gap-1.5 transition-all duration-200"
+                  >
+                    <Plus className="w-4 h-4" />Add
+                  </button>
+                </div>
               </div>
             </div>
           </div>

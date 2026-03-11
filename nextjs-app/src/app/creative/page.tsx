@@ -201,6 +201,7 @@ export default function CreativeStudio() {
 
   const [generating, setGenerating] = useState(false)
   const editorRef = useRef<HTMLTextAreaElement>(null)
+  const publishDateInputRef = useRef<HTMLInputElement>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -729,16 +730,28 @@ export default function CreativeStudio() {
                   />
                 </div>
 
-                {/* Publish Date */}
+                {/* Publish Date — click label or area to open date picker */}
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Publish Date</label>
-                  <div className="relative">
-                    <CalendarIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <label
+                    onClick={() => publishDateInputRef.current?.showPicker?.()}
+                    className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 cursor-pointer hover:text-foreground transition-colors"
+                  >
+                    Publish Date
+                  </label>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => publishDateInputRef.current?.showPicker?.()}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') publishDateInputRef.current?.showPicker?.() }}
+                    className="relative flex items-center gap-2 w-full bg-muted border border-border rounded-xl pl-3 pr-3 py-2 text-xs outline-none focus-within:ring-2 focus-within:ring-primary cursor-pointer hover:border-primary/50 transition-colors"
+                  >
+                    <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <input
+                      ref={publishDateInputRef}
                       type="date"
                       value={editPublishDate}
                       onChange={e => { setEditPublishDate(e.target.value); setHasUnsavedChanges(true) }}
-                      className="w-full bg-muted border border-border rounded-xl pl-9 pr-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary"
+                      className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground cursor-pointer [color-scheme:inherit]"
                     />
                   </div>
                 </div>

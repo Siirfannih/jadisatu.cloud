@@ -78,6 +78,14 @@ body {
 }
 
 /* ── Task Animations ─────────────────── */
+.task-enter {
+  animation: taskEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes taskEnter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .task-completing {
   animation: taskComplete 0.8s ease-in-out;
 }
@@ -114,3 +122,7 @@ body {
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Safe area for notched / rounded devices */
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+.safe-area-top { padding-top: env(safe-area-inset-top, 0); }

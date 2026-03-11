@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-browser"
 import { cn } from "@/lib/utils"
 import { Bot, Cpu, Activity, Power, Zap } from "lucide-react"
 
@@ -26,16 +26,23 @@ interface AgentLog {
 export default function Agents() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [logs, setLogs] = useState<AgentLog[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
-    const [agentsRes, logsRes] = await Promise.all([
-      supabase.from("agents").select("*"),
-      supabase.from("agent_logs").select("*").order("created_at", { ascending: false }).limit(10),
-    ])
-    if (agentsRes.data) setAgents(agentsRes.data)
-    if (logsRes.data) setLogs(logsRes.data)
+    setLoading(true)
+    const supabase = createClient()
+    try {
+      const [agentsRes, logsRes] = await Promise.all([
+        supabase.from("agents").select("*"),
+        supabase.from("agent_logs").select("*").order("created_at", { ascending: false }).limit(10),
+      ])
+      if (agentsRes.data) setAgents(agentsRes.data)
+      if (logsRes.data) setLogs(logsRes.data)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const statusColor = (s: string) => ({
@@ -45,17 +52,35 @@ export default function Agents() {
     error: { text: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20", dot: "bg-red-500" },
   }[s] || { text: "text-zinc-500", bg: "bg-zinc-500/10", border: "border-zinc-500/20", dot: "bg-zinc-500" })
 
+  if (loading) {
+    return (
+      <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-card border border-border rounded-xl p-6 animate-pulse h-64" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Agent Control Center</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Agent Control Center</h1>
           <p className="text-muted-foreground">Monitor and manage your AI workforce.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {agents.map((agent) => {
+        {agents.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center justify-center py-16 rounded-2xl border border-dashed border-border bg-muted/20">
+            <Bot className="w-12 h-12 text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">No agents configured yet.</p>
+          </div>
+        ) : agents.map((agent) => {
           const sc = statusColor(agent.status)
           return (
             <div key={agent.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
