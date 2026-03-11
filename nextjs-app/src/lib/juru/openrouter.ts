@@ -1,11 +1,11 @@
 /**
  * OpenRouter Provider — for simple/repetitive queries.
  * Uses OpenAI-compatible API format.
- * Model: google/gemini-2.0-flash-exp:free (zero cost, consistent with Gemini style).
+ * Model: openrouter/free (auto-routes to best available free model).
  */
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'google/gemini-2.0-flash-exp:free'
+const MODEL = 'openrouter/free'
 
 interface ChatMessage {
   role: 'user' | 'assistant'

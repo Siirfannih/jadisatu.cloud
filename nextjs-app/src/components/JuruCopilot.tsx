@@ -90,11 +90,24 @@ export default function JuruCopilot() {
         const data = await res.json()
         return { role: 'assistant', content: data.reply }
       }
-    } catch { /* fall through */ }
+
+      // Log non-200 responses for debugging
+      const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+      console.error('Juru API error:', res.status, errData)
+
+      if (res.status === 401) {
+        return { role: 'assistant', content: 'Sesi kamu sudah expired. Silakan refresh halaman dan login ulang.' }
+      }
+      if (res.status === 503) {
+        return { role: 'assistant', content: 'AI belum dikonfigurasi. Hubungi admin untuk setup API key.' }
+      }
+    } catch (err) {
+      console.error('Juru fetch error:', err)
+    }
 
     return {
       role: 'assistant',
-      content: 'Maaf, aku sedang tidak bisa merespons. Coba lagi ya, atau gunakan salah satu quick action di bawah! 👇',
+      content: 'Maaf, aku sedang tidak bisa merespons. Coba lagi ya, atau gunakan salah satu quick action di bawah!',
     }
   }
 

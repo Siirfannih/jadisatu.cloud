@@ -463,12 +463,12 @@ export default function CreativeStudio() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="shrink-0 px-6 pt-6 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">Content Studio</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">Content Studio</h1>
               <p className="text-muted-foreground text-sm">Write, structure, and publish your content.</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               {selectedItem && NEXT_STAGE[editStage] && (
                 <button
                   onClick={advanceStage}
@@ -488,7 +488,7 @@ export default function CreativeStudio() {
           </div>
 
           {/* Stage filter tabs (droppable) */}
-          <div className="flex items-center gap-1.5 bg-card border border-border rounded-2xl px-2 py-1.5 w-fit">
+          <div className="flex items-center gap-1.5 bg-card border border-border rounded-2xl px-2 py-1.5 w-fit max-w-full overflow-x-auto">
             <button
               onClick={() => setActiveFilter('all')}
               className={cn(
@@ -544,9 +544,9 @@ export default function CreativeStudio() {
         )}
 
         {/* 3-Panel Layout */}
-        <div className="flex-1 flex min-h-0 border-t border-border">
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 border-t border-border">
           {/* ── Left Panel: Content List ── */}
-          <div className="w-[300px] shrink-0 flex flex-col border-r border-border bg-card/50">
+          <div className="w-full md:w-[300px] shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-border bg-card/50 max-h-[40vh] md:max-h-none">
             {/* Search */}
             <div className="p-3 border-b border-border">
               <div className="relative">
@@ -598,7 +598,7 @@ export default function CreativeStudio() {
           </div>
 
           {/* ── Middle Panel: Editor ── */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden min-h-[50vh] md:min-h-0">
             {selectedItem ? (
               <>
                 {/* Editor toolbar */}
@@ -646,12 +646,13 @@ export default function CreativeStudio() {
                 {/* Title + Content area */}
                 <div className="flex-1 overflow-y-auto">
                   <div className="max-w-3xl mx-auto px-8 py-6">
-                    <input
-                      type="text"
+                    <textarea
                       value={editTitle}
                       onChange={e => { setEditTitle(e.target.value); setHasUnsavedChanges(true) }}
+                      onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
                       placeholder="Untitled"
-                      className="w-full text-2xl font-bold text-foreground bg-transparent outline-none placeholder:text-muted-foreground/40 mb-4"
+                      rows={1}
+                      className="w-full text-2xl font-bold text-foreground bg-transparent outline-none placeholder:text-muted-foreground/40 mb-4 resize-none overflow-hidden break-words"
                     />
                     <textarea
                       ref={editorRef}
@@ -678,7 +679,7 @@ export default function CreativeStudio() {
 
           {/* ── Right Panel: Production ── */}
           {selectedItem && (
-            <div className="w-[280px] shrink-0 border-l border-border bg-card/50 overflow-y-auto">
+            <div className="w-full md:w-[280px] shrink-0 border-t md:border-t-0 md:border-l border-border bg-card/50 overflow-y-auto">
               <div className="p-5 space-y-5">
                 <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Production</h3>
 

@@ -38,33 +38,31 @@ export async function juruChat(
   // Trim history to last 10 messages
   const recentHistory = history.slice(-10)
 
-  if (tier === 'simple') {
-    // Try OpenRouter first, fall back to Gemini
+  const errors: string[] = []
+
+  // Primary: try OpenRouter first (works for both simple & complex)
+  if (process.env.OPENROUTER_API_KEY) {
     try {
       const reply = await chatOpenRouter(message, recentHistory, systemPrompt)
       return { reply, tier, provider: 'openrouter' }
     } catch (err) {
-      console.warn('OpenRouter failed, falling back to Gemini:', err instanceof Error ? err.message : err)
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push(`OpenRouter: ${msg}`)
+      console.warn('OpenRouter failed:', msg)
     }
   }
 
-  // Complex tier OR OpenRouter fallback → use Gemini
-  try {
-    const reply = await chatGemini(message, recentHistory, systemPrompt)
-    return { reply, tier, provider: 'gemini' }
-  } catch (err) {
-    console.error('Gemini failed:', err instanceof Error ? err.message : err)
-
-    // Last resort: try OpenRouter even for complex if Gemini fails
-    if (tier === 'complex') {
-      try {
-        const reply = await chatOpenRouter(message, recentHistory, systemPrompt)
-        return { reply, tier, provider: 'openrouter' }
-      } catch {
-        // Both failed
-      }
+  // Fallback: try Gemini
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const reply = await chatGemini(message, recentHistory, systemPrompt)
+      return { reply, tier, provider: 'gemini' }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push(`Gemini: ${msg}`)
+      console.error('Gemini failed:', msg)
     }
-
-    throw new Error('All AI providers failed')
   }
+
+  throw new Error(`All AI providers failed: ${errors.join('; ')}`)
 }

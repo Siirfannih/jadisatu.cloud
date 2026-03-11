@@ -102,7 +102,7 @@ export default function ContentStudioPage() {
     const mockTemplates: TemplateCard[] = uploadedImages.map((img, i) => ({
       id: `tpl-${i}`,
       name: `Style ${String.fromCharCode(65 + i)}`,
-      previewHtml: `<div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:32px;border-radius:16px;color:white;font-family:Inter;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><h2 style="font-size:24px;font-weight:700;margin-bottom:8px">Headline Here</h2><p style="font-size:14px;opacity:0.8">Body text for slide content</p></div>`,
+      previewHtml: `<div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:32px;border-radius:16px;color:white;font-family:Inter;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><h2 style="font-size:24px;font-weight:700;margin-bottom:8px;max-width:100%;overflow-wrap:break-word;word-break:break-word;line-height:1.3">Headline Here</h2><p style="font-size:14px;opacity:0.8">Body text for slide content</p></div>`,
       selected: false,
     }))
 
@@ -111,13 +111,13 @@ export default function ContentStudioPage() {
       {
         id: 'tpl-dark',
         name: 'Dark Minimal',
-        previewHtml: `<div style="background:#1a1a2e;padding:32px;border-radius:16px;color:white;font-family:Inter;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><h2 style="font-size:24px;font-weight:700;margin-bottom:8px">Headline</h2><p style="font-size:14px;opacity:0.7">Minimal dark style</p></div>`,
+        previewHtml: `<div style="background:#1a1a2e;padding:32px;border-radius:16px;color:white;font-family:Inter;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><h2 style="font-size:24px;font-weight:700;margin-bottom:8px;max-width:100%;overflow-wrap:break-word;word-break:break-word;line-height:1.3">Headline</h2><p style="font-size:14px;opacity:0.7">Minimal dark style</p></div>`,
         selected: false,
       },
       {
         id: 'tpl-gradient',
         name: 'Gradient Pop',
-        previewHtml: `<div style="background:linear-gradient(135deg,#f093fb,#f5576c);padding:32px;border-radius:16px;color:white;font-family:Inter;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><h2 style="font-size:24px;font-weight:700;margin-bottom:8px">Headline</h2><p style="font-size:14px;opacity:0.8">Vibrant gradient style</p></div>`,
+        previewHtml: `<div style="background:linear-gradient(135deg,#f093fb,#f5576c);padding:32px;border-radius:16px;color:white;font-family:Inter;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><h2 style="font-size:24px;font-weight:700;margin-bottom:8px;max-width:100%;overflow-wrap:break-word;word-break:break-word;line-height:1.3">Headline</h2><p style="font-size:14px;opacity:0.8">Vibrant gradient style</p></div>`,
         selected: false,
       },
     )
@@ -306,7 +306,7 @@ export default function ContentStudioPage() {
                     Hapus Semua
                   </button>
                 </div>
-                <div className="grid grid-cols-5 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                   {uploadedImages.map((img, i) => (
                     <div key={i} className="relative group rounded-xl overflow-hidden border border-border aspect-square">
                       <img src={img.preview} alt={`ref-${i}`} className="w-full h-full object-cover" />
@@ -375,7 +375,7 @@ export default function ContentStudioPage() {
               Berikut template HTML/CSS yang dihasilkan dari desain referensi. Klik untuk memilih.
             </p>
 
-            <div className="grid grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
               {templates.map(tpl => (
                 <button
                   key={tpl.id}
@@ -388,11 +388,11 @@ export default function ContentStudioPage() {
                   )}
                 >
                   <div
-                    className="aspect-square"
+                    className="aspect-square overflow-hidden"
                     dangerouslySetInnerHTML={{ __html: tpl.previewHtml }}
                   />
-                  <div className="p-3 border-t border-border flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">{tpl.name}</span>
+                  <div className="p-3 border-t border-border flex items-center justify-between min-w-0">
+                    <span className="text-sm font-medium text-foreground truncate">{tpl.name}</span>
                     {selectedTemplate === tpl.id && (
                       <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center">
                         <Check className="w-3 h-3 text-white" />
@@ -560,12 +560,12 @@ export default function ContentStudioPage() {
         {/* ═══ STEP 4: Preview & Download ═══ */}
         {step === 4 && (
           <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <div>
                 <h2 className="text-xl font-bold text-foreground mb-1">Carousel Preview</h2>
                 <p className="text-sm text-muted-foreground">Klik slide untuk edit. Download semua atau per-slide.</p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 shrink-0">
                 <button
                   onClick={() => { setStep(3); setSlides([]) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted hover:bg-muted/80 text-sm text-foreground transition-all"
@@ -588,7 +588,7 @@ export default function ContentStudioPage() {
                   key={i}
                   onClick={() => setEditingSlide(editingSlide === i ? null : i)}
                   className={cn(
-                    'shrink-0 w-[200px] rounded-2xl border-2 overflow-hidden transition-all',
+                    'shrink-0 w-[160px] sm:w-[180px] md:w-[200px] rounded-2xl border-2 overflow-hidden transition-all',
                     editingSlide === i
                       ? 'border-violet-500 ring-2 ring-violet-500/20'
                       : 'border-border hover:border-violet-300'
