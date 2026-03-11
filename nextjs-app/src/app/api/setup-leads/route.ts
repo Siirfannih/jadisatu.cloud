@@ -1,17 +1,18 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  )
-}
+import { createClient } from '@/lib/supabase-server'
 
 export async function GET() {
-  return NextResponse.json({
-    message: 'Use POST to run migration',
-    sql: `CREATE TABLE IF NOT EXISTS public.leads (
+  try {
+    // Auth guard
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    return NextResponse.json({
+      message: 'Use POST to run migration',
+      sql: `CREATE TABLE IF NOT EXISTS public.leads (
   id TEXT PRIMARY KEY,
   source TEXT NOT NULL,
   platform TEXT,
@@ -40,5 +41,9 @@ CREATE INDEX IF NOT EXISTS idx_leads_pain_score ON public.leads(pain_score DESC)
 CREATE INDEX IF NOT EXISTS idx_leads_category ON public.leads(category);
 CREATE INDEX IF NOT EXISTS idx_leads_scraped_at ON public.leads(scraped_at DESC);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON public.leads(status);`
-  })
+    })
+  } catch (error) {
+    console.error('Error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
