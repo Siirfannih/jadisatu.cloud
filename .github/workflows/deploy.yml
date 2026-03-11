@@ -57,6 +57,10 @@ jobs:
           git reset --hard origin/main
           echo "✅ Code updated"
           
+          # Load NVM into environment
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
           # Install dependencies & build Light Mode
           cd nextjs-app
           npm ci --production=false
@@ -65,15 +69,19 @@ jobs:
           
           # Restart with PM2
           cd ..
-          pm2 restart jadisatu-light 2>/dev/null || pm2 start npm --name jadisatu-light -- start --prefix nextjs-app
+          pm2 restart jadisatu-nextjs 2>/dev/null || pm2 start npm --name jadisatu-nextjs -- start --prefix nextjs-app
           pm2 save
           echo "✅ App restarted"
           echo "=== Deploy finished at $(date) ==="
 
       - name: Verify deployment
         run: |
+          # Load NVM for pm2
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
           echo "=== PM2 Status ==="
-          pm2 status
+          pm2 status jadisatu-nextjs
           echo "=== Health Check ==="
           sleep 3
           curl -sf http://localhost:3000 > /dev/null && echo "✅ App is running on :3000" || (echo "⚠️ App check failed on :3000" && exit 1)
