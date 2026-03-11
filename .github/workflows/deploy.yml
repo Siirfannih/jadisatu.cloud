@@ -40,79 +40,43 @@ jobs:
   deploy:
     name: Deploy to Production VPS
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 20
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install SSH client & test connectivity
+      - name: Deploy application
         run: |
-          sudo apt-get install -y netcat-openbsd
-          echo "Testing TCP connectivity to VPS..."
-          if nc -z -w 10 ${{ secrets.VPS_HOST }} ${{ secrets.VPS_PORT }}; then
-            echo "✅ TCP connection to VPS port ${{ secrets.VPS_PORT }} is OK"
-          else
-            echo "❌ Cannot reach VPS at ${{ secrets.VPS_HOST }}:${{ secrets.VPS_PORT }}"
-            exit 1
-          fi
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p ${{ secrets.VPS_PORT }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          timeout: 60s
-          command_timeout: 15m
-          debug: true
-          script: |
-            set -e
-            echo "=== Starting deploy at $(date) ==="
-            cd /root/jadisatu.cloud
-
-            # Pull latest code
-            git fetch origin main
-            git reset --hard origin/main
-            echo "✅ Code updated"
-
-            # Install dependencies + build
-            cd nextjs-app
-            npm ci --production=false
-            npm run build
-            echo "✅ Build complete"
-
-            # Restart with PM2
-            cd ..
-            pm2 restart jadisatu-light 2>/dev/null || pm2 start npm --name jadisatu-light -- start --prefix nextjs-app
-            pm2 save
-            echo "✅ App restarted"
-            echo "=== Deploy finished at $(date) ==="
+          set -e
+          echo "=== Starting deploy at $(date) ==="
+          
+          # Since this runs directly on the VPS, we go to the actual project folder
+          cd /root/jadisatu.cloud
+          
+          # Force git pull on the VPS's existing clone
+          git fetch origin main
+          git reset --hard origin/main
+          echo "✅ Code updated"
+          
+          # Install dependencies & build Light Mode
+          cd nextjs-app
+          npm ci --production=false
+          npm run build
+          echo "✅ Build complete"
+          
+          # Restart with PM2
+          cd ..
+          pm2 restart jadisatu-light 2>/dev/null || pm2 start npm --name jadisatu-light -- start --prefix nextjs-app
+          pm2 save
+          echo "✅ App restarted"
+          echo "=== Deploy finished at $(date) ==="
 
       - name: Verify deployment
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          timeout: 30s
-          command_timeout: 2m
-          script: |
-            echo "=== PM2 Status ==="
-            pm2 status
-            echo "=== Health Check ==="
-            sleep 3
-            curl -sf http://localhost:3000 > /dev/null && echo "✅ App is running on :3000" || echo "⚠️ App check failed on :3000"
+        run: |
+          echo "=== PM2 Status ==="
+          pm2 status
+          echo "=== Health Check ==="
+          sleep 3
+          curl -sf http://localhost:3000 > /dev/null && echo "✅ App is running on :3000" || (echo "⚠️ App check failed on :3000" && exit 1)
 
   notify-pr:
     name: Comment Test Results on PR
