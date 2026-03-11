@@ -84,8 +84,15 @@ jobs:
           echo "=== PM2 Status ==="
           npx pm2 status jadisatu-nextjs
           echo "=== Health Check ==="
-          sleep 3
-          curl -sf http://localhost:3000 > /dev/null && echo "✅ App is running on :3000" || (echo "⚠️ App check failed on :3000" && exit 1)
+          for i in {1..15}; do
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "✅ App is running on :3000"
+              exit 0
+            fi
+            echo "Waiting for app to start... $i/15"
+            sleep 2
+          done
+          echo "⚠️ App check failed on :3000" && exit 1
 
   notify-pr:
     name: Comment Test Results on PR

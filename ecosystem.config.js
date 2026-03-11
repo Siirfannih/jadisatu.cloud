@@ -28,7 +28,7 @@ module.exports = {
         PORT: 3000,
         ...loadEnv(path.resolve(__dirname, 'nextjs-app/.env.local'))
       },
-      instances: 1,
+      exec_mode: "fork",
       autorestart: true,
       max_memory_restart: "512M",
       log_date_format: "YYYY-MM-DD HH:mm:ss",
