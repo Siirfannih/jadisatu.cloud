@@ -13,23 +13,29 @@ class RedditScraper:
         self.headers = {"User-Agent": "Mozilla/5.0 HunterAgent/1.0"}
         self.subreddits = ["entrepreneur", "SaaS", "smallbusiness", "startups"]
         
-        # High-value pain point keywords
+        # High-value pain point keywords for SMEs (Web, Automation, Social Media)
         self.pain_keywords = [
+            "website is too expensive",
+            "agency ripped me off",
+            "can't afford agency",
+            "no time for social media",
+            "social media takes too long",
+            "tired of posting manually",
+            "waste time posting",
+            "how to automate",
+            "need to automate",
+            "too much manual work",
+            "struggling to get leads",
+            "marketing is too hard",
+            "hiring a developer",
+            "costs too much to build",
+            "need a cheaper website",
             "frustrated with",
-            "I wish there was",
             "still manually",
-            "no good tool",
             "too expensive",
             "can't afford",
-            "need a better way",
-            "waste time",
-            "tired of",
             "struggling with",
-            "looking for a tool",
-            "is there a tool",
-            "any tool that",
-            "cheaper alternative",
-            "affordable solution"
+            "looking for a tool"
         ]
     
     def scrape_subreddit(self, subreddit: str, limit: int = 100) -> List[Dict]:

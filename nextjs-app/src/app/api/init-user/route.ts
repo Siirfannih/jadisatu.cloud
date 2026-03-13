@@ -36,7 +36,7 @@ export async function POST() {
 
     const { error: domainsError } = await supabase
       .from("domains")
-      .insert(domainsToInsert)
+      .upsert(domainsToInsert, { onConflict: 'name', ignoreDuplicates: true })
 
     if (domainsError) throw domainsError
 

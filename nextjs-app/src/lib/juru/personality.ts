@@ -6,7 +6,7 @@
 
 export interface WorkspaceContext {
   pendingTasks: { title: string; priority: string; status: string; due_date?: string | null }[]
-  projects: { name: string; status: string; progress: number | null }[]
+  projects: { title: string; status: string; progress: number | null }[]
   contents: { title: string; status: string; platform: string | null }[]
   briefing: {
     energy_level: string | null
@@ -29,7 +29,7 @@ export function buildSystemPrompt(userName: string, ctx: WorkspaceContext): stri
   if (ctx.projects.length > 0) {
     workspace += `\n\nProyek (${ctx.projects.length}):\n`
     workspace += ctx.projects.map(p =>
-      `- ${p.name} [${p.status}] progress: ${p.progress || 0}%`
+      `- ${p.title} [${p.status}] progress: ${p.progress || 0}%`
     ).join('\n')
   }
 

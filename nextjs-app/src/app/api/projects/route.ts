@@ -14,7 +14,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("projects")
-      .select("id, name, description, status")
+      .select("id, title, description, status")
       .eq("user_id", user.id)  // Filter by user_id
       .order("created_at", { ascending: false })
       
@@ -39,16 +39,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, description, status } = body
-    
-    if (!name) {
-      return NextResponse.json({ error: "name required" }, { status: 400 })
+    const { title, description, status } = body
+
+    if (!title) {
+      return NextResponse.json({ error: "title required" }, { status: 400 })
     }
-    
+
     const { data, error } = await supabase
       .from("projects")
       .insert({
-        name,
+        title,
         description: description || null,
         status: status || "active",
         user_id: user.id,  // Set user_id from authenticated user

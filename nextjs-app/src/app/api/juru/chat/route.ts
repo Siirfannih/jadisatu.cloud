@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         .limit(10),
       supabase
         .from('projects')
-        .select('name, status, progress')
+        .select('title, status, progress')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5),

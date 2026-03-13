@@ -25,7 +25,7 @@ class GeminiAnalyzer:
         """
         
         prompt = f"""
-Analyze this business pain point and provide a structured assessment:
+Analyze this business pain point and provide a structured assessment to see if they are a potential lead for Jadisatu (An agency selling Web Development, AI Automation, and High-Volume Social Media Management).
 
 **Post Title**: {post['title']}
 **Post Body**: {post['body']}
@@ -37,30 +37,25 @@ Evaluate this pain point and respond in JSON format with:
 1. **pain_score** (1-100): How severe is this pain? Consider:
    - Frequency of the problem
    - Cost/time impact
-   - Number of people affected
    - Urgency to solve
+   - RELEVANCE to Jadisatu's services (give 80+ if they specifically need a website, social media help, or workflow automation).
 
 2. **category**: Classify into ONE of these:
    - "Budget Gap" (can't afford existing solutions)
    - "Agency Trust Gap" (bad experiences with agencies/freelancers)
    - "Marketing Gap" (social media, content, SEO struggles)
-   - "Content Gap" (video, design, copywriting needs)
    - "Design Gap" (branding, UI/UX, visual identity)
-   - "SaaS Tool Gap" (missing or expensive software tools)
-   - "Workflow Gap" (manual processes, inefficiency)
+   - "Workflow Gap" (manual processes, inefficiency, needs automation)
    - "Other"
 
 3. **opportunity_level**: Rate as "Very High", "High", or "Medium" based on:
-   - Market size
    - Willingness to pay
-   - Jadisatu's ability to solve it
+   - Jadisatu's ability to solve it TODAY with Web Dev, SocMed Management, or Automation.
 
-4. **jadisatu_solution**: Brief description (1-2 sentences) of how Jadisatu could solve this with:
-   - Web development
-   - Social media management
-   - Content creation (video/design)
-   - SEO/branding
-   - AI automation tools
+4. **jadisatu_solution**: Brief description (1-2 sentences) of how Jadisatu could specifically solve this with:
+   - Web development (AI-optimized landing pages)
+   - High-Volume Social Media Management
+   - Workflow/AI automation
 
 5. **target_market**: Who experiences this pain? (e.g., "Small businesses", "SaaS founders", "E-commerce stores")
 

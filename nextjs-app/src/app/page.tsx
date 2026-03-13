@@ -8,7 +8,8 @@ import Link from 'next/link'
 import {
   Check, Rocket, Clock, PenTool, Plus, Calendar as CalendarIcon,
   MessageSquare, GitCommit, FileEdit, CheckCircle2, Circle,
-  ArrowRight, Trash2, ChevronLeft, ChevronRight as ChevronRightIcon
+  ArrowRight, Trash2, ChevronLeft, ChevronRight as ChevronRightIcon,
+  Target
 } from 'lucide-react'
 
 const MorningBriefing = dynamic(() => import('@/components/dashboard/MorningBriefing'), {
@@ -22,6 +23,7 @@ type ActivityItem = { id: string; type?: string; action?: string; description: s
 type Idea = { id: string; title: string; tags?: string[]; source: string; status: string; created_at: string }
 type ScheduleBlock = { id: string; title: string; start_time: string; end_time: string; domain: string | null; type: string; date: string }
 type Content = { id: string; title: string; status: string }
+type Lead = { id: string; title: string; category: string; pain_score: number; url: string; platform: string; created_at: string; opportunity_level: string; source: string; subreddit: string; }
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -32,6 +34,7 @@ export default function DashboardPage() {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [contents, setContents] = useState<Content[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDomain, setNewTaskDomain] = useState('personal')
@@ -51,14 +54,14 @@ export default function DashboardPage() {
     const { data: { user: u }, error } = await supabase.auth.getUser()
     if (error || !u) { router.push('/login'); return }
     setUser(u)
-    fetch('/light/api/init-user', { method: 'POST' }).catch(() => {})
+    fetch('/light/api/init-user', { method: 'POST' }).catch(() => { })
     await loadData(u.id)
   }
 
   async function loadData(userId: string) {
     setLoading(true)
     const todayStr = new Date().toISOString().split('T')[0]
-    const [tRes, pRes, aRes, sRes, cRes, ideasRes] = await Promise.all([
+    const [tRes, pRes, aRes, sRes, cRes, ideasRes, lRes] = await Promise.all([
       fetch('/light/api/tasks?limit=100'),
       fetch('/light/api/projects'),
       fetch('/light/api/activities?limit=5'),
@@ -74,6 +77,7 @@ export default function DashboardPage() {
           .limit(3)
         return data ?? []
       })(),
+      fetch('/light/api/leads?limit=3'),
     ])
     if (tRes.ok) { const d = await tRes.json(); setTasks(Array.isArray(d) ? d : []) }
     if (pRes.ok) { const d = await pRes.json(); setProjects(Array.isArray(d) ? d : []) }
@@ -81,6 +85,7 @@ export default function DashboardPage() {
     if (sRes.ok) { const d = await sRes.json(); setSchedule(Array.isArray(d) ? d : []) }
     if (cRes.ok) { const d = await cRes.json(); setContents(Array.isArray(d) ? d : []) }
     setIdeas(Array.isArray(ideasRes) ? ideasRes : [])
+    if (lRes && lRes.ok) { const d = await lRes.json(); setLeads(d.data || []) }
     setLoading(false)
   }
 
@@ -498,6 +503,58 @@ export default function DashboardPage() {
                 <p className="text-sm text-muted-foreground mb-1">Your canvas is blank — what will you create? 🎨</p>
                 <Link href="/creative" className="text-sm text-orange-600 dark:text-orange-400 font-medium inline-block">
                   Start creating &rarr;
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Trend Hunter Leads Preview */}
+          <div className="bg-card rounded-3xl p-6 border border-border shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Trend Hunter</h2>
+                <p className="text-sm text-muted-foreground mt-1">Latest high-opportunity leads</p>
+              </div>
+              <Link
+                href="/leads"
+                className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors flex items-center gap-1 bg-emerald-50 dark:bg-emerald-500/10 px-4 py-2 rounded-xl"
+              >
+                View Leads <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+            {leads.length > 0 ? (
+              <div className="space-y-4">
+                {leads.map((lead) => (
+                  <Link
+                    href="/leads"
+                    key={lead.id}
+                    className="block group rounded-2xl p-4 border border-border hover:border-emerald-500/30 hover:shadow-md transition-all bg-card"
+                  >
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                      <h4 className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">{lead.title}</h4>
+                      <span className="shrink-0 px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400">
+                        {lead.pain_score} SCORE
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1 font-medium">
+                        {lead.source === 'Reddit' ? <span className="text-orange-500">Reddit</span> : <span className="text-blue-500">LinkedIn</span>}
+                        <span className="text-muted-foreground/60">•</span>
+                        <span>{lead.subreddit || lead.platform}</span>
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400/90 font-medium">
+                        {lead.opportunity_level} Opp
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Target className="w-10 h-10 text-emerald-300 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground mb-1">No leads found or scanner is resting.</p>
+                <Link href="/leads" className="text-sm text-emerald-600 dark:text-emerald-400 font-medium inline-block hover:underline">
+                  Check scanner status &rarr;
                 </Link>
               </div>
             )}

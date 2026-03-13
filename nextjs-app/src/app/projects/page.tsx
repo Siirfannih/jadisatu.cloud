@@ -15,7 +15,7 @@ import {
 
 interface Project {
   id: string
-  name: string
+  title: string
   description: string | null
   status: string
   progress?: number
@@ -92,7 +92,7 @@ export default function ProjectsPage() {
       const res = await fetch('/light/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || null }),
+        body: JSON.stringify({ title: newName.trim(), description: newDesc.trim() || null }),
       })
       if (res.ok) {
         const created = await res.json()
@@ -211,7 +211,7 @@ export default function ProjectsPage() {
                   </div>
                   <div>
                     <h3 className={cn('font-semibold', i === 0 ? 'text-white' : 'text-foreground')}>
-                      {project.name}
+                      {project.title}
                     </h3>
                     <span
                       className={cn(
@@ -372,7 +372,7 @@ export default function ProjectsPage() {
                   <span className="inline-block px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold uppercase mb-2">
                     {currentProject.status}
                   </span>
-                  <h2 className="text-xl font-bold text-foreground">{currentProject.name}</h2>
+                  <h2 className="text-xl font-bold text-foreground">{currentProject.title}</h2>
                   {currentProject.description && (
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                       {currentProject.description}

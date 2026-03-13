@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 const POMODORO_WORK = 25 * 60 // 25 minutes
 const POMODORO_BREAK = 5 * 60  // 5 minutes
 
-type Project = { id: string; name: string; description?: string }
+type Project = { id: string; title: string; description?: string }
 type Task = { id: string; title: string; status: string; project_id: string | null; domain?: string }
 
 export default function ViewFocus() {
@@ -93,7 +93,7 @@ export default function ViewFocus() {
         >
           <option value="all">All projects</option>
           {projects.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
+            <option key={p.id} value={p.id}>{p.title}</option>
           ))}
         </select>
       </div>
@@ -130,7 +130,7 @@ export default function ViewFocus() {
         <div className="flex items-center gap-3 mb-4">
           <Target className="w-5 h-5 text-accent" />
           <h3 className="font-semibold text-foreground">
-            {selectedProjectId === 'all' ? 'All tasks' : `Tasks for ${projects.find((p) => p.id === selectedProjectId)?.name ?? 'project'}`}
+            {selectedProjectId === 'all' ? 'All tasks' : `Tasks for ${projects.find((p) => p.id === selectedProjectId)?.title ?? 'project'}`}
           </h3>
         </div>
         {loading ? (

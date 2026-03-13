@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const limit = searchParams.get('limit') || '10'
 
     const { data, error } = await supabase
-      .from('activity_log')
+      .from('activities')
       .select('id, action, entity_type, entity_id, title, domain, details, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
