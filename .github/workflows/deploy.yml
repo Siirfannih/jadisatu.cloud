@@ -48,10 +48,13 @@ jobs:
         run: |
           set -e
           echo "=== Starting deploy at $(date) ==="
-          
+
+          # Fix git ownership check (runner user != repo owner)
+          git config --global --add safe.directory /root/jadisatu.cloud
+
           # Since this runs directly on the VPS, we go to the actual project folder
           cd /root/jadisatu.cloud
-          
+
           # Force git pull on the VPS's existing clone
           git fetch origin main
           git reset --hard origin/main
