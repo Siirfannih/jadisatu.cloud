@@ -1,0 +1,33 @@
+# .github/workflows/narrative-engine.yml
+name: Run Narrative Engine
+
+on:
+  workflow_dispatch:  # Manual trigger dari GitHub
+
+jobs:
+  narrative-engine:
+    name: Narrative Engine Pipeline
+    runs-on: [self-hosted, windows]  # Target PC server
+    timeout-minutes: 120
+
+    steps:
+      - name: Verify CLIs
+        run: |
+          echo "=== Gemini CLI ==="
+          gemini --version
+          echo "=== Claude CLI ==="
+          claude --version
+          echo "=== Python ==="
+          python --version
+
+      - name: Run Pipeline (Gemini -> Claude fallback)
+        run: |
+          powershell -ExecutionPolicy Bypass -File C:\Users\microsoft\narrative_engine\run_pipeline.ps1
+
+      - name: Upload Results
+        if: always()
+        run: |
+          cd C:\Users\microsoft\narrative_engine
+          git add outputs/ -f
+          git commit -m "Narrative Engine run ${{ github.run_id }}" || echo "No changes"
+          git push || echo "Push failed"
