@@ -211,7 +211,7 @@ export default function CreativeStudio() {
   const loadContents = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/light/api/contents')
+      const res = await fetch('/api/contents')
       if (res.ok) {
         const data = await res.json()
         setContents(data)
@@ -247,7 +247,7 @@ export default function CreativeStudio() {
     if (!selectedId || !selectedItem) return
     setSaving(true)
     try {
-      await fetch('/light/api/contents', {
+      await fetch('/api/contents', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -283,7 +283,7 @@ export default function CreativeStudio() {
     if (!newTitle.trim()) return
     setCreating(true)
     try {
-      const res = await fetch('/light/api/contents', {
+      const res = await fetch('/api/contents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -307,7 +307,7 @@ export default function CreativeStudio() {
 
   async function deleteContent(id: string) {
     if (!confirm('Delete this content?')) return
-    await fetch(`/light/api/contents?id=${id}`, { method: 'DELETE' })
+    await fetch(`/api/contents?id=${id}`, { method: 'DELETE' })
     setContents(prev => prev.filter(c => c.id !== id))
     if (selectedId === id) {
       setSelectedId(null)
@@ -318,7 +318,7 @@ export default function CreativeStudio() {
     if (!selectedItem || !editTitle.trim()) return
     setGenerating(true)
     try {
-      const res = await fetch('/light/api/narrative/generate', {
+      const res = await fetch('/api/narrative/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -348,7 +348,7 @@ export default function CreativeStudio() {
     setEditStage(next)
     setSaving(true)
     try {
-      await fetch('/light/api/contents', {
+      await fetch('/api/contents', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: selectedId, status: next }),
@@ -363,7 +363,7 @@ export default function CreativeStudio() {
   }
 
   async function moveToStage(id: string, newStatus: string) {
-    await fetch('/light/api/contents', {
+    await fetch('/api/contents', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status: newStatus }),

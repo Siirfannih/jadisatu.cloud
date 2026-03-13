@@ -59,7 +59,7 @@ export default function NarrativeEngine() {
     setSelectedAngle(null)
 
     try {
-      const res = await fetch('/light/api/narrative/research', {
+      const res = await fetch('/api/narrative/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic }),
@@ -82,7 +82,7 @@ export default function NarrativeEngine() {
     const useAngle = angle || selectedAngle
 
     try {
-      const res = await fetch('/light/api/narrative/generate', {
+      const res = await fetch('/api/narrative/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,7 +108,7 @@ export default function NarrativeEngine() {
     setSentToHub(false)
 
     try {
-      const res = await fetch('/light/api/contents', {
+      const res = await fetch('/api/contents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -134,7 +134,7 @@ export default function NarrativeEngine() {
     setSendingAngle(index)
 
     try {
-      const res = await fetch('/light/api/contents', {
+      const res = await fetch('/api/contents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

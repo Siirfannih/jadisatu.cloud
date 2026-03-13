@@ -30,7 +30,7 @@ export default function AuthBridge() {
         // Session found - refresh it to ensure cookies are set
         await supabase.auth.refreshSession()
         setStatus('Session synced! Redirecting...')
-        window.location.href = '/light'
+        window.location.href = '/'
         return
       }
 
@@ -50,7 +50,7 @@ export default function AuthBridge() {
 
             if (!setError) {
               setStatus('Session restored! Redirecting...')
-              window.location.href = '/light'
+              window.location.href = '/'
               return
             }
           }
@@ -62,12 +62,12 @@ export default function AuthBridge() {
       // No valid session found - redirect to login
       setStatus('No session found. Redirecting to login...')
       setTimeout(() => {
-        window.location.href = '/light/login'
+        window.location.href = '/login'
       }, 1000)
     } catch {
       setStatus('Error syncing session. Redirecting to login...')
       setTimeout(() => {
-        window.location.href = '/light/login'
+        window.location.href = '/login'
       }, 1500)
     }
   }

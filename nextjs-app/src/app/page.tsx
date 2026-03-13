@@ -54,7 +54,7 @@ export default function DashboardPage() {
     const { data: { user: u }, error } = await supabase.auth.getUser()
     if (error || !u) { router.push('/login'); return }
     setUser(u)
-    fetch('/light/api/init-user', { method: 'POST' }).catch(() => { })
+    fetch('/api/init-user', { method: 'POST' }).catch(() => { })
     await loadData(u.id)
   }
 
@@ -62,11 +62,11 @@ export default function DashboardPage() {
     setLoading(true)
     const todayStr = new Date().toISOString().split('T')[0]
     const [tRes, pRes, aRes, sRes, cRes, ideasRes, lRes] = await Promise.all([
-      fetch('/light/api/tasks?limit=100'),
-      fetch('/light/api/projects'),
-      fetch('/light/api/activities?limit=5'),
-      fetch(`/light/api/schedule?date=${todayStr}`),
-      fetch('/light/api/contents'),
+      fetch('/api/tasks?limit=100'),
+      fetch('/api/projects'),
+      fetch('/api/activities?limit=5'),
+      fetch(`/api/schedule?date=${todayStr}`),
+      fetch('/api/contents'),
       (async () => {
         const { data } = await supabase
           .from('ideas')
@@ -77,7 +77,7 @@ export default function DashboardPage() {
           .limit(3)
         return data ?? []
       })(),
-      fetch('/light/api/leads?limit=3'),
+      fetch('/api/leads?limit=3'),
     ])
     if (tRes.ok) { const d = await tRes.json(); setTasks(Array.isArray(d) ? d : []) }
     if (pRes.ok) { const d = await pRes.json(); setProjects(Array.isArray(d) ? d : []) }
@@ -107,7 +107,7 @@ export default function DashboardPage() {
     setTasks(prev => [optimistic, ...prev])
     setNewTaskTitle('')
     try {
-      const res = await fetch('/light/api/tasks', {
+      const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, status, priority: 'medium', domain }),
@@ -135,7 +135,7 @@ export default function DashboardPage() {
       setTimeout(() => setFadingIds(prev => new Set(prev).add(id)), 800)
       setTimeout(async () => {
         try {
-          await fetch('/light/api/tasks', {
+          await fetch('/api/tasks', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, status: ns }),
@@ -146,7 +146,7 @@ export default function DashboardPage() {
       }, 1400)
     } else {
       try {
-        await fetch('/light/api/tasks', {
+        await fetch('/api/tasks', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, status: ns }),
@@ -158,7 +158,7 @@ export default function DashboardPage() {
   async function deleteTask(id: string) {
     setFadingIds(prev => new Set(prev).add(id))
     setTimeout(async () => {
-      await fetch(`/light/api/tasks/${id}`, { method: 'DELETE' })
+      await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
       setFadingIds(prev => { const s = new Set(prev); s.delete(id); return s })
       setTasks(prev => prev.filter(t => t.id !== id))
     }, 600)

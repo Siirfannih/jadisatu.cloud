@@ -20,7 +20,7 @@ export default function HistoryPage() {
   async function loadActivities() {
     setLoading(true)
     try {
-      const res = await fetch('/light/api/activities?limit=200')
+      const res = await fetch('/api/activities?limit=200')
       if (res.ok) {
         const data = await res.json()
         setActivities(Array.isArray(data) ? data : [])

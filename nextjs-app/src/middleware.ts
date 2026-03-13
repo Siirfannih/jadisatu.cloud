@@ -60,7 +60,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow access to login and auth callback routes
-  // Note: basePath '/light' is stripped before middleware runs
+  // Note: basePath '/' is stripped before middleware runs
   if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
     // If already logged in, redirect to dashboard
     if (session && pathname === '/login') {

@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: '/light',
+  // basePath removed — Next.js is now served at root /
+  // (previously at /light; dark mode moved to /dark)
   // Enable etags for efficient caching
   generateEtags: true,
   // Compress responses

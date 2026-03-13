@@ -59,7 +59,7 @@ export default function JuruCopilot() {
   // Fetch recent content when opened for context
   useEffect(() => {
     if (open) {
-      fetch('/light/api/contents')
+      fetch('/api/contents')
         .then(res => res.ok ? res.json() : [])
         .then(data => setRecentContent(Array.isArray(data) ? data.slice(0, 10) : []))
         .catch(() => setRecentContent([]))
@@ -77,7 +77,7 @@ export default function JuruCopilot() {
       .map(m => ({ role: m.role, content: m.content }))
 
     try {
-      const res = await fetch('/light/api/juru/chat', {
+      const res = await fetch('/api/juru/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -152,7 +152,7 @@ export default function JuruCopilot() {
       }
 
       try {
-        const res = await fetch('/light/api/contents', {
+        const res = await fetch('/api/contents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: topic, status: 'idea' }),
@@ -164,7 +164,7 @@ export default function JuruCopilot() {
             role: 'assistant',
             content: `Created content idea: "${topic}"\n\nYou can now edit it in Creative Hub, or ask me to generate a script for it.`,
             action: { type: 'create_idea', data: { title: topic, id: data.id }, executed: true },
-            links: [{ label: 'Open Creative Hub', href: '/light/creative' }],
+            links: [{ label: 'Open Creative Hub', href: '/creative' }],
           }
         }
       } catch { /* fall through */ }
@@ -182,7 +182,7 @@ export default function JuruCopilot() {
       const existing = findContentByQuery(topic)
 
       try {
-        const res = await fetch('/light/api/narrative/generate', {
+        const res = await fetch('/api/narrative/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -196,7 +196,7 @@ export default function JuruCopilot() {
 
           // Update existing content or create new
           if (existing) {
-            await fetch('/light/api/contents', {
+            await fetch('/api/contents', {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -206,7 +206,7 @@ export default function JuruCopilot() {
               }),
             })
           } else {
-            await fetch('/light/api/contents', {
+            await fetch('/api/contents', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -223,7 +223,7 @@ export default function JuruCopilot() {
             role: 'assistant',
             content: `Script generated${existing ? ' and updated' : ' and saved'}!\n\nPreview:\n${preview}...`,
             action: { type: 'generate_script', data: { title: topic }, executed: true },
-            links: [{ label: 'Open Creative Hub', href: '/light/creative' }],
+            links: [{ label: 'Open Creative Hub', href: '/creative' }],
           }
         }
       } catch { /* fall through */ }
@@ -253,7 +253,7 @@ export default function JuruCopilot() {
       const slides = generateCarouselSlides(content.title, content.script)
 
       try {
-        await fetch('/light/api/contents', {
+        await fetch('/api/contents', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -271,7 +271,7 @@ export default function JuruCopilot() {
           role: 'assistant',
           content: `Broke "${content.title}" into ${slides.length} carousel slides!\n\n${slidePreview}`,
           action: { type: 'break_into_slides', data: { contentId: content.id, slideCount: String(slides.length) }, executed: true },
-          links: [{ label: 'Open Creative Hub', href: '/light/creative' }],
+          links: [{ label: 'Open Creative Hub', href: '/creative' }],
         }
       } catch { /* fall through */ }
       return { role: 'assistant', content: `Couldn't save carousel slides. Try again later.` }
@@ -299,7 +299,7 @@ export default function JuruCopilot() {
 
       for (const task of tasks) {
         try {
-          const res = await fetch('/light/api/tasks', {
+          const res = await fetch('/api/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(task),
@@ -313,7 +313,7 @@ export default function JuruCopilot() {
           role: 'assistant',
           content: `Created ${created.length} tasks for "${content.title}":\n\n${created.map(t => `- ${t}`).join('\n')}`,
           action: { type: 'create_tasks_from_content', data: { contentTitle: content.title, taskCount: String(created.length) }, executed: true },
-          links: [{ label: 'Open Kanban', href: '/light/kanban' }],
+          links: [{ label: 'Open Kanban', href: '/kanban' }],
         }
       }
       return { role: 'assistant', content: `Couldn't create tasks. Please try adding them manually on the Kanban board.` }
@@ -327,7 +327,7 @@ export default function JuruCopilot() {
       }
 
       try {
-        const res = await fetch('/light/api/tasks', {
+        const res = await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, status: 'todo', priority: 'medium', domain: 'work' }),
@@ -337,7 +337,7 @@ export default function JuruCopilot() {
             role: 'assistant',
             content: `Task created: "${title}"`,
             action: { type: 'create_task', data: { title }, executed: true },
-            links: [{ label: 'Open Kanban', href: '/light/kanban' }],
+            links: [{ label: 'Open Kanban', href: '/kanban' }],
           }
         }
       } catch { /* fall through */ }
@@ -352,7 +352,7 @@ export default function JuruCopilot() {
       }
 
       try {
-        const res = await fetch('/light/api/narrative/research', {
+        const res = await fetch('/api/narrative/research', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ topic }),
@@ -366,7 +366,7 @@ export default function JuruCopilot() {
             role: 'assistant',
             content: `Research completed for "${topic}"!\n\nContent Angles:\n${anglesText}\n\nSay "Generate script for [topic]" to create a script from this research.`,
             action: { type: 'research', data: { topic }, executed: true },
-            links: [{ label: 'Open Narrative Engine', href: '/light/narrative-engine' }],
+            links: [{ label: 'Open Narrative Engine', href: '/narrative-engine' }],
           }
         }
       } catch { /* fall through */ }
@@ -384,7 +384,7 @@ export default function JuruCopilot() {
       return {
         role: 'assistant',
         content: `Your recent content:\n\n${list}\n\nYou can reference any of these by title in your commands.`,
-        links: [{ label: 'Open Creative Hub', href: '/light/creative' }],
+        links: [{ label: 'Open Creative Hub', href: '/creative' }],
       }
     }
 
@@ -393,7 +393,7 @@ export default function JuruCopilot() {
   }
 
   function refreshContent() {
-    fetch('/light/api/contents')
+    fetch('/api/contents')
       .then(res => res.ok ? res.json() : [])
       .then(data => setRecentContent(Array.isArray(data) ? data.slice(0, 10) : []))
       .catch(() => {})

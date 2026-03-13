@@ -45,14 +45,14 @@ export default function ProjectsPage() {
   const [dropdownId, setDropdownId] = useState<string | null>(null)
 
   const loadProjects = useCallback(async () => {
-    const res = await fetch('/light/api/projects')
+    const res = await fetch('/api/projects')
     if (!res.ok) return
     const data = await res.json()
     setProjects(Array.isArray(data) ? data : [])
   }, [])
 
   const loadTasks = useCallback(async () => {
-    const res = await fetch('/light/api/tasks?limit=500')
+    const res = await fetch('/api/tasks?limit=500')
     if (!res.ok) return
     const data = await res.json()
     setTasks(Array.isArray(data) ? data : [])
@@ -89,7 +89,7 @@ export default function ProjectsPage() {
     if (!newName.trim() || submitting) return
     setSubmitting(true)
     try {
-      const res = await fetch('/light/api/projects', {
+      const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newName.trim(), description: newDesc.trim() || null }),
@@ -110,7 +110,7 @@ export default function ProjectsPage() {
   async function deleteProject(id: string) {
     if (!confirm('Hapus project ini? Task di dalamnya tidak dihapus.')) return
     setDropdownId(null)
-    const res = await fetch(`/light/api/projects/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' })
     if (res.ok) {
       if (detailId === id) setDetailId(null)
       await loadAll()
@@ -121,7 +121,7 @@ export default function ProjectsPage() {
     if (!detailId || !addTaskTitle.trim() || submitting) return
     setSubmitting(true)
     try {
-      const res = await fetch('/light/api/tasks', {
+      const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -144,7 +144,7 @@ export default function ProjectsPage() {
 
   async function toggleTask(task: Task) {
     const next = task.status === 'done' ? 'todo' : 'done'
-    await fetch('/light/api/tasks', {
+    await fetch('/api/tasks', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: task.id, status: next }),
@@ -153,7 +153,7 @@ export default function ProjectsPage() {
   }
 
   async function removeTask(taskId: string) {
-    await fetch(`/light/api/tasks/${taskId}`, { method: 'DELETE' })
+    await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
     await loadTasks()
   }
 

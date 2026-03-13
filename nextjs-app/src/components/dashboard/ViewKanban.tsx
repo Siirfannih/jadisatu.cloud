@@ -35,7 +35,7 @@ export default function ViewKanban() {
   async function loadTasks() {
     setLoading(true)
     try {
-      const res = await fetch('/light/api/tasks?limit=200')
+      const res = await fetch('/api/tasks?limit=200')
       if (res.ok) {
         const data = await res.json()
         setTasks(Array.isArray(data) ? data : data?.tasks ?? [])
@@ -50,7 +50,7 @@ export default function ViewKanban() {
   async function addTask(status: string) {
     if (!newTitle.trim()) return
     try {
-      const res = await fetch('/light/api/tasks', {
+      const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTitle.trim(), status, assignee: 'Irfan' }),
@@ -67,7 +67,7 @@ export default function ViewKanban() {
 
   async function moveTask(taskId: string, newStatus: string) {
     try {
-      const res = await fetch('/light/api/tasks', {
+      const res = await fetch('/api/tasks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: taskId, status: newStatus }),

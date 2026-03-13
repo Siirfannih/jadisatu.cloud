@@ -44,7 +44,7 @@ export default function CRMPage() {
 
   const loadContacts = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/light/api/leads?limit=200')
+    const res = await fetch('/api/leads?limit=200')
     if (res.ok) {
       const data = await res.json()
       setContacts(data.data || [])
@@ -61,7 +61,7 @@ export default function CRMPage() {
       prev.map(c => c.id === id ? { ...c, status: newStatus } : c)
     )
     try {
-      await fetch('/light/api/leads', {
+      await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status: newStatus }),
@@ -100,7 +100,7 @@ export default function CRMPage() {
 
   async function addContact() {
     if (!newContact.title.trim()) return
-    await fetch('/light/api/leads', {
+    await fetch('/api/leads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

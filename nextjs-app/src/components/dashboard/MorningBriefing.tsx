@@ -34,7 +34,7 @@ export default function MorningBriefing() {
   async function checkBriefing() {
     try {
       const today = new Date().toISOString().split('T')[0]
-      const res = await fetch(`/light/api/morning-briefing?date=${today}`)
+      const res = await fetch(`/api/morning-briefing?date=${today}`)
       if (res.ok) {
         const data = await res.json()
         if (data) {
@@ -51,7 +51,7 @@ export default function MorningBriefing() {
   async function saveBriefing() {
     setSaving(true)
     try {
-      await fetch('/light/api/morning-briefing', {
+      await fetch('/api/morning-briefing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ energy, focus, priority, blocker }),

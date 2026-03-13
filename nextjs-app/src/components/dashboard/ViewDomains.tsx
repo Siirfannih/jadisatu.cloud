@@ -36,7 +36,7 @@ export default function ViewDomains() {
   async function loadDomains() {
     setLoading(true)
     try {
-      const res = await fetch('/light/api/domains')
+      const res = await fetch('/api/domains')
       if (res.ok) {
         const data = await res.json()
         setDomains(Array.isArray(data) ? data : [])
@@ -52,7 +52,7 @@ export default function ViewDomains() {
     e.preventDefault()
     if (!newName.trim() || !newDisplayName.trim()) return
     try {
-      const res = await fetch('/light/api/domains', {
+      const res = await fetch('/api/domains', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

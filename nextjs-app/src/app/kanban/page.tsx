@@ -34,7 +34,7 @@ export default function Kanban() {
   useEffect(() => { loadTasks() }, [])
 
   async function loadTasks() {
-    const res = await fetch('/light/api/tasks?limit=200')
+    const res = await fetch('/api/tasks?limit=200')
     if (!res.ok) return
     const data = await res.json()
     setTasks(Array.isArray(data) ? data : [])
@@ -43,7 +43,7 @@ export default function Kanban() {
   async function addTask(status: string) {
     if (!newTitle.trim()) return
     const domain = newTaskDomain || 'work'
-    const res = await fetch('/light/api/tasks', {
+    const res = await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: newTitle.trim(), status, priority: 'medium', domain }),
@@ -74,7 +74,7 @@ export default function Kanban() {
     if (!taskId) return
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t))
     try {
-      await fetch('/light/api/tasks', {
+      await fetch('/api/tasks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: taskId, status }),
