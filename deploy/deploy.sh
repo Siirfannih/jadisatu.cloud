@@ -88,32 +88,23 @@ if [ -f "$NGINX_CONF_SRC" ]; then
   # Backup old config
   cp "$NGINX_CONF_DEST" "${NGINX_CONF_DEST}.bak.$(date +%s)" 2>/dev/null || true
 
-  # If existing config has SSL, extract the cert paths and inject into new config
-  if [ -f "$NGINX_CONF_DEST" ] && grep -q "ssl_certificate " "$NGINX_CONF_DEST"; then
-    EXISTING_CERT=$(grep "ssl_certificate " "$NGINX_CONF_DEST" | grep -v "ssl_certificate_key" | head -1 | sed 's/.*ssl_certificate //;s/;//;s/^ *//')
-    EXISTING_KEY=$(grep "ssl_certificate_key " "$NGINX_CONF_DEST" | head -1 | sed 's/.*ssl_certificate_key //;s/;//;s/^ *//')
-    log "Preserving SSL paths: cert=${EXISTING_CERT} key=${EXISTING_KEY}"
-  fi
-
-  # Install new config
+  # Install new config from template (always use Let's Encrypt paths from template)
+  # NOTE: Do NOT preserve old SSL paths — that caused self-signed certs to be used.
   cp "$NGINX_CONF_SRC" "$NGINX_CONF_DEST"
 
-  # Replace SSL paths if we extracted them from old config
-  if [ -n "${EXISTING_CERT:-}" ] && [ -n "${EXISTING_KEY:-}" ]; then
-    sed -i "s|ssl_certificate .*|ssl_certificate ${EXISTING_CERT};|" "$NGINX_CONF_DEST"
-    sed -i "s|ssl_certificate_key .*|ssl_certificate_key ${EXISTING_KEY};|" "$NGINX_CONF_DEST"
-  fi
-
-  # Handle missing letsencrypt options gracefully
+  # Handle missing letsencrypt options gracefully (first-time setup)
   if [ ! -f "/etc/letsencrypt/options-ssl-nginx.conf" ]; then
     sed -i '/options-ssl-nginx.conf/d' "$NGINX_CONF_DEST"
+    log "WARNING: letsencrypt options-ssl-nginx.conf not found — removed from config"
   fi
   if [ ! -f "/etc/letsencrypt/ssl-dhparams.pem" ]; then
     sed -i '/ssl-dhparams.pem/d' "$NGINX_CONF_DEST"
+    log "WARNING: ssl-dhparams.pem not found — removed from config"
   fi
 
+  # Keep sites-enabled in sync with sites-available (not a symlink on this server)
   cp "$NGINX_CONF_DEST" "$NGINX_ENABLED"
-  log "Nginx config updated: all traffic now proxied to Next.js"
+  log "Nginx config updated: Let's Encrypt SSL + Next.js at root /"
 else
   log "WARNING: Nginx config template not found at ${NGINX_CONF_SRC}"
 fi
