@@ -45,6 +45,8 @@ jobs:
 
     steps:
       - name: Deploy application
+        env:
+          HOME: /root
         run: |
           set -e
           echo "=== Starting deploy at $(date) ==="
@@ -59,7 +61,7 @@ jobs:
           git fetch origin main
           git reset --hard origin/main
           echo "✅ Code updated"
-          
+
           # Load NVM into environment
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -79,6 +81,8 @@ jobs:
           echo "=== Deploy finished at $(date) ==="
 
       - name: Verify deployment
+        env:
+          HOME: /root
         run: |
           # Load NVM for pm2
           export NVM_DIR="$HOME/.nvm"
