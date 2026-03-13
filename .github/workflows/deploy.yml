@@ -40,7 +40,7 @@ jobs:
   deploy:
     name: Deploy to Production VPS
     needs: test
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux]
     timeout-minutes: 20
 
     steps:
