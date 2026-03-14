@@ -33,10 +33,14 @@ jobs:
       - name: Upload Results
         if: always()
         shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           xcopy /E /I /Y "C:\Users\microsoft\narrative_engine\outputs" "outputs"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local credential.helper ""
+          git remote set-url origin https://x-access-token:%GH_TOKEN%@github.com/${{ github.repository }}.git
           git add outputs/ -f
           git commit -m "Narrative Engine run ${{ github.run_id }}" || echo "No changes"
           git push || echo "Push failed"
