@@ -1,0 +1,65 @@
+{
+  "id": "06b57b66-7fa8-42ca-ad96-d07b4b8edd9f",
+  "user_id": "e07e258b-d1c6-4ad3-8741-98118336fca9",
+  "name": "Caraosel Gelap",
+  "source": "smart-extractor-v2",
+  "templates": [
+    {
+      "name": "dark-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html>\n<head>\n    <title>Design Conversion</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,700;1,400&display=swap');\n\n        :root {\n            --bg: #1A1A1A;\n            --primary: #F0F0F0;\n            --secondary: #A0A0A0; /* For \"entire\" and some muted text */\n            --text-muted: #777777; /* For smaller, less prominent text */\n            --surface: #282828; /* Card background */\n            --accent-green: #39FF8F;\n            --accent-purple: #A050FF;\n            --accent-lime: #90FF39;\n        }\n\n        body {\n            margin: 0;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            min-height: 100vh;\n            background-color: #000; /* Ensure body background is dark */\n            font-family: '",
+      "colors": {
+        "bg": "#1A1A1A",
+        "primary": "#F0F0F0",
+        "secondary": "#A0A0A0",
+        "text-muted": "#777777",
+        "surface": "#282828",
+        "accent-green": "#39FF8F",
+        "accent-purple": "#A050FF",
+        "accent-lime": "#90FF39"
+      },
+      "created_at": "2026-03-10T02:43:19.648091",
+      "preview_url": "/api/visual/output/previews/06b57b66-7fa8-42ca-ad96-d07b4b8edd9f/preview_0.png"
+    },
+    {
+      "name": "light-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Design Conversion</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');\n\n        :root {\n            --bg: #F8F7F4;\n            --primary: #000000;\n            --secondary: #A0A0A0; /* Muted grey for \"Zero\", lines, dots */\n            --accent: #00B050; /* Vibrant green for YOU border */\n            --text: #000000;\n            --text-muted: #A0A0A0;\n            --surface: #FFFFFF; /* For small icon circles */\n            --border-light: #D0D0D0; /* For small icon circle borders */\n        }\n\n        body {\n            margin: 0;\n            display: flex;\n            justify-content: center;\n            align-items:",
+      "colors": {
+        "bg": "#F8F7F4",
+        "primary": "#000000",
+        "secondary": "#A0A0A0",
+        "accent": "#00B050",
+        "text": "#000000",
+        "text-muted": "#A0A0A0",
+        "surface": "#FFFFFF",
+        "border-light": "#D0D0D0"
+      },
+      "created_at": "2026-03-10T02:43:18.596300",
+      "preview_url": "/api/visual/output/previews/06b57b66-7fa8-42ca-ad96-d07b4b8edd9f/preview_1.png"
+    },
+    {
+      "name": "light-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html>\n<head>\n    <title>Design Conversion</title>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');\n\n        :root {\n            --bg: #F5F4F0;\n            --primary: #212121;\n            --accent: #34D399;\n            --secondary: #A8A8A8;\n            --text: var(--primary);\n            --text-muted: var(--secondary);\n            --surface-dark: var(--primary); /* For the black card */\n            --surface-light: #E0E0E0; /* For the grey cards, slightly lighter than secondary */\n            --surface-green: var(--accent); /* For the green card */\n            --shadow-light: rgba(0, 0, 0, 0.05);\n            --shadow-dark: rgba(0, 0, 0, 0.15);\n        }\n\n        body {\n            margin: 0;\n            display: flex;",
+      "colors": {
+        "bg": "#F5F4F0",
+        "primary": "#212121",
+        "accent": "#34D399",
+        "secondary": "#A8A8A8",
+        "text": "var(--primary)",
+        "text-muted": "var(--secondary)",
+        "surface-dark": "var(--primary)",
+        "surface-light": "#E0E0E0",
+        "surface-green": "var(--accent)",
+        "shadow-light": "rgba(0, 0, 0, 0.05)",
+        "shadow-dark": "rgba(0, 0, 0, 0.15)"
+      },
+      "created_at": "2026-03-10T02:43:19.292870",
+      "preview_url": "/api/visual/output/previews/06b57b66-7fa8-42ca-ad96-d07b4b8edd9f/preview_2.png"
+    }
+  ],
+  "template_count": 3,
+  "created_at": "2026-03-10T02:43:19.648424",
+  "updated_at": "2026-03-10T02:43:19.648424"
+}

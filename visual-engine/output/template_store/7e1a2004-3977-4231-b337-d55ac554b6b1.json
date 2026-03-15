@@ -1,0 +1,60 @@
+{
+  "id": "7e1a2004-3977-4231-b337-d55ac554b6b1",
+  "user_id": "e07e258b-d1c6-4ad3-8741-98118336fca9",
+  "name": "Caraosel Gelap",
+  "source": "smart-extractor-v2",
+  "templates": [
+    {
+      "name": "dark-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html>\n<head>\n    <title>Design Conversion</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');\n\n        :root {\n            --bg: #0A0A0A;\n            --surface: #1A1A1A;\n            --text: #F0F0F0;\n            --text-muted: #A0A0A0;\n            --primary-accent: #34D399; /* Green */\n            --secondary-accent: #A78BFA; /* Purple */\n            --tertiary-accent: #BEF264; /* Yellow-green */\n            --headline-highlight: #A0A0A0; /* For the 'entire' word */\n        }\n\n        body {\n            margin: 0;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            min-height: 100vh;\n            background-color: var(--bg);\n            font-family: 'Inter', sans-serif;\n            color: var",
+      "colors": {
+        "bg": "#0A0A0A",
+        "surface": "#1A1A1A",
+        "text": "#F0F0F0",
+        "text-muted": "#A0A0A0",
+        "primary-accent": "#34D399",
+        "secondary-accent": "#A78BFA",
+        "tertiary-accent": "#BEF264",
+        "headline-highlight": "#A0A0A0"
+      },
+      "created_at": "2026-03-10T02:22:03.269970",
+      "preview_url": "/api/visual/output/previews/7e1a2004-3977-4231-b337-d55ac554b6b1/preview_0.png"
+    },
+    {
+      "name": "light-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html>\n<head>\n    <title>Design Conversion</title>\n    <script src=\"https://unpkg.com/lucide@latest\"></script>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');\n\n        :root {\n            --bg: #F8F7F4;\n            --primary: #1A1A1A;\n            --secondary: #888888;\n            --accent: #33CC99;\n            --surface: #FFFFFF;\n            --border: #DDDDDD;\n            --text-you: #FFFFFF; /* Text color for \"YOU\" */\n        }\n\n        body {\n            margin: 0;\n            padding: 0;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            min-height: 100vh; /* Ensure it takes full viewport height for centering */\n            background-color: #e0e0e0; /* A neutral background for the canvas itself */\n            font-family: 'Inter', sans-serif;\n            -webkit-font-smoothing: antialiased;\n            -moz-osx-font-smoothing: grayscale;\n        }\n\n        .container {\n            width:",
+      "colors": {
+        "bg": "#F8F7F4",
+        "primary": "#1A1A1A",
+        "secondary": "#888888",
+        "accent": "#33CC99",
+        "surface": "#FFFFFF",
+        "border": "#DDDDDD",
+        "text-you": "#FFFFFF"
+      },
+      "created_at": "2026-03-10T02:21:59.404279",
+      "preview_url": "/api/visual/output/previews/7e1a2004-3977-4231-b337-d55ac554b6b1/preview_1.png"
+    },
+    {
+      "name": "light-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Design Conversion</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,700;0,800;1,800&display=swap');\n\n        :root {\n            --bg: #F5F4F0;\n            --primary: #1A1A1A; /* Dark text, black card */\n            --secondary: #BDBDBD; /* Grey cards */\n            --accent: #34D399; /* Green highlight */\n            --text: var(--primary);\n            --text-muted: #888888;\n            --light-grey-deco: #E0E0E0; /* For background pattern */\n        }\n\n        body {\n            margin: 0;\n            padding: 0;\n            font-family: 'Inter', sans-serif;\n            display: flex;\n            justify-content: center;\n            align",
+      "colors": {
+        "bg": "#F5F4F0",
+        "primary": "#1A1A1A",
+        "secondary": "#BDBDBD",
+        "accent": "#34D399",
+        "text": "var(--primary)",
+        "text-muted": "#888888",
+        "light-grey-deco": "#E0E0E0"
+      },
+      "created_at": "2026-03-10T02:22:01.531868",
+      "preview_url": "/api/visual/output/previews/7e1a2004-3977-4231-b337-d55ac554b6b1/preview_2.png"
+    }
+  ],
+  "template_count": 3,
+  "created_at": "2026-03-10T02:22:03.270152",
+  "updated_at": "2026-03-10T02:22:03.270152"
+}

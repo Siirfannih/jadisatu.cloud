@@ -1,0 +1,59 @@
+{
+  "id": "97b930a2-1ece-4bae-a302-ef3097fdc05e",
+  "user_id": "e07e258b-d1c6-4ad3-8741-98118336fca9",
+  "name": "Caraosel Gelap",
+  "source": "smart-extractor-v2",
+  "templates": [
+    {
+      "name": "dark-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html>\n<head>\n    <title>Design Conversion</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:ital,wght@0,500;0,700&display=swap');\n\n        :root {\n            --bg: #101014;\n            --primary: #E0E0E0; /* Main text color */\n            --secondary: #A0A0A0; /* Muted text color */\n            --accent-green: #00FFC2;\n            --accent-purple: #9747FF;\n            --accent-lime: #BFFF00;\n            --surface: #1D1D21; /* Card background color */\n        }\n\n        body {\n            margin: 0;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            min-height: 100vh;\n            background-color: var(--bg);\n            font-family: 'Inter', sans-serif;\n            color: var(--primary);\n            overflow: hidden; /* Prevent scrollbars */\n        }\n\n        .canvas {\n            width: 1080px;\n            height: 1080px;\n            background-color: var(--bg);\n            position: relative;\n            padding: 80px; /* Overall padding */\n            box-sizing: border-box;\n            display: flex;\n            flex-direction: column;\n            justify-content: space-between;\n            \n            /* Subtle background pattern */\n            background-image: radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),\n                              radial-gradient(circle at 90% 30%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),\n                              radial-gradient(circle at 50% 70%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),\n                              radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),\n                              radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.02) 1px, transparent 1px);\n            background-size: 250px 250px; /* Adjust for density and spacing */\n            background-repeat: repeat;\n        }\n\n        .header-section {\n            margin-bottom: 60px;\n        }\n\n        .sub-title {\n            font-size: 16px;\n            font-weight: 500;\n            color: var(--accent-green);\n            text-transform: uppercase;\n            letter-spacing: 1px;\n            margin-bottom: 16px;\n        }\n\n        .headline {\n            font-family: 'Montserrat', sans-serif;\n            font-size: 80px;\n            font-weight: 700;\n            line-height: 1.1;\n            margin-bottom: 24px;\n        }\n\n        .headline .highlight {\n            font-family: 'Montserrat', sans-serif;\n            font-style: italic;\n            font-weight: 500;\n            color: var(--secondary);\n        }\n\n        .body-text {\n            font-size: 24px;\n            font-weight: 400;\n            color: var(--secondary);\n            line-height: 1.5;\n            max-width: 700px;\n        }\n\n        .cards-section {\n            display: flex;\n            gap: 32px; /* Spacing between cards */\n            margin-bottom: auto; /* Pushes footer to the bottom */\n        }\n\n        .card {\n            flex: 1;\n            background-color: var(--surface);\n            border-radius: 16px;\n            padding: 32px;\n            display: flex;\n            flex-direction: column;\n            position: relative;\n            overflow: hidden;\n        }\n\n        .card::before {\n            content: '';\n            position: absolute;\n            top: 0;\n            left: 0;\n            width: 100%;\n            height: 8px; /* Thickness of the border */\n            border-top-left-radius: 16px;\n            border-top-right-radius: 16px;\n        }\n\n        .card.green::before { background-color: var(--accent-green); }\n        .card.purple::before { background-color: var(--accent-purple); }\n        .card.lime::before { background-color: var(--accent-lime); }\n\n        .card-icon {\n            margin-bottom: 24px;\n            width: 48px;\n            height: 48px;\n            color: var(--primary);\n        }\n\n        .card-title {\n            font-size: 28px;\n            font-weight: 600;\n            line-height: 1.3;\n            margin-bottom: 16px;\n        }\n\n        .card-body {\n            font-size: 18px;\n            font-weight: 400;\n            color: var(--secondary);\n            line-height: 1.5;\n            margin-bottom: 32px;\n        }\n\n        .status {\n            display: flex;\n            align-items: center;\n            font-size: 16px;\n            font-weight: 500;\n            text-transform: uppercase;\n            letter-spacing: 0.5px;\n        }\n\n        .status-dot {\n            width: 8px;\n            height: 8px;\n            border-radius: 50%;\n            margin-right: 8px;\n        }\n\n        .status.green .status-dot { background-color: var(--accent-green); }\n        .status.purple .status-dot { background-color: var(--accent-purple); }\n        .status.lime .status-dot { background-color: var(--accent-lime); }\n\n        .footer-section {\n            display: flex;\n            justify-content: space-between;\n            align-items: flex-end;\n            font-size: 16px;\n            color: var(--secondary);\n        }\n\n        .footer-left p {\n            margin: 0;\n            line-height: 1.5;\n        }\n\n        .footer-right {\n            display: flex;\n            align-items: center;\n            gap: 8px;\n        }\n        .footer-right i {\n            width: 16px;\n            height: 16px;\n            color: var(--secondary);\n        }\n    </style>\n</head>\n<body>\n    <div class=\"canvas\">\n        <div class=\"header-section\">\n            <p class=\"sub-title\">WHAT IT ACTUALLY DOES</p>\n            <h1 class=\"headline\">\n                {{headline}}\n            </h1>\n            <p class=\"body-text\">{{body}}</p>\n        </div>\n\n        <div class=\"cards-section\">\n            <div class=\"card green\">\n                <div class=\"card-icon\"><!-- ICON:file-text --><i data-lucide=\"file-text\" style=\"width:48px;height:48px\"></i></div>\n                <h3 class=\"card-title\">Reads 50-page contracts</h3>\n                <p class=\"card-body\">Summarizes, flags risks, drafts responses</p>\n                <div class=\"status green\">\n                    <span class=\"status-dot\"></span>\n                    <span>ACTIVE</span>\n                </div>\n            </div>\n\n            <div class=\"card purple\">\n                <div class=\"card-icon\"><!-- ICON:code --><i data-lucide=\"code\" style=\"width:48px;height:48px\"></i></div>",
+      "colors": {
+        "bg": "#101014",
+        "primary": "#E0E0E0",
+        "secondary": "#A0A0A0",
+        "accent-green": "#00FFC2",
+        "accent-purple": "#9747FF",
+        "accent-lime": "#BFFF00",
+        "surface": "#1D1D21"
+      },
+      "created_at": "2026-03-10T02:24:12.300447",
+      "preview_url": "/api/visual/output/previews/97b930a2-1ece-4bae-a302-ef3097fdc05e/preview_0.png"
+    },
+    {
+      "name": "light-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html>\n<head>\n    <title>Design Conversion</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');\n\n        :root {\n            --bg: #F5F4F0;\n            --primary: #222222;\n            --secondary: #999999;\n            --accent: #66CC99;\n            --text: var(--primary);\n            --text-muted: var(--secondary);\n            --surface: #FFFFFF;\n        }\n\n        body {\n            margin: 0;\n            font-family: 'Inter', sans-serif;\n            background-color: var(--bg);\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            min-height: 100vh;\n            overflow: hidden; /* Prevent scrollbars if canvas is slightly off */\n        }\n\n        .canvas {\n            width: 1080px;\n            height: 1080px;\n            background-color: var(--bg);",
+      "colors": {
+        "bg": "#F5F4F0",
+        "primary": "#222222",
+        "secondary": "#999999",
+        "accent": "#66CC99",
+        "text": "var(--primary)",
+        "text-muted": "var(--secondary)",
+        "surface": "#FFFFFF"
+      },
+      "created_at": "2026-03-10T02:24:08.369464",
+      "preview_url": "/api/visual/output/previews/97b930a2-1ece-4bae-a302-ef3097fdc05e/preview_1.png"
+    },
+    {
+      "name": "light-modern",
+      "description": "AI-extracted template from reference design",
+      "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Design Conversion</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <style>\n        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Poppins:ital,wght@0,700;1,700&display=swap');\n\n        :root {\n            --bg: #F5F4F0;\n            --primary: #1A1A1A; /* Dark text, black card */\n            --secondary: #B0B0B0; /* Grey cards */\n            --accent: #34D399; /* Green highlight */\n            --text: var(--primary);\n            --text-muted: #A0A0A0; /* Muted text, background lines/dots */\n            --surface: #FFFFFF; /* Not explicitly used, but good to have */\n        }\n\n        body {\n            margin: 0;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            min-height:",
+      "colors": {
+        "bg": "#F5F4F0",
+        "primary": "#1A1A1A",
+        "secondary": "#B0B0B0",
+        "accent": "#34D399",
+        "text": "var(--primary)",
+        "text-muted": "#A0A0A0",
+        "surface": "#FFFFFF"
+      },
+      "created_at": "2026-03-10T02:24:06.908074",
+      "preview_url": "/api/visual/output/previews/97b930a2-1ece-4bae-a302-ef3097fdc05e/preview_2.png"
+    }
+  ],
+  "template_count": 3,
+  "created_at": "2026-03-10T02:24:12.300597",
+  "updated_at": "2026-03-10T02:24:12.300597"
+}
