@@ -91,6 +91,12 @@ export default function MandalaPage() {
   const [activeTab, setActiveTab] = useState<'pipeline' | 'conversations' | 'hunter'>('pipeline')
   const [refreshing, setRefreshing] = useState(false)
 
+  const safeJson = async (res: Response) => {
+    const ct = res.headers.get('content-type') || ''
+    if (!res.ok || !ct.includes('application/json')) return null
+    try { return await res.json() } catch { return null }
+  }
+
   const fetchData = useCallback(async () => {
     try {
       const [statsRes, convsRes, hunterRes] = await Promise.all([
@@ -99,18 +105,14 @@ export default function MandalaPage() {
         fetch('/api/mandala/hunter?limit=20'),
       ])
 
-      if (statsRes.ok) {
-        const statsData = await statsRes.json()
-        setStats(statsData)
-      }
-      if (convsRes.ok) {
-        const convsData = await convsRes.json()
-        setConversations(convsData.data || [])
-      }
-      if (hunterRes.ok) {
-        const hunterData = await hunterRes.json()
-        setProspects(hunterData.data || [])
-      }
+      const statsData = await safeJson(statsRes)
+      if (statsData) setStats(statsData)
+
+      const convsData = await safeJson(convsRes)
+      if (convsData) setConversations(convsData.data || [])
+
+      const hunterData = await safeJson(hunterRes)
+      if (hunterData) setProspects(hunterData.data || [])
     } catch (err) {
       console.error('Failed to fetch mandala data:', err)
     }
@@ -162,7 +164,7 @@ export default function MandalaPage() {
     )
   }
 
-  const phaseTotal = PHASES.reduce((sum, p) => sum + (stats?.conversations.by_phase[p.key] || 0), 0)
+  const phaseTotal = PHASES.reduce((sum, p) => sum + (stats?.conversations?.by_phase?.[p.key] || 0), 0)
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -194,8 +196,8 @@ export default function MandalaPage() {
             </div>
             <span className="text-sm text-muted-foreground">Conversations</span>
           </div>
-          <p className="text-2xl font-bold">{stats?.conversations.total || 0}</p>
-          <p className="text-xs text-muted-foreground">{stats?.conversations.active || 0} active</p>
+          <p className="text-2xl font-bold">{stats?.conversations?.total || 0}</p>
+          <p className="text-xs text-muted-foreground">{stats?.conversations?.active || 0} active</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
@@ -205,7 +207,7 @@ export default function MandalaPage() {
             </div>
             <span className="text-sm text-muted-foreground">Conversion</span>
           </div>
-          <p className="text-2xl font-bold">{stats?.conversations.conversion_rate || 0}%</p>
+          <p className="text-2xl font-bold">{stats?.conversations?.conversion_rate || 0}%</p>
           <p className="text-xs text-muted-foreground">reached closing phase</p>
         </div>
 
@@ -216,8 +218,8 @@ export default function MandalaPage() {
             </div>
             <span className="text-sm text-muted-foreground">Avg Score</span>
           </div>
-          <p className="text-2xl font-bold">{stats?.leads.avg_score || 0}<span className="text-sm font-normal text-muted-foreground">/100</span></p>
-          <p className="text-xs text-muted-foreground">{stats?.leads.total || 0} leads scored</p>
+          <p className="text-2xl font-bold">{stats?.leads?.avg_score || 0}<span className="text-sm font-normal text-muted-foreground">/100</span></p>
+          <p className="text-xs text-muted-foreground">{stats?.leads?.total || 0} leads scored</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
@@ -227,8 +229,8 @@ export default function MandalaPage() {
             </div>
             <span className="text-sm text-muted-foreground">Hunter</span>
           </div>
-          <p className="text-2xl font-bold">{stats?.hunter.total_prospects || 0}</p>
-          <p className="text-xs text-muted-foreground">{stats?.hunter.contacted || 0} contacted</p>
+          <p className="text-2xl font-bold">{stats?.hunter?.total_prospects || 0}</p>
+          <p className="text-xs text-muted-foreground">{stats?.hunter?.contacted || 0} contacted</p>
         </div>
       </div>
 
@@ -237,7 +239,7 @@ export default function MandalaPage() {
         <h2 className="text-lg font-semibold mb-4">Lead Pipeline</h2>
         <div className="flex gap-2 overflow-x-auto pb-2">
           {PHASES.map((phase) => {
-            const count = stats?.conversations.by_phase[phase.key] || 0
+            const count = stats?.conversations?.by_phase?.[phase.key] || 0
             const pct = phaseTotal > 0 ? Math.round((count / phaseTotal) * 100) : 0
             return (
               <div
@@ -297,7 +299,7 @@ export default function MandalaPage() {
               { key: 'cold', label: 'Cold', emoji: '0-29', color: 'bg-blue-50 border-blue-200 text-blue-700' },
             ].map((temp) => (
               <div key={temp.key} className={cn("rounded-xl p-4 border text-center", temp.color)}>
-                <p className="text-2xl font-bold">{stats?.leads.by_temperature[temp.key] || 0}</p>
+                <p className="text-2xl font-bold">{stats?.leads?.by_temperature?.[temp.key] || 0}</p>
                 <p className="text-sm font-medium mt-1">{temp.label}</p>
                 <p className="text-xs opacity-60">Score {temp.emoji}</p>
               </div>
@@ -310,11 +312,11 @@ export default function MandalaPage() {
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
                 <Bot className="w-4 h-4 text-purple-500" />
-                <span className="text-sm font-medium">{stats?.conversations.by_handler['mandala'] || 0} Mandala</span>
+                <span className="text-sm font-medium">{stats?.conversations?.by_handler?.['mandala'] || 0} Mandala</span>
               </div>
               <div className="flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-blue-500" />
-                <span className="text-sm font-medium">{stats?.conversations.by_handler['owner'] || 0} Owner</span>
+                <span className="text-sm font-medium">{stats?.conversations?.by_handler?.['owner'] || 0} Owner</span>
               </div>
             </div>
           </div>
