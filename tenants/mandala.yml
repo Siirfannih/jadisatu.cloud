@@ -1,0 +1,72 @@
+# Tenant: Mandala (Internal — Jadisatu)
+# This is the primary tenant. Mandala serves both as CEO assistant and sales shadow.
+
+id: mandala
+name: Mandala
+type: internal
+active: true
+
+# Owner configuration
+owner:
+  name: Irfan Kusuma Putra
+  whatsapp: "6281353848164"
+  timezone: Asia/Makassar  # WITA, UTC+8
+  github: Siirfannih
+
+# Channels
+channels:
+  - type: whatsapp
+    number: "6281353848164"
+    provider: fonnte  # or meta_cloud_api
+    role: primary
+  - type: telegram
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    bot_username: tangankanan04bot
+    role: secondary
+
+# AI Configuration
+ai:
+  conversation_model: gemini-2.5-pro
+  classifier_model: gemini-2.0-flash
+  temperature: 0.4
+  max_tokens: 1024
+
+# Mode routing
+routing:
+  # Numbers recognized as Owner/Admin → CEO Mode
+  owner_numbers:
+    - "6281353848164"  # Irfan WhatsApp
+  admin_numbers: []    # Add admin numbers here
+  # All other numbers → Sales Shadow Mode
+  default_mode: sales-shadow
+
+# Handoff configuration
+handoff:
+  auto_takeover_delay_seconds: 120  # 2 minutes
+  typing_indicator_cancel: true      # Cancel if owner typing
+  flag_response_timeout_seconds: 300 # 5 min wait for owner on flag
+  response_delay:
+    min_seconds: 3
+    max_seconds: 15
+    long_delay_chance: 0.15  # 15% chance of 30-60s delay
+
+# Lead scoring
+scoring:
+  hot_threshold: 70
+  warm_threshold: 50
+  cold_threshold: 30
+
+# Knowledge base paths (relative to mandala/ directory)
+knowledge:
+  - knowledge/jadisatu-products.md
+  - knowledge/faq.md
+  - knowledge/competitors.md
+
+# Cron jobs
+cron:
+  morning_briefing: "0 7 * * *"      # 7am WITA daily
+  health_check: "0 */6 * * *"        # Every 6 hours
+  weekly_summary: "0 9 * * 1"        # Monday 9am
+  energy_zone_high: "0 8 * * *"      # 8am reminder
+  energy_zone_medium: "30 12 * * *"  # 12:30pm reminder
+  energy_zone_low: "30 16 * * *"     # 4:30pm reminder

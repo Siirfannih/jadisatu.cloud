@@ -1,0 +1,52 @@
+# Tenant Template
+# Copy this file and customize for each new client.
+# File name: {client-id}.yml
+
+id: client-id-here
+name: "Client Business Name"
+type: client
+active: true
+
+# Client contact
+client:
+  name: "Owner Name"
+  whatsapp: "628xxxxxxxxxx"
+  business_type: ""  # e.g., "skincare", "fashion", "jasa"
+
+# Channels
+channels:
+  - type: whatsapp_business
+    number: "628xxxxxxxxxx"
+    provider: fonnte
+    role: primary
+
+# AI Configuration
+ai:
+  conversation_model: claude-sonnet-4-5-20250929
+  classifier_model: claude-haiku-4-5-20251001
+  temperature: 0.5
+  max_tokens: 512
+
+# Personality override (specific to this client's brand)
+personality:
+  role: "Customer Service {Business Name}"
+  tone: "ramah, helpful, casual"
+  language: "Bahasa Indonesia"
+  greeting: "halo kak, ada yang bisa dibantu?"
+  sapaan: "kak"
+
+# Client-specific knowledge (will be loaded from database)
+knowledge_source: supabase  # or file
+knowledge_table: "client_knowledge"
+
+# Rules specific to this client
+rules:
+  - "Jangan kasih diskon tanpa approval owner"
+  - "Kalau customer marah, handoff ke human"
+  - "Selalu tawarkan produk complementary setelah closing"
+
+# Handoff
+handoff:
+  auto_takeover_delay_seconds: 120
+  client_admin_numbers:
+    - "628xxxxxxxxxx"

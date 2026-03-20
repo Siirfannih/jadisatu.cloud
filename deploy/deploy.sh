@@ -16,6 +16,7 @@ DEPLOY_LOG="/var/log/jadisatu-deploy.log"
 NEXTJS_DIR="${REPO_DIR}/nextjs-app"
 HUNTER_DIR="${REPO_DIR}/hunter-agent/backend"
 VISUAL_DIR="${REPO_DIR}/visual-engine"
+MANDALA_DIR="${REPO_DIR}/mandala-engine"
 
 # ── Load NVM ──────────────────────────────────────────────────
 export NVM_DIR="/root/.nvm"
@@ -109,6 +110,14 @@ else
   log "WARNING: Nginx config template not found at ${NGINX_CONF_SRC}"
 fi
 
+# ── 3b. Mandala Engine: install & build ─────────────────────
+cd "$MANDALA_DIR"
+log "Installing Mandala Engine dependencies..."
+npm ci 2>&1 | tail -3 || log "WARNING: npm ci (mandala-engine) had issues"
+log "Building Mandala Engine..."
+npm run build 2>&1 | tail -5 || log "WARNING: Mandala Engine build had issues"
+log "Mandala Engine build complete"
+
 # ── 4. Python deps (Hunter Agent) ────────────────────────────
 cd "$HUNTER_DIR"
 pip install -r requirements.txt --quiet --break-system-packages 2>&1 | tail -3 || log "WARNING: pip install (hunter) had issues"
@@ -161,6 +170,12 @@ if curl -sf http://localhost:8100/api/visual/health > /dev/null 2>&1; then
   log "Health: Visual Engine OK (port 8100)"
 else
   log "WARNING: Visual Engine health check failed (port 8100)"
+fi
+
+if curl -sf http://localhost:3100/health > /dev/null 2>&1; then
+  log "Health: Mandala Engine OK (port 3100)"
+else
+  log "WARNING: Mandala Engine health check failed (port 3100)"
 fi
 
 # ── 8. Summary ────────────────────────────────────────────────

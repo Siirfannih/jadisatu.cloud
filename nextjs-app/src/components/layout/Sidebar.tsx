@@ -10,7 +10,7 @@ import {
   PenTool, Compass, Moon, Sparkles,
   ChevronLeft, ChevronRight, Calendar, Target,
   CheckSquare, Users, StickyNote, LogOut, ExternalLink,
-  Briefcase, BookOpen, TrendingUp, Image, Radar
+  Briefcase, BookOpen, TrendingUp, Image, Radar, Zap
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
@@ -43,6 +43,9 @@ const navItems = [
   { icon: Bot, label: 'AI Agents', to: '/agents' },
   { icon: Users, label: 'My Network', to: '/crm' },
   { icon: StickyNote, label: 'Notes & Ideas', to: '/notes' },
+  { type: 'divider' as const },
+  { type: 'label' as const, text: 'Mandala AI' },
+  { icon: Zap, label: 'Mandala', to: '/mandala' },
   { type: 'divider' as const },
   { type: 'label' as const, text: 'Insights' },
   { icon: History, label: 'History', to: '/history' },

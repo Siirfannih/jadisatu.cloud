@@ -68,6 +68,25 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss",
       error_file: "/root/.pm2/logs/visual-engine-error.log",
       out_file: "/root/.pm2/logs/visual-engine-out.log"
+    },
+    {
+      name: "mandala-engine",
+      cwd: "./mandala-engine",
+      script: "node",
+      args: "dist/index.js",
+      interpreter: "none",
+      env: {
+        NODE_ENV: "production",
+        PORT: 3100,
+        ...loadEnv(path.resolve(__dirname, 'mandala-engine/.env'))
+      },
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      max_memory_restart: "512M",
+      log_date_format: "YYYY-MM-DD HH:mm:ss",
+      error_file: "/root/.pm2/logs/mandala-engine-error.log",
+      out_file: "/root/.pm2/logs/mandala-engine-out.log"
     }
   ]
 };

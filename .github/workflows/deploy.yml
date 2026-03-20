@@ -29,12 +29,24 @@ jobs:
         working-directory: nextjs-app
         run: npm ci
 
-      - name: TypeScript check
+      - name: TypeScript check (Next.js)
         working-directory: nextjs-app
         run: npx tsc --noEmit
 
-      - name: Build check
+      - name: Build check (Next.js)
         working-directory: nextjs-app
+        run: npm run build
+
+      - name: Install dependencies (Mandala Engine)
+        working-directory: mandala-engine
+        run: npm ci
+
+      - name: TypeScript check (Mandala Engine)
+        working-directory: mandala-engine
+        run: npx tsc --noEmit
+
+      - name: Build check (Mandala Engine)
+        working-directory: mandala-engine
         run: npm run build
 
   deploy:
@@ -70,14 +82,22 @@ jobs:
           cd nextjs-app
           npm ci --production=false
           npm run build
-          echo "✅ Build complete"
-          
-          # Restart with PM2
+          echo "✅ Next.js build complete"
+
+          # Install dependencies & build Mandala Engine
+          cd ../mandala-engine
+          npm ci
+          npm run build
+          echo "✅ Mandala Engine build complete"
+
+          # Restart all services with PM2
           cd ..
-          npx pm2 delete jadisatu-nextjs || true
-          npx pm2 start ecosystem.config.js --only jadisatu-nextjs --env production
+          npx pm2 reload ecosystem.config.js --update-env || {
+            npx pm2 delete all || true
+            npx pm2 start ecosystem.config.js
+          }
           npx pm2 save
-          echo "✅ App restarted via ecosystem"
+          echo "✅ All services restarted via ecosystem"
           echo "=== Deploy finished at $(date) ==="
 
       - name: Verify deployment
@@ -89,17 +109,25 @@ jobs:
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
           echo "=== PM2 Status ==="
-          npx pm2 status jadisatu-nextjs
-          echo "=== Health Check ==="
+          npx pm2 status
+          echo "=== Health Check: Next.js ==="
           for i in {1..15}; do
             if curl -sf http://localhost:3000 > /dev/null; then
-              echo "✅ App is running on :3000"
-              exit 0
+              echo "✅ Next.js is running on :3000"
+              break
             fi
-            echo "Waiting for app to start... $i/15"
+            echo "Waiting for Next.js... $i/15"
             sleep 2
           done
-          echo "⚠️ App check failed on :3000" && exit 1
+          echo "=== Health Check: Mandala Engine ==="
+          for i in {1..10}; do
+            if curl -sf http://localhost:3100/health > /dev/null; then
+              echo "✅ Mandala Engine is running on :3100"
+              break
+            fi
+            echo "Waiting for Mandala Engine... $i/10"
+            sleep 2
+          done
 
   notify-pr:
     name: Comment Test Results on PR
