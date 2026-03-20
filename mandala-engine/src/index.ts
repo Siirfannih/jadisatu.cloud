@@ -32,6 +32,7 @@ async function main() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('  Endpoints:');
     console.log('  - POST /webhook/whatsapp       (WhatsApp incoming)');
+    console.log('  - POST /webhook/openclaw       (OpenClaw bridge)');
     console.log('  - POST /webhook/telegram       (Telegram incoming)');
     console.log('  - GET  /api/conversations      (List conversations)');
     console.log('  - GET  /api/leads              (Lead pipeline)');

@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { isMandalaOwner } from '@/lib/mandala-auth'
 
 function getServiceSupabase() {
   return createClient(
@@ -15,6 +16,9 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await authSupabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!isMandalaOwner(user)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const supabase = getServiceSupabase()

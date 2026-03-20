@@ -2,19 +2,25 @@
  * WhatsApp Channel Adapter
  *
  * Supports multiple providers:
- * - Fonnte (default for MVP)
- * - Meta Cloud API (for scaling)
+ * - openclaw (recommended — uses Baileys via OpenClaw gateway, no WA restriction risk)
+ * - fonnte (third-party API, risk of WA account restriction)
+ * - Meta Cloud API (official, requires business verification)
  */
+
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export class WhatsAppAdapter {
   private static instance: WhatsAppAdapter;
-  private provider: 'fonnte' | 'meta_cloud_api';
+  private provider: 'openclaw' | 'fonnte' | 'meta_cloud_api';
   private fonteToken: string;
   private metaToken: string;
   private metaPhoneId: string;
 
   private constructor() {
-    this.provider = (process.env.WA_PROVIDER as 'fonnte' | 'meta_cloud_api') || 'fonnte';
+    this.provider = (process.env.WA_PROVIDER as 'openclaw' | 'fonnte' | 'meta_cloud_api') || 'openclaw';
     this.fonteToken = process.env.FONNTE_TOKEN || '';
     this.metaToken = process.env.META_WA_TOKEN || '';
     this.metaPhoneId = process.env.META_PHONE_ID || '';
@@ -28,10 +34,32 @@ export class WhatsAppAdapter {
   }
 
   async send(to: string, message: string): Promise<boolean> {
+    if (this.provider === 'openclaw') {
+      return this.sendViaOpenClaw(to, message);
+    }
     if (this.provider === 'fonnte') {
       return this.sendViaFonnte(to, message);
     }
     return this.sendViaMeta(to, message);
+  }
+
+  private async sendViaOpenClaw(to: string, message: string): Promise<boolean> {
+    try {
+      // Format: openclaw message send --channel whatsapp --target <JID> --message <text>
+      const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+      const escaped = message.replace(/'/g, "'\\''");
+      const cmd = `openclaw message send --channel whatsapp --target '${jid}' --message '${escaped}'`;
+
+      const { stdout, stderr } = await execAsync(cmd, { timeout: 30000 });
+      if (stderr && !stderr.includes('Sent via gateway')) {
+        console.error(`[whatsapp/openclaw] stderr:`, stderr);
+      }
+      console.log(`[whatsapp/openclaw] Sent to ${to}`);
+      return true;
+    } catch (err: any) {
+      console.error(`[whatsapp/openclaw] Error:`, err.message || err);
+      return false;
+    }
   }
 
   private async sendViaFonnte(to: string, message: string): Promise<boolean> {

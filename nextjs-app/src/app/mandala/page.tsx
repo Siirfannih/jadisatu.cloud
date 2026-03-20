@@ -88,8 +88,11 @@ export default function MandalaPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
   const [activeTab, setActiveTab] = useState<'pipeline' | 'conversations' | 'hunter'>('pipeline')
   const [refreshing, setRefreshing] = useState(false)
+  const [hunterQuery, setHunterQuery] = useState('')
+  const [hunterRunning, setHunterRunning] = useState(false)
 
   const safeJson = async (res: Response) => {
     const ct = res.headers.get('content-type') || ''
@@ -104,6 +107,12 @@ export default function MandalaPage() {
         fetch('/api/mandala/conversations?status=active&limit=20'),
         fetch('/api/mandala/hunter?limit=20'),
       ])
+
+      // Check for forbidden (owner-only access)
+      if (statsRes.status === 403) {
+        setForbidden(true)
+        return
+      }
 
       const statsData = await safeJson(statsRes)
       if (statsData) setStats(statsData)
@@ -148,6 +157,36 @@ export default function MandalaPage() {
       body: JSON.stringify({ id, action: 'release' }),
     })
     fetchData()
+  }
+
+  const handleHunterRun = async () => {
+    if (!hunterQuery.trim()) return
+    setHunterRunning(true)
+    try {
+      await fetch('/api/mandala/hunter/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: hunterQuery.trim() }),
+      })
+      setHunterQuery('')
+      // Refresh prospects after a short delay (pipeline runs async)
+      setTimeout(fetchData, 5000)
+    } catch (err) {
+      console.error('Hunter run failed:', err)
+    }
+    setHunterRunning(false)
+  }
+
+  if (forbidden) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Zap className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">Mandala AI dashboard is only available for the owner account.</p>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -401,10 +440,32 @@ export default function MandalaPage() {
 
       {activeTab === 'hunter' && (
         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <h3 className="font-semibold">Hunter Prospects</h3>
-            <div className="flex items-center gap-2">
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">Hunter Prospects</h3>
               <span className="text-sm text-muted-foreground">{prospects.length} prospects</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={hunterQuery}
+                onChange={(e) => setHunterQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleHunterRun()}
+                placeholder="Search query, e.g. hotel bali, klinik denpasar..."
+                className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+              <button
+                onClick={handleHunterRun}
+                disabled={hunterRunning || !hunterQuery.trim()}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                  hunterRunning || !hunterQuery.trim()
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-orange-500 text-white hover:bg-orange-600"
+                )}
+              >
+                {hunterRunning ? 'Running...' : 'Run Hunter'}
+              </button>
             </div>
           </div>
           {prospects.length === 0 ? (
