@@ -73,6 +73,8 @@ log "Static frontend synced to ${NGINX_ROOT}"
 
 # ── 2. Next.js: install & build ──────────────────────────────
 cd "$NEXTJS_DIR"
+log "Cleaning node_modules to avoid stale directory errors..."
+rm -rf node_modules
 log "Installing Next.js dependencies..."
 npm ci --production=false 2>&1 | tail -3 || fail "npm ci failed"
 log "Building Next.js..."
