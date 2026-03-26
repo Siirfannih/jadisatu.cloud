@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "prebuild": "git clean -fd src/ 2>/dev/null || true",
     "build": "tsc",
     "start": "node dist/index.js"
   },
