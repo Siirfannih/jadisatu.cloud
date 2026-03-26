@@ -1,35 +1,67 @@
-name: Agent Task Runner
+name: Agent Task Dispatcher
 
+# Triggers when any agent-routing label is added to an issue
 on:
   issues:
     types: [labeled]
 
+permissions:
+  issues: write
+  contents: write
+  pull-requests: write
+
 jobs:
-  agent-dispatch:
-    name: Dispatch to Agent
-    if: github.event.label.name == 'agent-task'
-    # GANTI runs-on ke self-hosted PC Windows kamu
+  # ─── Gate: Only run for agent-routed issues ─────────────────────────
+  dispatch:
+    name: Dispatch to AI Agent
+    if: >
+      github.event.label.name == 'claude-task' ||
+      github.event.label.name == 'gemini-task' ||
+      github.event.label.name == 'codex-task'
     runs-on: self-hosted
-    timeout-minutes: 60
-    permissions:
-      issues: write
-      contents: write
-      pull-requests: write
+    timeout-minutes: 90
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Acknowledge issue
+      # ─── 1. Acknowledge ──────────────────────────────────────────────
+      - name: Acknowledge task
+        id: ack
         uses: actions/github-script@v7
         with:
           script: |
+            const labels = context.payload.issue.labels.map(l => l.name);
+            let agent = 'unknown';
+            if (labels.includes('claude-task')) agent = 'Claude Code';
+            else if (labels.includes('gemini-task')) agent = 'Gemini CLI';
+            else if (labels.includes('codex-task')) agent = 'Codex CLI';
+
+            const phase = labels.find(l => l.startsWith('phase-')) || 'unphased';
+            const isBlueprint = labels.includes('blueprint');
+            const isImpl = labels.includes('implementation');
+
+            core.setOutput('agent', agent);
+            core.setOutput('agent_label', labels.find(l => l.endsWith('-task')) || 'claude-task');
+            core.setOutput('phase', phase);
+            core.setOutput('is_blueprint', isBlueprint.toString());
+            core.setOutput('is_implementation', isImpl.toString());
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🤖 **Agent Router picked up this task**\n\nWorking on: #${context.issue.number}\nAnalyzing task to select the best AI Agent (Claude/Gemini/Codex)...\nI'll create a PR when ready for your review.`
+              body: [
+                `**Agent Dispatcher** picked up this task.`,
+                ``,
+                `| Field | Value |`,
+                `|-------|-------|`,
+                `| Agent | ${agent} |`,
+                `| Phase | ${phase} |`,
+                `| Type | ${isBlueprint ? 'Blueprint (no code)' : isImpl ? 'Implementation' : 'General'} |`,
+                `| Issue | #${context.issue.number} |`,
+                ``,
+                `Executing now...`
+              ].join('\n')
             });
+
             await github.rest.issues.addLabels({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -37,83 +69,452 @@ jobs:
               labels: ['in-progress']
             });
 
+      # ─── 2. Phase Gate: Check dependencies ───────────────────────────
+      - name: Check phase dependencies
+        id: phase-gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const phase = '${{ steps.ack.outputs.phase }}';
+
+            // Phase 1 has no dependencies
+            if (phase === 'phase-1' || phase === 'unphased') {
+              core.setOutput('can_proceed', 'true');
+              return;
+            }
+
+            // Phase 2 requires all phase-1 issues to be closed
+            if (phase === 'phase-2') {
+              const { data: phase1Issues } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'phase-1',
+                state: 'open'
+              });
+              if (phase1Issues.length > 0) {
+                const blockers = phase1Issues.map(i => `#${i.number} ${i.title}`).join(', ');
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `**Blocked**: Phase 2 requires all Phase 1 issues to be closed first.\n\nOpen Phase 1 blockers: ${blockers}\n\nThis task will be retried when dependencies are met.`
+                });
+                // Remove in-progress, add blocked
+                try {
+                  await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, name: 'in-progress' });
+                } catch(e) {}
+                await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, labels: ['blocked'] });
+                // Remove the agent label so it can be re-triggered later
+                try {
+                  await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, name: '${{ steps.ack.outputs.agent_label }}' });
+                } catch(e) {}
+                core.setOutput('can_proceed', 'false');
+                return;
+              }
+            }
+
+            // Phase 3 requires all phase-2 issues to be closed
+            if (phase === 'phase-3') {
+              const { data: phase2Issues } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'phase-2',
+                state: 'open'
+              });
+              if (phase2Issues.length > 0) {
+                const blockers = phase2Issues.map(i => `#${i.number} ${i.title}`).join(', ');
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `**Blocked**: Phase 3 requires all Phase 2 issues to be closed first.\n\nOpen Phase 2 blockers: ${blockers}`
+                });
+                try {
+                  await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, name: 'in-progress' });
+                } catch(e) {}
+                await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, labels: ['blocked'] });
+                try {
+                  await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, name: '${{ steps.ack.outputs.agent_label }}' });
+                } catch(e) {}
+                core.setOutput('can_proceed', 'false');
+                return;
+              }
+            }
+
+            core.setOutput('can_proceed', 'true');
+
+      # ─── 3. Checkout ─────────────────────────────────────────────────
+      - name: Checkout code
+        if: steps.phase-gate.outputs.can_proceed == 'true'
+        uses: actions/checkout@v4
+
+      # ─── 4. Create branch (implementation only) ──────────────────────
       - name: Create branch
-        id: create-branch
+        if: steps.phase-gate.outputs.can_proceed == 'true' && steps.ack.outputs.is_implementation == 'true'
         shell: bash
         run: |
           BRANCH_NAME="agent/issue-${{ github.event.issue.number }}"
           git checkout -b "$BRANCH_NAME"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
-      - name: Agent Router & Executor
+      # ─── 5. Build context for the AI agent ───────────────────────────
+      - name: Build agent context
+        if: steps.phase-gate.outputs.can_proceed == 'true'
+        id: context
+        shell: powershell
         env:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-        shell: bash
+          IS_BLUEPRINT: ${{ steps.ack.outputs.is_blueprint }}
+          IS_IMPL: ${{ steps.ack.outputs.is_implementation }}
         run: |
-          echo "Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
-          
-          # SIMPLE ROUTING LOGIC based on tags or keywords in body
-          BODY_LOWER=$(echo "$ISSUE_BODY" | tr '[:upper:]' '[:lower:]')
-          
-          if [[ "$BODY_LOWER" == *"@gemini"* || "$ISSUE_TITLE" == *"[Gemini]"* ]]; then
-            echo "🤖 Router selected: GEMINI CLI"
-            echo "Routing reason: Explicit request via keyword/tag"
-            
-            # Running Gemini with -y (YOLO mode to auto-accept actions) and -p for prompt
-            gemini -y -p "READ CLAUDE.md first. Then fix issue: $ISSUE_TITLE. Details: $ISSUE_BODY"
-            
-          elif [[ "$BODY_LOWER" == *"@codex"* || "$BODY_LOWER" == *"backend"* || "$BODY_LOWER" == *"python"* ]]; then
-            echo "🤖 Router selected: CODEX"
-            echo "Routing reason: Backend/Python task detected or explicit request"
-            
-            # Placeholder for Codex execution. 
-            # Note: Ensure Codex is configured to run non-interactively in this environment.
-            codex --task "Fix issue: $ISSUE_TITLE. Details: $ISSUE_BODY"
-            
-          else
-            echo "🤖 Router selected: CLAUDE CODE (Default)"
-            echo "Routing reason: Default frontend/general agent"
-            
-            # Running Claude with -p (Print responses and execute without interactive workspace trust blocking)
-            claude -p "READ CLAUDE.md first. Then implement fixing for this issue: $ISSUE_TITLE. Context: $ISSUE_BODY. You are running autonomously, do not wait for human input, just make the code changes and exit."
-          fi
+          # Gather closed phase-1 blueprint outputs as context for later phases
+          $blueprintContext = ""
+          if ("$env:IS_IMPL" -eq "true" -or "${{ steps.ack.outputs.phase }}" -ne "phase-1") {
+            # Check for blueprint artifacts in repo
+            if (Test-Path "docs/blueprints") {
+              $blueprintContext = Get-ChildItem "docs/blueprints/*.md" -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_ -Raw } | Out-String
+              if ($blueprintContext.Length -gt 5000) {
+                $blueprintContext = $blueprintContext.Substring(0, 5000) + "`n... (truncated)"
+              }
+            }
+          }
 
-      - name: Push branch & create PR
-        if: success()
+          # Build the prompt
+          if ("$env:IS_BLUEPRINT" -eq "true") {
+            $prompt = @"
+          You are a senior product/technical architect working on the JadiSatu platform.
+
+          YOUR TASK: $env:ISSUE_TITLE (Issue #$env:ISSUE_NUMBER)
+
+          INSTRUCTIONS:
+          $env:ISSUE_BODY
+
+          CRITICAL RULES:
+          1. READ CLAUDE.md and the existing codebase first
+          2. Mandala ALREADY EXISTS as a running system — do NOT propose a new system
+          3. Your output must be a comprehensive blueprint document
+          4. Save your output to: docs/blueprints/issue-$env:ISSUE_NUMBER.md
+          5. The blueprint must be actionable — other agents will use it to implement
+          6. Reference specific existing files, functions, and APIs in your analysis
+          7. Do NOT make implementation changes to application code
+
+          EXISTING MANDALA FILES TO EXAMINE:
+          - nextjs-app/src/app/mandala/page.tsx (current Mandala page)
+          - mandala-engine/ (existing runtime)
+          - Any API routes related to mandala
+
+          OUTPUT FORMAT:
+          Create docs/blueprints/issue-$env:ISSUE_NUMBER.md with:
+          - Executive summary
+          - Current state analysis (with file references)
+          - Proposed architecture/design
+          - Data models (if applicable)
+          - API contracts (if applicable)
+          - Migration path from current to proposed
+          - Dependencies and risks
+          "@
+          } else {
+            $prompt = @"
+          You are a senior engineer implementing changes on the JadiSatu platform.
+
+          YOUR TASK: $env:ISSUE_TITLE (Issue #$env:ISSUE_NUMBER)
+
+          INSTRUCTIONS:
+          $env:ISSUE_BODY
+
+          BLUEPRINT CONTEXT (from Phase 1):
+          $blueprintContext
+
+          CRITICAL RULES:
+          1. READ CLAUDE.md and existing codebase first
+          2. Mandala ALREADY EXISTS — bridge to it, do NOT create parallel systems
+          3. Make minimal, focused changes that accomplish the task
+          4. Write clean, production-quality code
+          5. Do NOT break existing functionality
+          6. Reference the blueprint documents in docs/blueprints/ for architecture guidance
+          7. Test your changes if possible
+          "@
+          }
+
+          # Write prompt to file (avoids escaping issues)
+          $prompt | Out-File -FilePath agent-prompt.txt -Encoding utf8
+          Write-Host "Prompt built ($($prompt.Length) chars)"
+
+      # ─── 6. Execute: Claude Code ─────────────────────────────────────
+      - name: Execute with Claude Code
+        if: >
+          steps.phase-gate.outputs.can_proceed == 'true' &&
+          steps.ack.outputs.agent_label == 'claude-task'
+        id: claude-exec
+        shell: powershell
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          $npmPath = "C:\Users\MICROSOFT\AppData\Roaming\npm"
+          $env:PATH = "$npmPath;$env:PATH"
+          $prompt = Get-Content agent-prompt.txt -Raw
+          Write-Host "Executing with Claude Code..."
+          try {
+            & claude --dangerously-skip-permissions -p $prompt --max-turns 30 2>&1 | Tee-Object -FilePath result.txt
+            "EXEC_STATUS=success" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } catch {
+            "Execution error: $_" | Out-File -FilePath result.txt
+            "EXEC_STATUS=failed" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+      # ─── 7. Execute: Gemini CLI ──────────────────────────────────────
+      - name: Execute with Gemini CLI
+        if: >
+          steps.phase-gate.outputs.can_proceed == 'true' &&
+          steps.ack.outputs.agent_label == 'gemini-task'
+        id: gemini-exec
+        shell: powershell
+        env:
+          GEMINI_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          $npmPath = "C:\Users\MICROSOFT\AppData\Roaming\npm"
+          $env:PATH = "$npmPath;$env:PATH"
+          $prompt = Get-Content agent-prompt.txt -Raw
+          Write-Host "Executing with Gemini CLI..."
+          try {
+            & gemini -y -p $prompt 2>&1 | Tee-Object -FilePath result.txt
+            "EXEC_STATUS=success" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } catch {
+            "Execution error: $_" | Out-File -FilePath result.txt
+            "EXEC_STATUS=failed" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+      # ─── 8. Execute: Codex CLI ───────────────────────────────────────
+      - name: Execute with Codex CLI
+        if: >
+          steps.phase-gate.outputs.can_proceed == 'true' &&
+          steps.ack.outputs.agent_label == 'codex-task'
+        id: codex-exec
+        shell: powershell
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          $npmPath = "C:\Users\MICROSOFT\AppData\Roaming\npm"
+          $env:PATH = "$npmPath;$env:PATH"
+          $prompt = Get-Content agent-prompt.txt -Raw
+          Write-Host "Executing with Codex CLI..."
+          try {
+            & codex --full-auto -q $prompt 2>&1 | Tee-Object -FilePath result.txt
+            "EXEC_STATUS=success" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } catch {
+            "Execution error: $_" | Out-File -FilePath result.txt
+            "EXEC_STATUS=failed" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+      # ─── 9. Read result ──────────────────────────────────────────────
+      - name: Read result
+        id: result
+        if: always() && steps.phase-gate.outputs.can_proceed == 'true'
+        shell: powershell
+        run: |
+          if (Test-Path result.txt) {
+            $content = Get-Content result.txt -Raw -ErrorAction SilentlyContinue
+            if ($content -and $content.Length -gt 4000) {
+              $content = $content.Substring(0, 4000) + "`n... (truncated)"
+            }
+            if (-not $content) { $content = "(empty output)" }
+            "RESULT<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            $content | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            "RESULT=No output file generated" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+      # ─── 10. Commit & PR (implementation) or Commit (blueprint) ─────
+      - name: Commit and push changes
+        if: always() && steps.phase-gate.outputs.can_proceed == 'true'
+        shell: powershell
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
+          AGENT_NAME: ${{ steps.ack.outputs.agent }}
+          IS_IMPL: ${{ steps.ack.outputs.is_implementation }}
+          IS_BLUEPRINT: ${{ steps.ack.outputs.is_blueprint }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUM: ${{ github.event.issue.number }}
         run: |
-          git config user.name "Jadisatu AI Router"
+          # Clean up temp files
+          if (Test-Path agent-prompt.txt) { Remove-Item agent-prompt.txt -Force }
+          if (Test-Path result.txt) { Remove-Item result.txt -Force }
+
+          git config user.name "Jadisatu Agent Dispatcher"
           git config user.email "agent@jadisatu.cloud"
 
-          # Only create PR if there are changes
-          if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git commit -m "agent: implement #${{ github.event.issue.number }} - ${{ github.event.issue.title }}
-            
-            Co-Authored-By: Jadisatu AI Router <agent@jadisatu.cloud>"
+          git add -A
+          $null = git diff --staged --quiet 2>&1; $hasChanges = $LASTEXITCODE -ne 0
 
-            git push -u origin "$BRANCH_NAME"
+          if ($hasChanges) {
+            $msg = "agent($env:AGENT_NAME): #$env:ISSUE_NUM - $env:ISSUE_TITLE"
+            git commit -m $msg
 
-            gh pr create \
-              --title "Agent: ${{ github.event.issue.title }}" \
-              --body "## Closes #${{ github.event.issue.number }}
-              
-              ### AI Agent Changes
-              Successfully implemented by the Jadisatu Agent Router.
-              
-              ### Review checklist
-              - [ ] Code looks correct
-              - [ ] No security issues
-              - [ ] Ready to deploy
-              
-              ---
-              🤖 Auto-generated by Jadisatu PR Factory Strategy" \
-              --base main \
-              --head "$BRANCH_NAME"
-          else
-            echo "No changes to commit from the AI"
-          fi
+            if ("$env:IS_IMPL" -eq "true") {
+              # Implementation: push branch + create PR
+              $branch = $env:BRANCH_NAME
+              git push -u origin $branch
+              & gh pr create `
+                --title "Agent: $env:ISSUE_TITLE" `
+                --body "## Closes #$env:ISSUE_NUM`n`n**Agent**: $env:AGENT_NAME`n`n### Review checklist`n- [ ] Code is correct`n- [ ] No security issues`n- [ ] Bridges to existing Mandala runtime`n- [ ] Ready to deploy`n`n---`nGenerated by Jadisatu Agent Dispatcher" `
+                --base main `
+                --head $branch
+            } else {
+              # Blueprint: push directly to main
+              git push origin main
+            }
+          } else {
+            Write-Host "No file changes from agent execution"
+          }
+
+      # ─── 11. Report result back to issue ─────────────────────────────
+      - name: Report result
+        if: always() && steps.phase-gate.outputs.can_proceed == 'true'
+        uses: actions/github-script@v7
+        env:
+          TASK_RESULT: ${{ steps.result.outputs.RESULT }}
+          JOB_STATUS: ${{ job.status }}
+          AGENT_NAME: ${{ steps.ack.outputs.agent }}
+        with:
+          script: |
+            const result = process.env.TASK_RESULT || '(no output captured)';
+            const success = process.env.JOB_STATUS === 'success';
+            const agent = process.env.AGENT_NAME;
+
+            const statusIcon = success ? 'completed' : 'failed';
+            const body = [
+              `### ${success ? 'Task Completed' : 'Task Failed'}`,
+              ``,
+              `| Field | Value |`,
+              `|-------|-------|`,
+              `| Agent | ${agent} |`,
+              `| Status | ${process.env.JOB_STATUS} |`,
+              ``,
+              `<details><summary>Agent Output</summary>`,
+              ``,
+              '```',
+              result,
+              '```',
+              `</details>`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+            // Update labels
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'in-progress'
+              });
+            } catch(e) {}
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [success ? 'completed' : 'failed']
+            });
+
+            // Close issue on success
+            if (success) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                state: 'closed'
+              });
+            }
+
+      # ─── 12. Trigger next phase if all current phase done ───────────
+      - name: Check if phase complete & trigger next
+        if: always() && steps.phase-gate.outputs.can_proceed == 'true' && job.status == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const currentPhase = '${{ steps.ack.outputs.phase }}';
+            if (!currentPhase || currentPhase === 'unphased') return;
+
+            const phaseNum = parseInt(currentPhase.split('-')[1]);
+            const nextPhase = `phase-${phaseNum + 1}`;
+
+            // Check if all issues in current phase are closed
+            const { data: openInPhase } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: currentPhase,
+              state: 'open'
+            });
+
+            if (openInPhase.length === 0) {
+              console.log(`All ${currentPhase} issues are closed. Checking for ${nextPhase} issues...`);
+
+              // Find blocked issues in next phase and re-trigger them
+              const { data: nextPhaseIssues } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: `${nextPhase},blocked`,
+                state: 'open'
+              });
+
+              for (const issue of nextPhaseIssues) {
+                console.log(`Unblocking and triggering #${issue.number}: ${issue.title}`);
+
+                // Remove blocked label
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    name: 'blocked'
+                  });
+                } catch(e) {}
+
+                // Find the agent label for this issue
+                const agentLabel = issue.labels.find(l => l.name.endsWith('-task'));
+                if (!agentLabel) {
+                  // Determine from original labels or default to claude-task
+                  const originalLabels = issue.labels.map(l => l.name);
+                  let assignLabel = 'claude-task';
+                  if (originalLabels.some(l => l === 'gemini-task')) assignLabel = 'gemini-task';
+                  if (originalLabels.some(l => l === 'codex-task')) assignLabel = 'codex-task';
+
+                  // Re-add agent label to trigger the workflow
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    labels: [assignLabel]
+                  });
+                }
+
+                await github.rest.issues.createComment({
+                  issue_number: issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `**Phase gate cleared.** All ${currentPhase} issues are complete. This ${nextPhase} task is now unblocked and queued for execution.`
+                });
+              }
+
+              if (nextPhaseIssues.length === 0) {
+                // Check for non-blocked next phase issues
+                const { data: readyIssues } = await github.rest.issues.listForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  labels: nextPhase,
+                  state: 'open'
+                });
+                console.log(`${readyIssues.length} ${nextPhase} issues found (none blocked).`);
+              }
+            } else {
+              console.log(`${openInPhase.length} ${currentPhase} issues still open. Not triggering ${nextPhase} yet.`);
+            }
