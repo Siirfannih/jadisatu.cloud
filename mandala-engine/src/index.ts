@@ -38,6 +38,11 @@ async function main() {
     console.log('  - GET  /api/leads              (Lead pipeline)');
     console.log('  - GET  /api/hunter/prospects    (Hunter prospects)');
     console.log('  - POST /api/hunter/run          (Trigger hunter)');
+    console.log('  - GET  /api/governance/observability (Observability)');
+    console.log('  - GET  /api/governance/config   (Governance config)');
+    console.log('  - GET  /api/governance/approvals (Approval queue)');
+    console.log('  - GET  /api/governance/action-log (Audit trail)');
+    console.log('  - GET  /api/governance/roles    (Role management)');
     console.log('  - GET  /health                 (Health check)');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   });

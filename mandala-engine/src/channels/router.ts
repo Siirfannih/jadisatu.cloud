@@ -9,6 +9,9 @@ import { ShadowEvaluator } from '../evaluator/shadow-evaluator.js';
 import { ResistanceDetector } from '../evaluator/resistance-detector.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
 import { PhaseController } from '../state-machine/phase-controller.js';
+import { ActionLogger } from '../governance/action-logger.js';
+import { PolicyEngine } from '../governance/policy-engine.js';
+import { ApprovalQueue } from '../governance/approval-queue.js';
 import type { Message, Mode, Handler, Conversation, TenantConfig, RoutingConfig } from '../types/shared.js';
 import crypto from 'crypto';
 
@@ -33,6 +36,9 @@ export class MessageRouter {
   private resistanceDetector = ResistanceDetector.getInstance();
   private memoryUpdater = MemoryUpdater.getInstance();
   private phaseController = PhaseController.getInstance();
+  private actionLogger = ActionLogger.getInstance();
+  private policyEngine = PolicyEngine.getInstance();
+  private approvalQueue = ApprovalQueue.getInstance();
 
   static getInstance(): MessageRouter {
     if (!MessageRouter.instance) {
@@ -173,6 +179,17 @@ export class MessageRouter {
       console.log(`[router] Phase transition: ${transition.from} → ${transition.to} (${transition.reason})`);
       conversation.phase = transition.to;
       await this.store.updatePhase(conversation.id, transition.to);
+
+      // Governance: log phase advance
+      this.actionLogger.log({
+        tenant_id: conversation.tenant_id,
+        action_type: 'phase_advanced',
+        conversation_id: conversation.id,
+        summary: `Phase: ${transition.from} → ${transition.to}`,
+        decision_reason: transition.reason,
+        target: conversation.customer_number,
+        details: { from: transition.from, to: transition.to, score: conversation.lead_score },
+      }).catch(() => {});
     }
 
     // ── Step 4: Update customer memory (async, non-blocking for response) ──
@@ -224,8 +241,39 @@ export class MessageRouter {
       return;
     }
 
+    // ── Governance: check policy before Mandala sends ──
+    const policy = await this.policyEngine.evaluate(
+      freshConv.tenant_id,
+      'message_sent',
+      { conversation_id: freshConv.id, target: freshConv.customer_number }
+    );
+
+    if (!policy.allowed) {
+      console.log(`[router] Policy blocked Mandala takeover: ${policy.reason}`);
+      this.actionLogger.log({
+        tenant_id: freshConv.tenant_id,
+        action_type: 'message_held',
+        conversation_id: freshConv.id,
+        summary: `Message blocked: ${policy.reason}`,
+        decision_reason: policy.reason,
+        target: freshConv.customer_number,
+      }).catch(() => {});
+      return;
+    }
+
     console.log(`[router] Mandala taking over conversation ${freshConv.id} [phase=${freshConv.phase}]`);
     freshConv.current_handler = 'mandala';
+
+    // Log handoff event
+    this.actionLogger.log({
+      tenant_id: freshConv.tenant_id,
+      action_type: 'handoff_triggered',
+      conversation_id: freshConv.id,
+      summary: `Mandala taking over conversation with ${freshConv.customer_number}`,
+      decision_reason: 'Auto-takeover after timeout',
+      target: freshConv.customer_number,
+      details: { phase: freshConv.phase, score: freshConv.lead_score },
+    }).catch(() => {});
 
     // Get customer memory for context injection
     const memory = await this.memoryUpdater.getMemory(freshConv.id);
@@ -242,6 +290,46 @@ export class MessageRouter {
     if (response.internal.should_flag_owner) {
       console.log(`[router] Flagging owner: ${response.internal.flag_reason}`);
       await this.flagOwner(freshConv, response.internal.flag_reason || 'Needs attention', tenant);
+    }
+
+    // ── Governance: check if message needs approval before sending ──
+    if (policy.requires_approval) {
+      console.log(`[router] Message requires approval — queuing`);
+      await this.approvalQueue.enqueue({
+        tenant_id: freshConv.tenant_id,
+        action_type: 'message_sent',
+        conversation_id: freshConv.id,
+        target: freshConv.customer_number,
+        summary: `Mandala reply to ${freshConv.customer_number} [phase=${freshConv.phase}]`,
+        decision_reason: `Intent: ${response.internal.intent}, Confidence: ${response.internal.confidence}`,
+        payload: {
+          messages: response.messages,
+          delays: response.delays,
+          conversation_id: freshConv.id,
+          phase: freshConv.phase,
+          score: freshConv.lead_score,
+        },
+        priority: policy.priority,
+      });
+      return; // Don't send — wait for approval
+    }
+
+    // ── Governance: content safety check ──
+    for (const msg of response.messages) {
+      const safety = await this.policyEngine.checkContentSafety(freshConv.tenant_id, msg);
+      if (!safety.safe) {
+        console.log(`[router] Content safety blocked: keyword "${safety.blocked_keyword}"`);
+        this.actionLogger.log({
+          tenant_id: freshConv.tenant_id,
+          action_type: 'message_held',
+          conversation_id: freshConv.id,
+          summary: `Message blocked by content safety: keyword "${safety.blocked_keyword}"`,
+          target: freshConv.customer_number,
+          details: { blocked_keyword: safety.blocked_keyword },
+          requires_review: true,
+        }).catch(() => {});
+        return;
+      }
     }
 
     for (let i = 0; i < response.messages.length; i++) {
@@ -284,6 +372,23 @@ export class MessageRouter {
       await this.wa.send(conversation.customer_number, content);
     }
 
+    // Governance: audit log for every sent message
+    if (sender === 'mandala') {
+      this.actionLogger.log({
+        tenant_id: conversation.tenant_id,
+        action_type: 'message_sent',
+        conversation_id: conversation.id,
+        summary: `Mandala sent message to ${conversation.customer_number}`,
+        target: conversation.customer_number,
+        details: {
+          content_preview: content.substring(0, 200),
+          phase: conversation.phase,
+          score: conversation.lead_score,
+          channel,
+        },
+      }).catch(() => {});
+    }
+
     console.log(`[send] → ${conversation.customer_number}: "${content.substring(0, 60)}..."`);
   }
 
@@ -310,6 +415,22 @@ export class MessageRouter {
       `Last msg: "${conversation.messages[conversation.messages.length - 1]?.content?.substring(0, 100)}"`;
 
     await this.wa.send(ownerNumber, flagMsg);
+
+    // Governance: log flag event
+    this.actionLogger.log({
+      tenant_id: conversation.tenant_id,
+      action_type: 'flag_raised',
+      conversation_id: conversation.id,
+      summary: `Owner flagged: ${reason}`,
+      decision_reason: reason,
+      target: conversation.customer_number,
+      details: {
+        phase: conversation.phase,
+        score: conversation.lead_score,
+        owner_number: ownerNumber,
+      },
+      requires_review: true,
+    }).catch(() => {});
   }
 
   private resolveMode(routing: RoutingConfig, sender: string): Mode {
@@ -343,6 +464,17 @@ export class MessageRouter {
       last_message_at: new Date(),
     };
     await this.store.set(conv);
+
+    // Governance: log new conversation
+    this.actionLogger.log({
+      tenant_id: tenantId,
+      action_type: 'conversation_created',
+      conversation_id: conv.id,
+      summary: `New ${mode} conversation with ${customerNumber}`,
+      target: customerNumber,
+      details: { mode, phase: 'kenalan' },
+    }).catch(() => {});
+
     return conv;
   }
 

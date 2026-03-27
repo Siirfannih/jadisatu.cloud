@@ -4,10 +4,14 @@ import { HandoffTimer } from '../queue/handoff-timer.js';
 import { HunterPipeline } from '../hunter/index.js';
 import { HunterScheduler } from '../hunter/scheduler.js';
 import { getSupabase } from '../memory/supabase-client.js';
+import { ActionLogger } from '../governance/action-logger.js';
+import { PolicyEngine } from '../governance/policy-engine.js';
 
 export const apiRoutes = new Hono();
 
 const store = ConversationStore.getInstance();
+const actionLogger = ActionLogger.getInstance();
+const policyEngine = PolicyEngine.getInstance();
 
 // List all conversations (for CRM dashboard)
 apiRoutes.get('/conversations', async (c) => {
@@ -58,6 +62,18 @@ apiRoutes.post('/takeover/:id', async (c) => {
   await store.update(conv);
 
   console.log(`[takeover] Owner took over conversation ${id}`);
+
+  // Governance: log takeover
+  actionLogger.log({
+    tenant_id: conv.tenant_id,
+    action_type: 'takeover',
+    conversation_id: id,
+    actor: 'owner',
+    summary: `Owner took over conversation with ${conv.customer_number}`,
+    target: conv.customer_number,
+    details: { phase: conv.phase, score: conv.lead_score },
+  }).catch(() => {});
+
   return c.json({ status: 'taken_over', conversation_id: id });
 });
 
@@ -72,6 +88,17 @@ apiRoutes.post('/let-mandala/:id', async (c) => {
 
   conv.current_handler = 'mandala';
   await store.update(conv);
+
+  // Governance: log release
+  actionLogger.log({
+    tenant_id: conv.tenant_id,
+    action_type: 'release',
+    conversation_id: id,
+    actor: 'owner',
+    summary: `Owner released conversation to Mandala: ${conv.customer_number}`,
+    target: conv.customer_number,
+    details: { phase: conv.phase, score: conv.lead_score },
+  }).catch(() => {});
 
   return c.json({ status: 'mandala_handling', conversation_id: id });
 });
