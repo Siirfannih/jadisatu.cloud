@@ -4,7 +4,7 @@ import { ContextAssembler } from '../ai/context-assembler.js';
 import { AIEngine } from '../ai/engine.js';
 import { LeadScorer } from '../tools/lead-scorer.js';
 import { HandoffTimer } from '../queue/handoff-timer.js';
-import { BaileysProvider } from './baileys-provider.js';
+import { BaileysManager } from './baileys-manager.js';
 import { ShadowEvaluator } from '../evaluator/shadow-evaluator.js';
 import { ResistanceDetector } from '../evaluator/resistance-detector.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
@@ -18,6 +18,7 @@ export interface IncomingMessage {
   content: string;
   timestamp: Date;
   raw: unknown;
+  tenantId?: string; // Set by BaileysManager for per-tenant sessions
 }
 
 export class MessageRouter {
@@ -28,7 +29,7 @@ export class MessageRouter {
   private aiEngine = AIEngine.getInstance();
   private scorer = LeadScorer.getInstance();
   private handoffTimer = HandoffTimer.getInstance();
-  private wa = BaileysProvider.getInstance();
+  private waManager = BaileysManager.getInstance();
   private shadowEvaluator = ShadowEvaluator.getInstance();
   private resistanceDetector = ResistanceDetector.getInstance();
   private memoryUpdater = MemoryUpdater.getInstance();
@@ -42,6 +43,11 @@ export class MessageRouter {
   }
 
   async handleIncoming(msg: IncomingMessage): Promise<void> {
+    // If the message already has a tenantId (from BaileysManager), use it directly
+    if (msg.tenantId) {
+      return this.processMessage(msg.tenantId, msg);
+    }
+
     const tenant = this.tenantManager.getByChannel(msg.channel, msg.sender);
     if (!tenant) {
       const defaultTenant = this.tenantManager.get('mandala');
@@ -281,7 +287,7 @@ export class MessageRouter {
     conversation.messages.push(message);
 
     if (channel === 'whatsapp') {
-      await this.wa.send(conversation.customer_number, content);
+      await this.waManager.send(conversation.tenant_id, conversation.customer_number, content);
     }
 
     console.log(`[send] → ${conversation.customer_number}: "${content.substring(0, 60)}..."`);
@@ -309,7 +315,7 @@ export class MessageRouter {
       `Konteks: ${reason}\n` +
       `Last msg: "${conversation.messages[conversation.messages.length - 1]?.content?.substring(0, 100)}"`;
 
-    await this.wa.send(ownerNumber, flagMsg);
+    await this.waManager.send(conversation.tenant_id, ownerNumber, flagMsg);
   }
 
   private resolveMode(routing: RoutingConfig, sender: string): Mode {

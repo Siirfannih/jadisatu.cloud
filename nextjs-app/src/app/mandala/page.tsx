@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, MessageSquare, ListChecks, Target,
   Radar, BookOpen, Shield, BarChart3,
-  RefreshCw, Zap
+  RefreshCw, Zap, Smartphone
 } from 'lucide-react'
 import {
   COMMAND_LABELS, STATUS_CONFIG, PRIORITY_CONFIG, SOURCE_LABELS,
@@ -21,11 +21,13 @@ import CockpitOutreach from '@/components/mandala/CockpitOutreach'
 import CockpitKnowledge from '@/components/mandala/CockpitKnowledge'
 import CockpitPolicies from '@/components/mandala/CockpitPolicies'
 import CockpitAnalytics from '@/components/mandala/CockpitAnalytics'
+import CockpitWhatsApp from '@/components/mandala/CockpitWhatsApp'
 
-type Section = 'overview' | 'conversations' | 'tasks' | 'pipeline' | 'outreach' | 'knowledge' | 'policies' | 'analytics'
+type Section = 'overview' | 'whatsapp' | 'conversations' | 'tasks' | 'pipeline' | 'outreach' | 'knowledge' | 'policies' | 'analytics'
 
 const SECTIONS: { key: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'whatsapp', label: 'WhatsApp', icon: Smartphone },
   { key: 'conversations', label: 'Conversations', icon: MessageSquare },
   { key: 'tasks', label: 'Tasks', icon: ListChecks },
   { key: 'pipeline', label: 'Pipeline', icon: Target },
@@ -208,6 +210,10 @@ export default function MandalaCockpit() {
       {/* Section Content */}
       {activeSection === 'overview' && (
         <CockpitOverview stats={stats} onNavigate={(s) => setActiveSection(s as Section)} />
+      )}
+
+      {activeSection === 'whatsapp' && (
+        <CockpitWhatsApp />
       )}
 
       {activeSection === 'conversations' && (

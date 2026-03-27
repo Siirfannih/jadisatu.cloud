@@ -3,13 +3,13 @@ import { app } from './routes/index.js';
 import { TenantManager } from './tenants/manager.js';
 import { HandoffTimer } from './queue/handoff-timer.js';
 import { HunterScheduler } from './hunter/scheduler.js';
-import { BaileysProvider } from './channels/baileys-provider.js';
+import { BaileysManager } from './channels/baileys-manager.js';
 import { MessageRouter } from './channels/router.js';
 
 const PORT = parseInt(process.env.PORT || '3100');
 
 async function main() {
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('  Mandala Engine — Starting...');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -28,23 +28,29 @@ async function main() {
   hunterScheduler.start();
   console.log('✓ Hunter scheduler initialized');
 
-  // Connect Baileys WhatsApp
-  const baileys = BaileysProvider.getInstance();
+  // Connect WhatsApp via BaileysManager (multi-tenant)
+  const baileysManager = BaileysManager.getInstance();
   const router = MessageRouter.getInstance();
 
-  // Bridge Baileys incoming messages → MessageRouter
-  baileys.on('message', (msg) => {
+  // Bridge BaileysManager incoming messages → MessageRouter (with tenantId)
+  baileysManager.on('message', (tenantId: string, msg: any) => {
     router.handleIncoming({
       channel: 'whatsapp',
       sender: msg.sender,
       content: msg.content,
       timestamp: msg.timestamp,
       raw: msg.raw,
+      tenantId,
     }).catch(err => console.error('[baileys→router] Error:', err));
   });
 
-  await baileys.connect();
-  console.log('✓ Baileys WhatsApp provider initialized');
+  // Start default 'mandala' session
+  await baileysManager.startSession('mandala');
+  console.log('✓ Baileys WhatsApp — mandala session started');
+
+  // Restore any other previously-connected sessions
+  await baileysManager.restoreActiveSessions();
+  console.log('✓ Baileys WhatsApp — active sessions restored');
 
   // Start HTTP server
   serve({ fetch: app.fetch, port: PORT }, (info) => {
@@ -59,9 +65,9 @@ async function main() {
     console.log('  - POST /api/hunter/run          (Trigger hunter)');
     console.log('  - POST /api/tasks              (Create task)');
     console.log('  - GET  /api/tasks              (List tasks)');
-    console.log('  - GET  /api/tasks/:id          (Get task)');
-    console.log('  - POST /api/tasks/:id/approve  (Approve task)');
-    console.log('  - POST /api/tasks/:id/cancel   (Cancel task)');
+    console.log('  - GET  /api/wa/status/:tenantId (WA session status)');
+    console.log('  - POST /api/wa/connect/:tenantId (Start WA session)');
+    console.log('  - POST /api/wa/disconnect/:tenantId (Stop WA session)');
     console.log('  - GET  /health                 (Health check)');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   });
