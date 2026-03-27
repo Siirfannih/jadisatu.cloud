@@ -14,7 +14,7 @@ export class AIEngine {
   }
 
   async generate(context: AssembledContext, aiConfig: AIConfig): Promise<AIResponse> {
-    const systemPrompt = this.assembler.buildPrompt(context);
+    const systemPrompt = await this.assembler.buildPrompt(context);
     const lastCustomerMessage = context.conversation_history
       .filter((m) => m.sender === 'customer' || m.sender === 'owner')
       .pop();

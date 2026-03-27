@@ -1,6 +1,6 @@
 import { getModel } from '../ai/gemini-client.js';
 import { getSupabase } from '../memory/supabase-client.js';
-import { WhatsAppAdapter } from '../channels/whatsapp.js';
+import { BaileysProvider } from '../channels/baileys-provider.js';
 
 /**
  * Cold Messenger — Sends personalized first messages to qualified prospects.
@@ -11,7 +11,7 @@ import { WhatsAppAdapter } from '../channels/whatsapp.js';
 
 export class ColdMessenger {
   private static instance: ColdMessenger;
-  private wa = WhatsAppAdapter.getInstance();
+  private wa = BaileysProvider.getInstance();
   private dailyCount = 0;
   private lastResetDate = '';
 

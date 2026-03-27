@@ -6,7 +6,7 @@
 //   - Uses AIEngine for response generation
 //   - Uses ConversationStore for conversation state
 //   - Uses MemoryUpdater for customer memory
-//   - Uses WhatsAppAdapter for message delivery
+//   - Uses BaileysProvider for message delivery
 //   - Respects approval_mode for review flow
 // ============================================================
 
@@ -15,7 +15,7 @@ import { ConversationStore } from '../memory/conversation-store.js';
 import { ContextAssembler } from '../ai/context-assembler.js';
 import { AIEngine } from '../ai/engine.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
-import { WhatsAppAdapter } from '../channels/whatsapp.js';
+import { BaileysProvider } from '../channels/baileys-provider.js';
 import { TaskStore } from './task-store.js';
 import type { MandalaTask, TaskDraft, TaskLogEntry } from './types.js';
 import type { Conversation, Message, Mode, TenantConfig } from '../types/shared.js';
@@ -29,7 +29,7 @@ export class TaskExecutor {
   private assembler = ContextAssembler.getInstance();
   private aiEngine = AIEngine.getInstance();
   private memoryUpdater = MemoryUpdater.getInstance();
-  private wa = WhatsAppAdapter.getInstance();
+  private wa = BaileysProvider.getInstance();
   private taskStore = TaskStore.getInstance();
 
   static getInstance(): TaskExecutor {

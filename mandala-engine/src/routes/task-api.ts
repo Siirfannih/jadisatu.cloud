@@ -5,7 +5,7 @@
 import { Hono } from 'hono';
 import { TaskStore } from '../tasks/task-store.js';
 import { TaskExecutor } from '../tasks/task-executor.js';
-import type { CreateTaskInput, TaskType, ApprovalMode } from '../tasks/types.js';
+import type { CreateTaskInput, TaskType, TaskStatus, ApprovalMode } from '../tasks/types.js';
 
 export const taskRoutes = new Hono();
 
@@ -93,7 +93,7 @@ taskRoutes.get('/', async (c) => {
 
   const tasks = await taskStore.listByTenant(
     tenant,
-    status as CreateTaskInput['type'] | undefined,
+    status as TaskStatus | undefined,
     limit
   );
 

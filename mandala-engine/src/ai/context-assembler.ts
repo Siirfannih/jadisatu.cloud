@@ -75,7 +75,7 @@ export class ContextAssembler {
     };
   }
 
-  buildPrompt(context: AssembledContext): string {
+  async buildPrompt(context: AssembledContext): Promise<string> {
     const parts: string[] = [];
 
     // Core identity & rules (always)
