@@ -236,10 +236,11 @@ jobs:
         run: |
           $npmPath = "C:\Users\MICROSOFT\AppData\Roaming\npm"
           $env:PATH = "$npmPath;$env:PATH"
+          # Prevent PS from treating stderr info messages as fatal errors
+          $ErrorActionPreference = 'Continue'
           Write-Host "Executing with Gemini CLI (yolo mode)..."
-          # Use -p with file content piped via stdin to avoid PS arg length limits
           Get-Content agent-prompt.txt -Raw | & gemini --yolo 2>&1 | Tee-Object -FilePath result.txt
-          if ($LASTEXITCODE -ne 0) { Write-Host "Gemini exited with code $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0) { Write-Host "Gemini exited with code $LASTEXITCODE"; exit $LASTEXITCODE }
 
       # ─── 8. Execute: Codex CLI ───────────────────────────────────────
       - name: Execute with Codex CLI
@@ -250,10 +251,11 @@ jobs:
         run: |
           $npmPath = "C:\Users\MICROSOFT\AppData\Roaming\npm"
           $env:PATH = "$npmPath;$env:PATH"
+          # Prevent PS from treating stderr info messages as fatal errors
+          $ErrorActionPreference = 'Continue'
           Write-Host "Executing with Codex CLI (exec mode)..."
-          # codex exec reads prompt from stdin when using -
           Get-Content agent-prompt.txt -Raw | & codex exec - 2>&1 | Tee-Object -FilePath result.txt
-          if ($LASTEXITCODE -ne 0) { Write-Host "Codex exited with code $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0) { Write-Host "Codex exited with code $LASTEXITCODE"; exit $LASTEXITCODE }
 
       # ─── 9. Read result ──────────────────────────────────────────────
       - name: Read result
