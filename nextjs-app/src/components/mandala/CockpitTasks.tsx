@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import {
   AlertTriangle, ArrowUpCircle, Clock, Sparkles, CheckCircle2,
   Plus, X, Loader2, Phone, MessageSquare, UserSearch, LifeBuoy, Target,
-  Eye, Check, Send, ChevronDown, ChevronUp
+  Eye, Send, ChevronDown, ChevronUp, RotateCcw
 } from 'lucide-react'
 import type { MandalaStats, Conversation } from './types'
 
@@ -341,6 +341,15 @@ export default function CockpitTasks({ stats, conversations, onNavigate }: Props
                             {isReviewing ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                           </button>
                         )}
+                        {task.status === 'failed' && (
+                          <button
+                            onClick={() => handleAction(task.id, 'retry')}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Retry
+                          </button>
+                        )}
                         {(task.status === 'pending' || task.status === 'awaiting_review') && (
                           <button
                             onClick={() => handleAction(task.id, 'cancel')}
@@ -363,7 +372,16 @@ export default function CockpitTasks({ stats, conversations, onNavigate }: Props
                           Memuat draft pesan...
                         </div>
                       ) : drafts.length === 0 ? (
-                        <p className="py-4 text-sm text-muted-foreground">Tidak ada draft pesan.</p>
+                        <div className="py-4 space-y-3">
+                          <p className="text-sm text-muted-foreground">Tidak ada draft pesan — Mandala belum berhasil generate pesan untuk task ini.</p>
+                          <button
+                            onClick={() => handleAction(task.id, 'retry')}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors text-sm font-medium"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Jalankan Ulang
+                          </button>
+                        </div>
                       ) : (
                         <div className="pt-3 space-y-3">
                           <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">

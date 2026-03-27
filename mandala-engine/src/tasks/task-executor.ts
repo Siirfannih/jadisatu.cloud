@@ -119,6 +119,11 @@ export class TaskExecutor {
       await this.taskStore.setDrafts(task.id, drafts);
       log('drafts_stored', { count: drafts.length });
 
+      // Guard: if no drafts generated, fail the task
+      if (drafts.length === 0) {
+        throw new Error('AI generated 0 draft messages — no content to send');
+      }
+
       // Step 6: Apply approval mode
       if (task.approval_mode === 'draft_only') {
         await this.taskStore.updateStatus(task.id, 'awaiting_review');
@@ -187,6 +192,34 @@ export class TaskExecutor {
       event: 'approved_and_executed',
       details: { messages_sent: task.drafts.length },
     });
+  }
+
+  /**
+   * Retry a failed or awaiting_review task (re-execute from scratch).
+   */
+  async retry(taskId: string): Promise<void> {
+    const task = await this.taskStore.get(taskId);
+    if (!task) throw new Error(`Task not found: ${taskId}`);
+    if (task.status !== 'failed' && task.status !== 'awaiting_review') {
+      throw new Error(`Cannot retry task in status: ${task.status}`);
+    }
+
+    // Reset task state
+    await this.taskStore.updateStatus(task.id, 'pending', { retried: true });
+    await this.taskStore.setDrafts(task.id, []);
+    await this.taskStore.appendLog(task.id, {
+      timestamp: new Date(),
+      event: 'retry_requested',
+    });
+
+    // Re-fetch the task with updated status
+    const refreshed = await this.taskStore.get(taskId);
+    if (!refreshed) throw new Error(`Task not found after reset: ${taskId}`);
+
+    // Re-execute
+    this.execute(refreshed).catch((err) =>
+      console.error(`[task-executor] Retry failed for task ${taskId}:`, err)
+    );
   }
 
   /**

@@ -141,6 +141,19 @@ taskRoutes.post('/:id/approve', async (c) => {
   }
 });
 
+// ── Retry a failed/empty task ──
+taskRoutes.post('/:id/retry', async (c) => {
+  const id = c.req.param('id');
+
+  try {
+    await taskExecutor.retry(id);
+    return c.json({ status: 'retrying', task_id: id });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 400);
+  }
+});
+
 // ── Cancel a task ──
 taskRoutes.post('/:id/cancel', async (c) => {
   const id = c.req.param('id');

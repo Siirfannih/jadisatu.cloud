@@ -79,6 +79,9 @@ export async function POST(request: NextRequest) {
       if (body.action === 'approve') {
         return proxyToEngine(`/api/tasks/${body.id}/approve`, 'POST')
       }
+      if (body.action === 'retry') {
+        return proxyToEngine(`/api/tasks/${body.id}/retry`, 'POST')
+      }
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
 
