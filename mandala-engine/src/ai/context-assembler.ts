@@ -3,6 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { Conversation, Mode, TenantConfig, AssembledContext, ConversationPhase } from '../types/shared.js';
 import { PhaseController } from '../state-machine/phase-controller.js';
+import { getSupabase } from '../memory/supabase-client.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MANDALA_DIR = join(__dirname, '../../../mandala');
@@ -11,6 +12,9 @@ export class ContextAssembler {
   private static instance: ContextAssembler;
   private cache = new Map<string, string>();
   private phaseController = PhaseController.getInstance();
+  private dbKnowledgeCache: string[] | null = null;
+  private dbPolicyCache: string[] | null = null;
+  private dbCacheExpiry = 0;
 
   static getInstance(): ContextAssembler {
     if (!ContextAssembler.instance) {
@@ -37,8 +41,8 @@ export class ContextAssembler {
     // Load skills based on mode and phase
     const skills = await this.loadSkills(mode, conversation);
 
-    // Load knowledge
-    const knowledge = await this.loadKnowledge(tenant.knowledge);
+    // Load knowledge (DB first, then filesystem fallback)
+    const knowledge = await this.loadKnowledgeWithDB(tenant);
 
     // Build phase instruction for sales mode
     let phaseInstruction: string | undefined;
@@ -84,6 +88,12 @@ export class ContextAssembler {
     // Phase instruction (sales mode only)
     if (context.phase_instruction) {
       parts.push(context.phase_instruction);
+    }
+
+    // Active policies from DB
+    const activePolicies = await this.loadActivePolicies();
+    if (activePolicies.length > 0) {
+      parts.push('---\n# Active Policies\n' + activePolicies.join('\n\n'));
     }
 
     // Customer memory (if available)
@@ -234,5 +244,83 @@ Customer menunjukkan resistance. Tujuan:
 
   clearCache(): void {
     this.cache.clear();
+    this.dbKnowledgeCache = null;
+    this.dbPolicyCache = null;
+    this.dbCacheExpiry = 0;
+  }
+
+  /**
+   * Load knowledge from DB (mandala_knowledge table), falling back to filesystem.
+   * DB entries take priority; filesystem entries fill gaps.
+   */
+  private async loadKnowledgeWithDB(tenant: TenantConfig): Promise<string[]> {
+    const results: string[] = [];
+
+    // Try DB first
+    try {
+      if (!this.dbKnowledgeCache || Date.now() > this.dbCacheExpiry) {
+        const db = getSupabase();
+        const { data } = await db
+          .from('mandala_knowledge')
+          .select('title, content, category')
+          .eq('tenant_id', tenant.id)
+          .eq('active', true)
+          .order('priority', { ascending: false });
+
+        if (data && data.length > 0) {
+          this.dbKnowledgeCache = data.map(
+            (entry: { title: string; content: string; category: string }) =>
+              `## ${entry.title} [${entry.category}]\n${entry.content}`
+          );
+          this.dbCacheExpiry = Date.now() + 60_000; // Cache for 60s
+        } else {
+          this.dbKnowledgeCache = [];
+          this.dbCacheExpiry = Date.now() + 30_000; // Retry sooner if empty
+        }
+      }
+
+      if (this.dbKnowledgeCache && this.dbKnowledgeCache.length > 0) {
+        results.push(...this.dbKnowledgeCache);
+      }
+    } catch (err) {
+      console.error('[context-assembler] DB knowledge load failed, using filesystem:', err);
+    }
+
+    // Always load filesystem knowledge as fallback/supplement
+    const fileKnowledge = await this.loadKnowledge(tenant.knowledge);
+    results.push(...fileKnowledge);
+
+    return results;
+  }
+
+  /**
+   * Load active policies from DB (mandala_policies table with status='active').
+   * These are injected as additional behavioral rules into the prompt.
+   */
+  private async loadActivePolicies(): Promise<string[]> {
+    try {
+      if (!this.dbPolicyCache || Date.now() > this.dbCacheExpiry) {
+        const db = getSupabase();
+        const { data } = await db
+          .from('mandala_policies')
+          .select('title, rules_prompt')
+          .eq('status', 'active')
+          .order('priority', { ascending: false });
+
+        if (data && data.length > 0) {
+          this.dbPolicyCache = data.map(
+            (policy: { title: string; rules_prompt: string }) =>
+              `### ${policy.title}\n${policy.rules_prompt}`
+          );
+        } else {
+          this.dbPolicyCache = [];
+        }
+      }
+
+      return this.dbPolicyCache || [];
+    } catch (err) {
+      console.error('[context-assembler] DB policy load failed:', err);
+      return [];
+    }
   }
 }
