@@ -18,11 +18,14 @@ function getServiceSupabase() {
  */
 export async function GET(request: NextRequest) {
   try {
+    console.log('[wa-api] GET called')
     const authSupabase = await createServerClient()
     const { data: { user }, error: authError } = await authSupabase.auth.getUser()
     if (authError || !user) {
+      console.log('[wa-api] Auth failed:', authError?.message)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    console.log('[wa-api] User:', user.email)
     if (!isMandalaOwner(user)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -39,16 +42,27 @@ export async function GET(request: NextRequest) {
         .eq('tenant_id', tenantId)
         .single()
 
+      console.log('[wa-api] Supabase result - error:', dbError?.message, 'data:', data ? 'found' : 'null', 'status:', data?.status)
       if (!dbError && data) {
         return NextResponse.json(data)
       }
-    } catch {
-      // Supabase table may not exist yet — fall through to engine
+    } catch (e) {
+      console.log('[wa-api] Supabase catch:', e instanceof Error ? e.message : e)
     }
 
     // Fallback: query engine directly for in-memory state
+    console.log('[wa-api] Falling back to engine')
     const engineRes = await fetch(`${ENGINE_URL}/api/wa/status/${tenantId}`)
-    const engineData = await engineRes.json()
+    const engineText = await engineRes.text()
+    console.log('[wa-api] Engine response:', engineText.slice(0, 200))
+
+    let engineData
+    try {
+      engineData = JSON.parse(engineText)
+    } catch {
+      console.error('[wa-api] Engine returned non-JSON:', engineText.slice(0, 200))
+      return NextResponse.json({ status: 'disconnected', error_message: 'Engine unavailable' })
+    }
 
     // Normalize camelCase engine response to snake_case for frontend
     return NextResponse.json({
@@ -63,7 +77,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
-    console.error('Mandala WhatsApp API Error:', error)
+    console.error('[wa-api] Unhandled error:', error)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

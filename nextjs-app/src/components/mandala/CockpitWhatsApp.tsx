@@ -35,10 +35,16 @@ export default function CockpitWhatsApp() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/mandala/whatsapp?tenant=mandala')
+      const res = await fetch('/api/mandala/whatsapp?tenant=mandala', {
+        redirect: 'error',
+      })
       if (!res.ok) {
         if (res.status === 403) return
         throw new Error('Failed to fetch status')
+      }
+      const ct = res.headers.get('content-type') || ''
+      if (!ct.includes('application/json')) {
+        throw new Error('Non-JSON response')
       }
       const data = await res.json()
       setSession(data)
@@ -69,8 +75,13 @@ export default function CockpitWhatsApp() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, tenant: 'mandala' }),
+        redirect: 'error',
       })
 
+      const ct = res.headers.get('content-type') || ''
+      if (!ct.includes('application/json')) {
+        throw new Error('Server returned non-JSON response')
+      }
       const data = await res.json()
       if (!data.success && data.error) {
         setError(data.error)
