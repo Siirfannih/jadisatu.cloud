@@ -45,7 +45,7 @@ const navItems = [
   { icon: StickyNote, label: 'Notes & Ideas', to: '/notes' },
   { type: 'divider' as const },
   { type: 'label' as const, text: 'Mandala AI' },
-  { icon: Zap, label: 'Mandala', to: '/mandala' },
+  { icon: Zap, label: 'Cockpit', to: '/mandala' },
   { type: 'divider' as const },
   { type: 'label' as const, text: 'Insights' },
   { icon: History, label: 'History', to: '/history' },
