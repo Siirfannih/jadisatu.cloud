@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import {
   AlertTriangle, ArrowUpCircle, Clock, Sparkles, CheckCircle2,
-  Plus, X, Loader2, Phone, MessageSquare, UserSearch, LifeBuoy, Target
+  Plus, X, Loader2, Phone, MessageSquare, UserSearch, LifeBuoy, Target,
+  Eye, Check, Send, ChevronDown, ChevronUp
 } from 'lucide-react'
 import type { MandalaStats, Conversation } from './types'
 
@@ -37,6 +38,12 @@ interface MandalaTask {
   error?: string
 }
 
+interface TaskDraft {
+  content: string
+  delay_ms: number
+  confidence: number
+}
+
 const TASK_TYPES = [
   { value: 'outreach', label: 'Outreach', desc: 'Hubungi prospek baru', icon: Phone },
   { value: 'follow_up', label: 'Follow Up', desc: 'Tindak lanjut percakapan', icon: MessageSquare },
@@ -66,6 +73,10 @@ export default function CockpitTasks({ stats, conversations, onNavigate }: Props
     objective: '',
     context: '',
   })
+  const [reviewTaskId, setReviewTaskId] = useState<string | null>(null)
+  const [drafts, setDrafts] = useState<TaskDraft[]>([])
+  const [draftsLoading, setDraftsLoading] = useState(false)
+  const [approveLoading, setApproveLoading] = useState(false)
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -119,9 +130,51 @@ export default function CockpitTasks({ stats, conversations, onNavigate }: Props
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action }),
       })
+      if (reviewTaskId === id) {
+        setReviewTaskId(null)
+        setDrafts([])
+      }
       fetchTasks()
     } catch {
       // ignore
+    }
+  }
+
+  const fetchDrafts = async (taskId: string) => {
+    if (reviewTaskId === taskId) {
+      setReviewTaskId(null)
+      setDrafts([])
+      return
+    }
+    setReviewTaskId(taskId)
+    setDraftsLoading(true)
+    try {
+      const res = await fetch(`/api/mandala/tasks/${taskId}?view=drafts`)
+      if (!res.ok) return
+      const data = await res.json()
+      setDrafts(data.drafts || [])
+    } catch {
+      setDrafts([])
+    } finally {
+      setDraftsLoading(false)
+    }
+  }
+
+  const handleApprove = async (taskId: string) => {
+    setApproveLoading(true)
+    try {
+      await fetch('/api/mandala/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, action: 'approve' }),
+      })
+      setReviewTaskId(null)
+      setDrafts([])
+      fetchTasks()
+    } catch {
+      // ignore
+    } finally {
+      setApproveLoading(false)
     }
   }
 
@@ -252,36 +305,105 @@ export default function CockpitTasks({ stats, conversations, onNavigate }: Props
             {tasks.map((task) => {
               const statusStyle = STATUS_COLORS[task.status] || STATUS_COLORS.pending
               const TypeIcon = TASK_TYPES.find(t => t.value === task.type)?.icon || Target
+              const isReviewing = reviewTaskId === task.id
               return (
-                <div key={task.id} className="p-4 hover:bg-muted/30 transition-colors">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <TypeIcon className="w-4 h-4 text-muted-foreground shrink-0" />
-                        <p className="font-medium text-sm truncate">{task.objective}</p>
+                <div key={task.id}>
+                  <div className={cn("p-4 transition-colors", isReviewing ? "bg-amber-50/50" : "hover:bg-muted/30")}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <TypeIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <p className="font-medium text-sm truncate">{task.objective}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {task.target.customer_name || task.target.customer_number} &middot; {task.type.replace('_', ' ')}
+                        </p>
+                        {task.error && (
+                          <p className="text-xs text-red-500 mt-1">{task.error}</p>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {task.target.customer_name || task.target.customer_number} &middot; {task.type.replace('_', ' ')}
-                      </p>
-                      {task.error && (
-                        <p className="text-xs text-red-500 mt-1">{task.error}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", statusStyle.bg, statusStyle.text)}>
-                        {task.status.replace('_', ' ')}
-                      </span>
-                      {task.status === 'pending' && (
-                        <button
-                          onClick={() => handleAction(task.id, 'cancel')}
-                          className="text-xs text-muted-foreground hover:text-red-500 transition-colors"
-                          title="Cancel"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", statusStyle.bg, statusStyle.text)}>
+                          {task.status.replace('_', ' ')}
+                        </span>
+                        {task.status === 'awaiting_review' && (
+                          <button
+                            onClick={() => fetchDrafts(task.id)}
+                            className={cn(
+                              "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium transition-colors",
+                              isReviewing
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-amber-50 text-amber-600 hover:bg-amber-100"
+                            )}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Review
+                            {isReviewing ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          </button>
+                        )}
+                        {(task.status === 'pending' || task.status === 'awaiting_review') && (
+                          <button
+                            onClick={() => handleAction(task.id, 'cancel')}
+                            className="text-xs text-muted-foreground hover:text-red-500 transition-colors"
+                            title="Cancel"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Draft Review Panel */}
+                  {isReviewing && (
+                    <div className="px-4 pb-4 bg-amber-50/30 border-t border-amber-100">
+                      {draftsLoading ? (
+                        <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Memuat draft pesan...
+                        </div>
+                      ) : drafts.length === 0 ? (
+                        <p className="py-4 text-sm text-muted-foreground">Tidak ada draft pesan.</p>
+                      ) : (
+                        <div className="pt-3 space-y-3">
+                          <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">
+                            Draft Pesan dari Mandala ({drafts.length} pesan)
+                          </p>
+                          {drafts.map((draft, i) => (
+                            <div key={i} className="bg-white rounded-lg border border-amber-200 p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <MessageSquare className="w-3.5 h-3.5 text-amber-500" />
+                                <span className="text-xs font-medium text-amber-600">Pesan {i + 1}</span>
+                                {draft.delay_ms > 0 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    (delay {Math.round(draft.delay_ms / 1000)}s)
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm whitespace-pre-wrap leading-relaxed">{draft.content}</p>
+                            </div>
+                          ))}
+                          <div className="flex items-center gap-3 pt-2">
+                            <button
+                              onClick={() => handleApprove(task.id)}
+                              disabled={approveLoading}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors text-sm font-medium disabled:opacity-50"
+                            >
+                              {approveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                              Kirim Sekarang
+                            </button>
+                            <button
+                              onClick={() => handleAction(task.id, 'cancel')}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors text-sm font-medium"
+                            >
+                              <X className="w-4 h-4" />
+                              Batalkan
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
