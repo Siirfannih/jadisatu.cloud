@@ -30,21 +30,26 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const tenantId = searchParams.get('tenant') || 'mandala'
 
-    const supabase = getServiceSupabase()
-    const { data } = await supabase
-      .from('mandala_wa_sessions')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .single()
+    // Try Supabase first, fall back to engine API if table doesn't exist
+    try {
+      const supabase = getServiceSupabase()
+      const { data, error: dbError } = await supabase
+        .from('mandala_wa_sessions')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .single()
 
-    if (!data) {
-      return NextResponse.json({
-        tenant_id: tenantId,
-        status: 'disconnected',
-      })
+      if (!dbError && data) {
+        return NextResponse.json(data)
+      }
+    } catch {
+      // Supabase table may not exist yet — fall through to engine
     }
 
-    return NextResponse.json(data)
+    // Fallback: query engine directly for in-memory state
+    const engineRes = await fetch(`${ENGINE_URL}/api/wa/status/${tenantId}`)
+    const engineData = await engineRes.json()
+    return NextResponse.json(engineData)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Mandala WhatsApp API Error:', error)
