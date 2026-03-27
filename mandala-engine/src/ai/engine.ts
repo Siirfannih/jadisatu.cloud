@@ -66,7 +66,19 @@ export class AIEngine {
       });
 
       const text = result.response.text();
-      return this.parseResponse(text);
+      console.log(`[ai-engine] Task raw response (${text.length} chars):`, text.slice(0, 500));
+      const parsed = this.parseResponse(text);
+      console.log(`[ai-engine] Task parsed: ${parsed.messages.length} messages, intent=${parsed.internal.intent}`);
+      if (parsed.messages.length === 0 && text.length > 0) {
+        // AI returned text but parsing produced 0 messages — treat the text as the message
+        console.warn('[ai-engine] Fallback: using raw text as single message (no ||| found)');
+        const cleanText = text.replace(/\[META\].*?\[\/META\]/s, '').trim();
+        if (cleanText) {
+          parsed.messages = [cleanText];
+          parsed.delays = [0];
+        }
+      }
+      return parsed;
     } catch (err) {
       console.error('[ai-engine] Error generating task response:', err);
       return this.fallbackResponse();
