@@ -10,6 +10,9 @@
 //   - Respects approval_mode for review flow
 // ============================================================
 
+import { readFile } from 'fs/promises';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { TenantManager } from '../tenants/manager.js';
 import { ConversationStore } from '../memory/conversation-store.js';
 import { ContextAssembler } from '../ai/context-assembler.js';
@@ -20,6 +23,9 @@ import { TaskStore } from './task-store.js';
 import type { MandalaTask, TaskDraft, TaskLogEntry } from './types.js';
 import type { Conversation, Message, Mode, TenantConfig } from '../types/shared.js';
 import crypto from 'crypto';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const MANDALA_DIR = join(__dirname, '../../../mandala');
 
 export class TaskExecutor {
   private static instance: TaskExecutor;
@@ -85,8 +91,12 @@ export class TaskExecutor {
       // Inject task-specific instructions into context
       context.phase_instruction = this.buildTaskInstruction(task, context.phase_instruction);
 
-      // Step 5: Generate response
-      const response = await this.aiEngine.generate(context, tenant.ai);
+      // Load task execution protocol + type-specific skills into context
+      const taskSkills = await this.loadTaskSkills(task);
+      context.skills.push(...taskSkills);
+
+      // Step 5: Generate response using task-aware method
+      const response = await this.aiEngine.generateForTask(context, tenant.ai, task);
       log('response_generated', {
         message_count: response.messages.length,
         intent: response.internal.intent,
@@ -193,6 +203,48 @@ export class TaskExecutor {
   }
 
   // ── Private helpers ──
+
+  /**
+   * Load task-specific skill files into context.
+   * Always loads the task execution protocol + type-specific skill.
+   */
+  private async loadTaskSkills(task: MandalaTask): Promise<string[]> {
+    const skills: string[] = [];
+
+    // Always load task execution protocol
+    const protocol = await this.loadMandalaFile('skills/task-execution-protocol.md');
+    if (protocol) skills.push(protocol);
+
+    // Load type-specific skill
+    const typeSkillMap: Record<string, string> = {
+      outreach: 'skills/sales/outreach.md',
+      rescue: 'skills/sales/objection-handling.md',
+      follow_up: 'skills/conversation/natural-flow.md',
+      qualification: 'skills/sales/qualifying.md',
+      inbound_response: 'skills/conversation/natural-flow.md',
+    };
+
+    const skillPath = typeSkillMap[task.type];
+    if (skillPath) {
+      const skill = await this.loadMandalaFile(skillPath);
+      if (skill) skills.push(skill);
+    }
+
+    return skills;
+  }
+
+  /**
+   * Read a file from the mandala content directory.
+   */
+  private async loadMandalaFile(relativePath: string): Promise<string> {
+    try {
+      const fullPath = join(MANDALA_DIR, relativePath);
+      return await readFile(fullPath, 'utf-8');
+    } catch {
+      console.warn(`[task-executor] Could not load mandala file: ${relativePath}`);
+      return '';
+    }
+  }
 
   /**
    * Resolve or create a conversation for the task target.
