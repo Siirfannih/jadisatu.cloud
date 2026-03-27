@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { isMandalaOwner } from '@/lib/mandala-auth'
 
+const ENGINE_URL = process.env.MANDALA_ENGINE_URL || 'http://localhost:3100'
+
 function getServiceSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,7 +14,7 @@ function getServiceSupabase() {
 
 /**
  * GET /api/mandala/tasks?status=pending&limit=50
- * List tasks from mandala_tasks table.
+ * List tasks from mandala_tasks table (direct Supabase read for speed).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/mandala/tasks
- * Create or update a task.
+ * Create or update a task — proxies to mandala-engine TaskExecutor.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -67,36 +69,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const supabase = getServiceSupabase()
     const body = await request.json()
 
-    // Update existing task
+    // ── Action on existing task → proxy to engine ──
     if (body.id && body.action) {
-      const updates: Record<string, unknown> = {}
-
       if (body.action === 'cancel') {
-        updates.status = 'cancelled'
-      } else if (body.action === 'approve') {
-        updates.status = 'approved'
-      } else if (body.action === 'execute') {
-        updates.status = 'executed'
-        updates.executed_at = new Date().toISOString()
+        return proxyToEngine(`/api/tasks/${body.id}/cancel`, 'POST')
       }
-
-      if (Object.keys(updates).length === 0) {
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+      if (body.action === 'approve') {
+        return proxyToEngine(`/api/tasks/${body.id}/approve`, 'POST')
       }
-
-      const { error } = await supabase
-        .from('mandala_tasks')
-        .update(updates)
-        .eq('id', body.id)
-
-      if (error) throw error
-      return NextResponse.json({ success: true })
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
 
-    // Create new task
+    // ── Create new task → proxy to engine (triggers TaskExecutor) ──
     const { type, objective, target_number, target_name, context, approval_mode } = body
 
     if (!type || !objective || !target_number) {
@@ -106,40 +92,66 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const validTypes = ['outreach', 'follow_up', 'rescue', 'inbound_response', 'qualification']
-    if (!validTypes.includes(type)) {
-      return NextResponse.json(
-        { error: `Invalid type. Use: ${validTypes.join(', ')}` },
-        { status: 400 }
-      )
-    }
-
-    const row = {
+    // Map cockpit form data to engine's expected format
+    const enginePayload = {
       tenant_id: 'mandala',
       type,
       objective,
       target: {
         customer_number: target_number,
-        customer_name: target_name || null,
+        customer_name: target_name || undefined,
         channel: 'whatsapp',
       },
       context: context || '',
       approval_mode: approval_mode || 'draft_only',
-      status: 'pending',
       created_by: user.email || 'cockpit',
     }
 
-    const { data, error } = await supabase
-      .from('mandala_tasks')
-      .insert(row)
-      .select()
-      .single()
+    const engineRes = await fetch(`${ENGINE_URL}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(enginePayload),
+    })
 
-    if (error) throw error
-    return NextResponse.json({ success: true, data })
+    const text = await engineRes.text()
+    let result
+    try {
+      result = JSON.parse(text)
+    } catch {
+      console.error('[tasks-api] Engine returned non-JSON:', text.slice(0, 200))
+      return NextResponse.json({ error: 'Engine returned invalid response' }, { status: 502 })
+    }
+
+    if (!engineRes.ok) {
+      return NextResponse.json(
+        { success: false, error: result.error || 'Engine error' },
+        { status: engineRes.status }
+      )
+    }
+
+    return NextResponse.json({ success: true, data: result.task, message: result.message })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Mandala Tasks API Error:', error)
     return NextResponse.json({ success: false, error: message }, { status: 500 })
+  }
+}
+
+async function proxyToEngine(path: string, method: string): Promise<NextResponse> {
+  try {
+    const res = await fetch(`${ENGINE_URL}${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const text = await res.text()
+    let data
+    try {
+      data = JSON.parse(text)
+    } catch {
+      return NextResponse.json({ error: 'Engine returned invalid response' }, { status: 502 })
+    }
+    return NextResponse.json({ success: res.ok, ...data }, { status: res.status })
+  } catch {
+    return NextResponse.json({ error: 'Engine unreachable' }, { status: 502 })
   }
 }
