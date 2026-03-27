@@ -4,8 +4,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Search, Users, Plus, Phone, Mail, Calendar,
-  DollarSign, ArrowRight, X, UserPlus, TrendingUp
+  DollarSign, ArrowRight, X, UserPlus, TrendingUp,
+  Zap, Send, Loader2
 } from 'lucide-react'
+import { leadToOutreach } from '@/lib/mandala-outreach'
+import type { CreateOutreachRequest } from '@/lib/mandala-outreach'
 
 interface Contact {
   id: string
@@ -41,6 +44,7 @@ export default function CRMPage() {
   const [newContact, setNewContact] = useState({ title: '', body: '', platform: '', category: '' })
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
+  const [sendingToMandala, setSendingToMandala] = useState<string | null>(null)
 
   const loadContacts = useCallback(async () => {
     setLoading(true)
@@ -115,6 +119,30 @@ export default function CRMPage() {
     setNewContact({ title: '', body: '', platform: '', category: '' })
     setShowAddForm(false)
     await loadContacts()
+  }
+
+  async function sendToMandala(contact: Contact) {
+    setSendingToMandala(contact.id)
+    try {
+      const outreach: CreateOutreachRequest = leadToOutreach({
+        id: contact.id,
+        title: contact.title,
+        body: contact.body,
+        platform: contact.platform,
+        category: contact.category,
+        pain_score: contact.pain_score,
+        status: contact.status,
+      })
+      const res = await fetch('/api/mandala/outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(outreach),
+      })
+      if (!res.ok) throw new Error('Failed to queue')
+    } catch (err) {
+      console.error('Failed to send to Mandala:', err)
+    }
+    setSendingToMandala(null)
   }
 
   const filtered = contacts.filter(c =>
@@ -312,16 +340,32 @@ export default function CRMPage() {
                         <span className="text-[10px] text-muted-foreground">
                           {contact.scraped_at ? new Date(contact.scraped_at).toLocaleDateString() : 'Just added'}
                         </span>
-                        {NEXT_STAGE[stage.key] && (
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); moveToStage(contact.id, NEXT_STAGE[stage.key]); }}
-                            className="flex items-center gap-1 text-[10px] font-medium text-primary hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-all"
+                            onClick={(e) => { e.stopPropagation(); sendToMandala(contact); }}
+                            disabled={sendingToMandala === contact.id}
+                            className="flex items-center gap-1 text-[10px] font-medium text-orange-600 hover:text-orange-500 transition-colors"
+                            title="Send to Mandala outreach queue"
                           >
-                            Move to {PIPELINE_STAGES.find(s => s.key === NEXT_STAGE[stage.key])?.label}
-                            <ArrowRight size={10} />
+                            {sendingToMandala === contact.id ? (
+                              <Loader2 size={10} className="animate-spin" />
+                            ) : (
+                              <Zap size={10} />
+                            )}
+                            Mandala
                           </button>
-                        )}
+                          {NEXT_STAGE[stage.key] && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); moveToStage(contact.id, NEXT_STAGE[stage.key]); }}
+                              className="flex items-center gap-1 text-[10px] font-medium text-primary hover:text-primary/80 transition-colors"
+                            >
+                              Move to {PIPELINE_STAGES.find(s => s.key === NEXT_STAGE[stage.key])?.label}
+                              <ArrowRight size={10} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
