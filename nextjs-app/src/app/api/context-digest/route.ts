@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 
 /**
- * Context digest untuk agent (OpenClaw, Antigravity).
+ * Context digest untuk agent (Mandala, Antigravity).
  * Response kecil agar hemat token — agent cek version; jika sama tidak perlu fetch konteks lengkap.
  */
 export async function GET() {

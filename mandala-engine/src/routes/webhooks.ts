@@ -6,7 +6,7 @@ export const webhookRoutes = new Hono();
 
 const router = MessageRouter.getInstance();
 
-// WhatsApp incoming message webhook
+// WhatsApp incoming message webhook (fallback — primary path is Baileys direct)
 webhookRoutes.post('/whatsapp', async (c) => {
   try {
     const body = await c.req.json<WhatsAppWebhook>();
@@ -27,35 +27,6 @@ webhookRoutes.post('/whatsapp', async (c) => {
     return c.json({ status: 'received' });
   } catch (err) {
     console.error('[webhook/whatsapp] Parse error:', err);
-    return c.json({ error: 'Invalid payload' }, 400);
-  }
-});
-
-// OpenClaw bridge — incoming messages forwarded from OpenClaw gateway
-webhookRoutes.post('/openclaw', async (c) => {
-  try {
-    const body = await c.req.json();
-
-    // OpenClaw forwards: { sender, message, channel, timestamp, message_id }
-    const sender = body.sender || body.from;
-    const message = body.message || body.text || body.content;
-    const channel = body.channel || 'whatsapp';
-
-    if (!sender || !message) {
-      return c.json({ error: 'Missing sender or message' }, 400);
-    }
-
-    router.handleIncoming({
-      channel: channel,
-      sender: sender,
-      content: message,
-      timestamp: new Date(body.timestamp || Date.now()),
-      raw: body,
-    }).catch(err => console.error('[webhook/openclaw] Error:', err));
-
-    return c.json({ status: 'received' });
-  } catch (err) {
-    console.error('[webhook/openclaw] Parse error:', err);
     return c.json({ error: 'Invalid payload' }, 400);
   }
 });

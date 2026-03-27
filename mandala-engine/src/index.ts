@@ -3,6 +3,8 @@ import { app } from './routes/index.js';
 import { TenantManager } from './tenants/manager.js';
 import { HandoffTimer } from './queue/handoff-timer.js';
 import { HunterScheduler } from './hunter/scheduler.js';
+import { BaileysProvider } from './channels/baileys-provider.js';
+import { MessageRouter } from './channels/router.js';
 
 const PORT = parseInt(process.env.PORT || '3100');
 
@@ -26,13 +28,30 @@ async function main() {
   hunterScheduler.start();
   console.log('✓ Hunter scheduler initialized');
 
+  // Connect Baileys WhatsApp
+  const baileys = BaileysProvider.getInstance();
+  const router = MessageRouter.getInstance();
+
+  // Bridge Baileys incoming messages → MessageRouter
+  baileys.on('message', (msg) => {
+    router.handleIncoming({
+      channel: 'whatsapp',
+      sender: msg.sender,
+      content: msg.content,
+      timestamp: msg.timestamp,
+      raw: msg.raw,
+    }).catch(err => console.error('[baileys→router] Error:', err));
+  });
+
+  await baileys.connect();
+  console.log('✓ Baileys WhatsApp provider initialized');
+
   // Start HTTP server
   serve({ fetch: app.fetch, port: PORT }, (info) => {
     console.log(`✓ Engine running on http://localhost:${info.port}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('  Endpoints:');
-    console.log('  - POST /webhook/whatsapp       (WhatsApp incoming)');
-    console.log('  - POST /webhook/openclaw       (OpenClaw bridge)');
+    console.log('  - POST /webhook/whatsapp       (WhatsApp fallback webhook)');
     console.log('  - POST /webhook/telegram       (Telegram incoming)');
     console.log('  - GET  /api/conversations      (List conversations)');
     console.log('  - GET  /api/leads              (Lead pipeline)');

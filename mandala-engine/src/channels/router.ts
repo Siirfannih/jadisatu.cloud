@@ -4,7 +4,7 @@ import { ContextAssembler } from '../ai/context-assembler.js';
 import { AIEngine } from '../ai/engine.js';
 import { LeadScorer } from '../tools/lead-scorer.js';
 import { HandoffTimer } from '../queue/handoff-timer.js';
-import { WhatsAppAdapter } from './whatsapp.js';
+import { BaileysProvider } from './baileys-provider.js';
 import { ShadowEvaluator } from '../evaluator/shadow-evaluator.js';
 import { ResistanceDetector } from '../evaluator/resistance-detector.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
@@ -28,7 +28,7 @@ export class MessageRouter {
   private aiEngine = AIEngine.getInstance();
   private scorer = LeadScorer.getInstance();
   private handoffTimer = HandoffTimer.getInstance();
-  private wa = WhatsAppAdapter.getInstance();
+  private wa = BaileysProvider.getInstance();
   private shadowEvaluator = ShadowEvaluator.getInstance();
   private resistanceDetector = ResistanceDetector.getInstance();
   private memoryUpdater = MemoryUpdater.getInstance();
