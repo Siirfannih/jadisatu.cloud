@@ -83,7 +83,7 @@ export async function GET() {
     const { count: contactNowProspects } = await supabase
       .from('mandala_hunter_prospects')
       .select('*', { count: 'exact', head: true })
-      .eq('decision', 'contact_now')
+      .eq('priority', 'contact_now')
 
     // Handler breakdown
     const { data: handlerData } = await supabase

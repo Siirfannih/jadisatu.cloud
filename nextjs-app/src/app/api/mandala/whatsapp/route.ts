@@ -49,7 +49,18 @@ export async function GET(request: NextRequest) {
     // Fallback: query engine directly for in-memory state
     const engineRes = await fetch(`${ENGINE_URL}/api/wa/status/${tenantId}`)
     const engineData = await engineRes.json()
-    return NextResponse.json(engineData)
+
+    // Normalize camelCase engine response to snake_case for frontend
+    return NextResponse.json({
+      tenant_id: engineData.tenantId || tenantId,
+      status: engineData.status || 'disconnected',
+      qr_code: engineData.qrCode || null,
+      phone_number: engineData.phoneNumber || null,
+      connected_at: engineData.connectedAt || null,
+      disconnected_at: engineData.disconnectedAt || null,
+      last_qr_at: engineData.lastQrAt || null,
+      error_message: engineData.errorMessage || null,
+    })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Mandala WhatsApp API Error:', error)
@@ -86,7 +97,14 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     })
 
-    const result = await engineRes.json()
+    const text = await engineRes.text()
+    let result
+    try {
+      result = JSON.parse(text)
+    } catch {
+      console.error('Engine returned non-JSON:', text.slice(0, 200))
+      return NextResponse.json({ error: 'Engine returned invalid response' }, { status: 502 })
+    }
     return NextResponse.json(result, { status: engineRes.status })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'

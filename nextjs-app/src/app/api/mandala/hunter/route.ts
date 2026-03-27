@@ -40,7 +40,24 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query
     if (error) throw error
 
-    return NextResponse.json({ success: true, data, count: data?.length || 0 })
+    // Normalize DB column names to match frontend Prospect interface
+    const normalized = (data || []).map((row: Record<string, unknown>) => ({
+      id: row.id,
+      business_name: row.business_name,
+      address: row.address,
+      phone: row.phone,
+      website: row.website,
+      rating: row.google_rating ?? row.rating ?? 0,
+      review_count: row.review_count ?? 0,
+      status: row.status,
+      decision: row.priority ?? row.decision ?? null,
+      pain_type: row.pain_classification ?? row.pain_type ?? null,
+      pain_score: row.pain_score ?? 0,
+      maps_url: row.google_maps_url ?? row.maps_url ?? null,
+      created_at: row.created_at,
+    }))
+
+    return NextResponse.json({ success: true, data: normalized, count: normalized.length })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Mandala Hunter API Error:', error)

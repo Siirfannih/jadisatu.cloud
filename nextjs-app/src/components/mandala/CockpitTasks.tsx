@@ -1,8 +1,10 @@
 'use client'
 
+import { useEffect, useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import {
-  AlertTriangle, ArrowUpCircle, Clock, Sparkles, CheckCircle2
+  AlertTriangle, ArrowUpCircle, Clock, Sparkles, CheckCircle2,
+  Plus, X, Loader2, Phone, MessageSquare, UserSearch, LifeBuoy, Target
 } from 'lucide-react'
 import type { MandalaStats, Conversation } from './types'
 
@@ -21,23 +23,278 @@ interface TaskGroup {
   priority: 'urgent' | 'high' | 'medium' | 'low'
 }
 
+interface MandalaTask {
+  id: string
+  type: string
+  objective: string
+  target: { customer_number: string; customer_name?: string; channel?: string }
+  context: string
+  status: string
+  approval_mode: string
+  created_by: string
+  created_at: string
+  executed_at?: string
+  error?: string
+}
+
+const TASK_TYPES = [
+  { value: 'outreach', label: 'Outreach', desc: 'Hubungi prospek baru', icon: Phone },
+  { value: 'follow_up', label: 'Follow Up', desc: 'Tindak lanjut percakapan', icon: MessageSquare },
+  { value: 'rescue', label: 'Rescue', desc: 'Selamatkan lead yang dingin', icon: LifeBuoy },
+  { value: 'qualification', label: 'Qualification', desc: 'Kualifikasi lead potensial', icon: UserSearch },
+]
+
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  pending: { bg: 'bg-slate-100', text: 'text-slate-600' },
+  in_progress: { bg: 'bg-blue-100', text: 'text-blue-600' },
+  awaiting_review: { bg: 'bg-amber-100', text: 'text-amber-600' },
+  approved: { bg: 'bg-green-100', text: 'text-green-600' },
+  executed: { bg: 'bg-green-100', text: 'text-green-700' },
+  failed: { bg: 'bg-red-100', text: 'text-red-600' },
+  cancelled: { bg: 'bg-gray-100', text: 'text-gray-500' },
+}
+
 export default function CockpitTasks({ stats, conversations, onNavigate }: Props) {
+  const [tasks, setTasks] = useState<MandalaTask[]>([])
+  const [showForm, setShowForm] = useState(false)
+  const [formLoading, setFormLoading] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [form, setForm] = useState({
+    type: 'outreach',
+    target_number: '',
+    target_name: '',
+    objective: '',
+    context: '',
+  })
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/mandala/tasks?limit=30')
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.data) setTasks(data.data)
+    } catch {
+      // Table may not exist yet
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTasks()
+  }, [fetchTasks])
+
+  const handleCreate = async () => {
+    if (!form.objective.trim() || !form.target_number.trim()) {
+      setFormError('Objective dan nomor target harus diisi')
+      return
+    }
+
+    setFormLoading(true)
+    setFormError(null)
+
+    try {
+      const res = await fetch('/api/mandala/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setFormError(data.error || 'Gagal membuat task')
+        return
+      }
+      setShowForm(false)
+      setForm({ type: 'outreach', target_number: '', target_name: '', objective: '', context: '' })
+      fetchTasks()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const handleAction = async (id: string, action: string) => {
+    try {
+      await fetch('/api/mandala/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      })
+      fetchTasks()
+    } catch {
+      // ignore
+    }
+  }
+
   const groups = buildTaskGroups(stats, conversations)
-  const totalTasks = groups.reduce((sum, g) => sum + g.items.length, 0)
+  const totalDerived = groups.reduce((sum, g) => sum + g.items.length, 0)
+  const activeTasks = tasks.filter(t => !['cancelled', 'executed', 'failed'].includes(t.status))
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Header with Create Button */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {totalTasks} operational {totalTasks === 1 ? 'task' : 'tasks'} requiring attention
+          {totalDerived + activeTasks.length} task{(totalDerived + activeTasks.length) !== 1 ? 's' : ''} memerlukan perhatian
         </p>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+            showForm
+              ? "bg-muted text-muted-foreground"
+              : "bg-orange-500 text-white hover:bg-orange-600"
+          )}
+        >
+          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          {showForm ? 'Batal' : 'Buat Task'}
+        </button>
       </div>
 
-      {totalTasks === 0 ? (
+      {/* Create Task Form */}
+      {showForm && (
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Target className="w-4 h-4 text-orange-500" />
+            Buat Task Baru
+          </h3>
+
+          {/* Task Type */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {TASK_TYPES.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setForm(f => ({ ...f, type: t.value }))}
+                className={cn(
+                  "p-3 rounded-lg border text-left transition-colors",
+                  form.type === t.value
+                    ? "border-orange-400 bg-orange-50"
+                    : "border-border hover:bg-muted"
+                )}
+              >
+                <t.icon className={cn("w-4 h-4 mb-1", form.type === t.value ? "text-orange-500" : "text-muted-foreground")} />
+                <p className="text-sm font-medium">{t.label}</p>
+                <p className="text-xs text-muted-foreground">{t.desc}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Target */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Nomor WhatsApp Target *</label>
+              <input
+                type="text"
+                value={form.target_number}
+                onChange={(e) => setForm(f => ({ ...f, target_number: e.target.value }))}
+                placeholder="628xxxxxxxxxx"
+                className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Nama (opsional)</label>
+              <input
+                type="text"
+                value={form.target_name}
+                onChange={(e) => setForm(f => ({ ...f, target_name: e.target.value }))}
+                placeholder="Nama kontak"
+                className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+            </div>
+          </div>
+
+          {/* Objective */}
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Objective / Goals *</label>
+            <textarea
+              value={form.objective}
+              onChange={(e) => setForm(f => ({ ...f, objective: e.target.value }))}
+              placeholder="Contoh: Hubungi untuk menawarkan jasa setup AI automation untuk bisnis klinik kecantikannya"
+              rows={2}
+              className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+            />
+          </div>
+
+          {/* Context */}
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Konteks tambahan (opsional)</label>
+            <textarea
+              value={form.context}
+              onChange={(e) => setForm(f => ({ ...f, context: e.target.value }))}
+              placeholder="Info tambahan yang perlu Mandala ketahui..."
+              rows={2}
+              className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+            />
+          </div>
+
+          {formError && (
+            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{formError}</p>
+          )}
+
+          <button
+            onClick={handleCreate}
+            disabled={formLoading}
+            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors text-sm font-medium disabled:opacity-50"
+          >
+            {formLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Buat Task
+          </button>
+        </div>
+      )}
+
+      {/* User-Created Tasks */}
+      {tasks.length > 0 && (
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <h3 className="font-semibold text-sm">Task yang Dibuat</h3>
+            <span className="text-xs text-muted-foreground">{tasks.length} task</span>
+          </div>
+          <div className="divide-y divide-border">
+            {tasks.map((task) => {
+              const statusStyle = STATUS_COLORS[task.status] || STATUS_COLORS.pending
+              const TypeIcon = TASK_TYPES.find(t => t.value === task.type)?.icon || Target
+              return (
+                <div key={task.id} className="p-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <TypeIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <p className="font-medium text-sm truncate">{task.objective}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {task.target.customer_name || task.target.customer_number} &middot; {task.type.replace('_', ' ')}
+                      </p>
+                      {task.error && (
+                        <p className="text-xs text-red-500 mt-1">{task.error}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", statusStyle.bg, statusStyle.text)}>
+                        {task.status.replace('_', ' ')}
+                      </span>
+                      {task.status === 'pending' && (
+                        <button
+                          onClick={() => handleAction(task.id, 'cancel')}
+                          className="text-xs text-muted-foreground hover:text-red-500 transition-colors"
+                          title="Cancel"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Derived Task Groups (from conversations) */}
+      {totalDerived === 0 && tasks.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center shadow-sm">
           <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
-          <p className="text-muted-foreground font-medium">All clear</p>
-          <p className="text-sm text-muted-foreground/60 mt-1">No tasks need attention right now.</p>
+          <p className="text-muted-foreground font-medium">Semua beres</p>
+          <p className="text-sm text-muted-foreground/60 mt-1">Tidak ada task yang memerlukan perhatian saat ini.</p>
         </div>
       ) : (
         groups.filter(g => g.items.length > 0).map((group) => (
