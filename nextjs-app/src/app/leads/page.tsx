@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Filter, TrendingUp, Target, Calendar, ArrowLeft } from "lucide-react";
+import { Search, Filter, TrendingUp, Target, Calendar, ArrowLeft, Zap, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { leadToOutreach } from '@/lib/mandala-outreach';
 
 type Lead = {
   id: string;
@@ -55,6 +56,7 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [categories, setCategories] = useState<string[]>(["All"]);
+  const [sendingToMandala, setSendingToMandala] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,6 +86,30 @@ export default function LeadsPage() {
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  async function sendToMandala(lead: Lead) {
+    setSendingToMandala(lead.id);
+    try {
+      const outreach = leadToOutreach({
+        id: lead.id,
+        title: lead.title,
+        body: lead.body,
+        platform: lead.platform,
+        category: lead.category,
+        pain_score: lead.pain_score,
+        status: lead.status,
+      });
+      const res = await fetch('/api/mandala/outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(outreach),
+      });
+      if (!res.ok) throw new Error('Failed to queue');
+    } catch (err) {
+      console.error('Failed to send to Mandala:', err);
+    }
+    setSendingToMandala(null);
+  }
 
   const filtered = leads.filter((l) => {
     const matchCat = activeFilter === "All" || l.category === activeFilter;
@@ -297,12 +323,26 @@ export default function LeadsPage() {
                         Pain Score: <span className="text-orange-400">{lead.pain_score}/100</span>
                       </div>
                     </div>
-                    {lead.jadisatu_solution && (
-                      <div className="bg-card border border-border rounded-lg p-4">
-                        <div className="text-sm text-green-500 font-medium mb-2">&#x1F4A1; JadiSatu Solution</div>
-                        <div className="text-foreground/80 text-sm">{lead.jadisatu_solution}</div>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {lead.jadisatu_solution && (
+                        <div className="flex-1 bg-card border border-border rounded-lg p-4">
+                          <div className="text-sm text-green-500 font-medium mb-2">&#x1F4A1; JadiSatu Solution</div>
+                          <div className="text-foreground/80 text-sm">{lead.jadisatu_solution}</div>
+                        </div>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); sendToMandala(lead); }}
+                        disabled={sendingToMandala === lead.id}
+                        className="shrink-0 flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {sendingToMandala === lead.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Zap size={14} />
+                        )}
+                        Send to Mandala
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

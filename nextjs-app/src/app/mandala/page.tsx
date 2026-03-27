@@ -6,8 +6,13 @@ import {
   MessageSquare, Users, Target, TrendingUp,
   Search, Phone, Globe, Star, ChevronRight,
   RefreshCw, Zap, UserCheck, Bot, ArrowRight,
-  MapPin, ExternalLink
+  MapPin, ExternalLink, Send, Play, X as XIcon,
+  CheckCircle
 } from 'lucide-react'
+import {
+  COMMAND_LABELS, STATUS_CONFIG, PRIORITY_CONFIG, SOURCE_LABELS,
+  type OutreachQueueItem, type OutreachStatus
+} from '@/lib/mandala-outreach'
 
 // Types
 interface MandalaStats {
@@ -27,6 +32,11 @@ interface MandalaStats {
     total_prospects: number
     contacted: number
     contact_now: number
+  }
+  outreach?: {
+    total: number
+    actionable: number
+    by_status: Record<string, number>
   }
 }
 
@@ -87,9 +97,10 @@ export default function MandalaPage() {
   const [stats, setStats] = useState<MandalaStats | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [prospects, setProspects] = useState<Prospect[]>([])
+  const [outreachQueue, setOutreachQueue] = useState<OutreachQueueItem[]>([])
   const [loading, setLoading] = useState(true)
   const [forbidden, setForbidden] = useState(false)
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'conversations' | 'hunter'>('pipeline')
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'conversations' | 'hunter' | 'outreach'>('pipeline')
   const [refreshing, setRefreshing] = useState(false)
   const [hunterQuery, setHunterQuery] = useState('')
   const [hunterRunning, setHunterRunning] = useState(false)
@@ -102,10 +113,12 @@ export default function MandalaPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, convsRes, hunterRes] = await Promise.all([
+      const [statsRes, convsRes, hunterRes, outreachRes, outreachStatsRes] = await Promise.all([
         fetch('/api/mandala/stats'),
         fetch('/api/mandala/conversations?status=active&limit=20'),
         fetch('/api/mandala/hunter?limit=20'),
+        fetch('/api/mandala/outreach?limit=30'),
+        fetch('/api/mandala/outreach?stats=true'),
       ])
 
       // Check for forbidden (owner-only access)
@@ -115,13 +128,20 @@ export default function MandalaPage() {
       }
 
       const statsData = await safeJson(statsRes)
-      if (statsData) setStats(statsData)
+      const outreachStatsData = await safeJson(outreachStatsRes)
+      if (statsData) {
+        if (outreachStatsData) statsData.outreach = outreachStatsData
+        setStats(statsData)
+      }
 
       const convsData = await safeJson(convsRes)
       if (convsData) setConversations(convsData.data || [])
 
       const hunterData = await safeJson(hunterRes)
       if (hunterData) setProspects(hunterData.data || [])
+
+      const outreachData = await safeJson(outreachRes)
+      if (outreachData) setOutreachQueue(outreachData.data || [])
     } catch (err) {
       console.error('Failed to fetch mandala data:', err)
     }
