@@ -38,6 +38,11 @@ async function main() {
     console.log('  - GET  /api/leads              (Lead pipeline)');
     console.log('  - GET  /api/hunter/prospects    (Hunter prospects)');
     console.log('  - POST /api/hunter/run          (Trigger hunter)');
+    console.log('  - POST /api/tasks              (Create task)');
+    console.log('  - GET  /api/tasks              (List tasks)');
+    console.log('  - GET  /api/tasks/:id          (Get task)');
+    console.log('  - POST /api/tasks/:id/approve  (Approve task)');
+    console.log('  - POST /api/tasks/:id/cancel   (Cancel task)');
     console.log('  - GET  /health                 (Health check)');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   });
