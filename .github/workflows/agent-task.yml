@@ -223,11 +223,8 @@ jobs:
           $env:PATH = "$npmPath;$env:PATH"
           $prompt = Get-Content agent-prompt.txt -Raw
           Write-Host "Executing with Claude Code..."
-          try {
-            & claude --dangerously-skip-permissions -p $prompt --max-turns 30 2>&1 | Tee-Object -FilePath result.txt
-          } catch {
-            "Error: $_" | Out-File -FilePath result.txt
-          }
+          & claude --dangerously-skip-permissions -p $prompt --max-turns 30 2>&1 | Tee-Object -FilePath result.txt
+          if ($LASTEXITCODE -ne 0) { Write-Host "Claude exited with code $LASTEXITCODE" }
 
       # ─── 7. Execute: Gemini CLI ──────────────────────────────────────
       - name: Execute with Gemini CLI
@@ -238,13 +235,10 @@ jobs:
         run: |
           $npmPath = "C:\Users\MICROSOFT\AppData\Roaming\npm"
           $env:PATH = "$npmPath;$env:PATH"
-          $prompt = Get-Content agent-prompt.txt -Raw
-          Write-Host "Executing with Gemini CLI..."
-          try {
-            & gemini -y -p $prompt 2>&1 | Tee-Object -FilePath result.txt
-          } catch {
-            "Error: $_" | Out-File -FilePath result.txt
-          }
+          Write-Host "Executing with Gemini CLI (yolo mode)..."
+          # Use -p with file content piped via stdin to avoid PS arg length limits
+          Get-Content agent-prompt.txt -Raw | & gemini --yolo 2>&1 | Tee-Object -FilePath result.txt
+          if ($LASTEXITCODE -ne 0) { Write-Host "Gemini exited with code $LASTEXITCODE" }
 
       # ─── 8. Execute: Codex CLI ───────────────────────────────────────
       - name: Execute with Codex CLI
@@ -255,13 +249,10 @@ jobs:
         run: |
           $npmPath = "C:\Users\MICROSOFT\AppData\Roaming\npm"
           $env:PATH = "$npmPath;$env:PATH"
-          $prompt = Get-Content agent-prompt.txt -Raw
-          Write-Host "Executing with Codex CLI..."
-          try {
-            & codex --full-auto -q $prompt 2>&1 | Tee-Object -FilePath result.txt
-          } catch {
-            "Error: $_" | Out-File -FilePath result.txt
-          }
+          Write-Host "Executing with Codex CLI (exec mode)..."
+          # codex exec reads prompt from stdin when using -
+          Get-Content agent-prompt.txt -Raw | & codex exec - 2>&1 | Tee-Object -FilePath result.txt
+          if ($LASTEXITCODE -ne 0) { Write-Host "Codex exited with code $LASTEXITCODE" }
 
       # ─── 9. Read result ──────────────────────────────────────────────
       - name: Read result
