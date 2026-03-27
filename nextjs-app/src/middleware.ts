@@ -59,6 +59,11 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Allow API routes to handle their own auth (they use getUser() directly)
+  if (pathname.startsWith('/api/')) {
+    return response
+  }
+
   // Allow access to login and auth callback routes
   // Note: basePath '/' is stripped before middleware runs
   if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
