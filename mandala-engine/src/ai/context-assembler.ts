@@ -81,11 +81,17 @@ export class ContextAssembler {
     // Core identity & rules — framed as base skills, not rigid rules
     parts.push(context.identity);
 
-    // Issue 3: Frame rules and mode config as learnable skills, not rigid rules
+    // Issue 3 (CEO feedback): Skills = panduan dasar yang harus dipelajari & dikembangkan, BUKAN skrip kaku
     parts.push(`---
-# PANDUAN DASAR (kembangkan sesuai pengalaman)
+# PANDUAN DASAR (ini adalah SKILLS, bukan aturan kaku)
 
-File panduan berikut adalah SKILLS dasar. Kamu boleh mengadaptasi dan mengembangkan approach-mu berdasarkan pengalaman percakapan sebelumnya. Yang penting: hasilnya efektif, bukan patuh 100% pada template.
+File-file berikut adalah SKILLS DASAR kamu — panduan yang kamu pelajari dan KEMBANGKAN sendiri.
+Kamu TIDAK harus mengikuti setiap instruksi secara literal.
+Yang penting: hasilnya EFEKTIF, percakapan terasa NATURAL, dan customer merasa nyaman.
+
+Semakin banyak percakapan yang kamu tangani, semakin kamu harus BERADAPTASI.
+Jika ada cara yang lebih baik untuk situasi spesifik ini — GUNAKAN, jangan terpaku pada template.
+Skills ini adalah TITIK AWAL, bukan BATAS.
 
 ${context.rules}`);
 
@@ -110,9 +116,9 @@ ${context.mode}`);
       parts.push(`---\n${context.customer_memory}`);
     }
 
-    // Skills — framed as learnable capabilities
+    // Skills — explicitly framed as reference material that Mandala learns from, NOT rigid scripts
     if (context.skills.length > 0) {
-      parts.push('---\n# Active Skills (panduan, bukan skrip — adaptasi berdasarkan konteks)\n' + context.skills.join('\n\n---\n'));
+      parts.push('---\n# Reference Skills (PELAJARI & KEMBANGKAN — bukan skrip yang harus diikuti)\n\nSkills ini adalah panduan dasar. Kamu boleh adaptasi, kombinasikan, atau abaikan bagian yang tidak relevan untuk konteks percakapan ini. Yang penting: customer merasa nyaman dan percakapan terasa natural.\n\n' + context.skills.join('\n\n---\n'));
     }
 
     // Knowledge
