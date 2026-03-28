@@ -232,24 +232,28 @@ export class TaskExecutor {
   }
 
   /**
-   * Suggest how many messages are appropriate based on context.
+   * Suggest a BASE message count — AI will randomize around this.
+   * Returns a range [min, max] for dynamic variation.
    */
   private suggestMessageCount(
     task: import('./types.js').ParsedTask,
     engagementLevel: CustomerEngagementLevel
   ): number {
-    // First contact / greetings: keep it short
+    // First contact: short but varied
     if (!task.contact_history || task.task_type === 'outreach') {
-      return engagementLevel === 'cold' ? 1 : 2;
+      if (engagementLevel === 'cold') return 1 + Math.floor(Math.random() * 2); // 1-2
+      return 2 + Math.floor(Math.random() * 2); // 2-3
     }
-    // Follow-ups: moderate
-    if (task.task_type === 'follow_up') return 2;
-    // Rescue: brief and respectful
-    if (task.task_type === 'rescue') return 2;
-    // Qualification with warm/hot: can be more detailed
-    if (engagementLevel === 'warm' || engagementLevel === 'hot') return 4;
-    // Default moderate
-    return 3;
+    // Follow-ups: moderate, varied
+    if (task.task_type === 'follow_up') return 2 + Math.floor(Math.random() * 3); // 2-4
+    // Rescue: brief but can explain
+    if (task.task_type === 'rescue') return 2 + Math.floor(Math.random() * 2); // 2-3
+    // Warm/hot conversations can go longer for detailed explanations
+    if (engagementLevel === 'hot') return 3 + Math.floor(Math.random() * 5); // 3-7
+    if (engagementLevel === 'warm') return 3 + Math.floor(Math.random() * 4); // 3-6
+    if (engagementLevel === 'lukewarm') return 2 + Math.floor(Math.random() * 3); // 2-4
+    // Default varied
+    return 2 + Math.floor(Math.random() * 3); // 2-4
   }
 
   private async reason(
@@ -355,21 +359,29 @@ Output JSON:
     switch (level) {
       case 'cold':
         return `LEVEL CUSTOMER: COLD (Belum kenal)
-PENDEKATAN: Jadilah TEMAN dulu, BUKAN sales. Tanya tentang BISNIS MEREKA, masalah mereka, kehidupan sehari-hari.
-JANGAN sebut produk sama sekali. Goal: bangun rapport dan kumpulkan info.
-Kamu adalah teman ngobrol, BUKAN sales. Jualan hanya saat customer sudah di level tinggi.`;
+PENDEKATAN: Kamu adalah TEMAN CURHAT, BUKAN sales. SAMA SEKALI jangan sebut produk, layanan, atau bisnis kamu.
+Fokus 100% ke MEREKA: tanya kabar, bisnis mereka, tantangan sehari-hari, cerita mereka.
+Gali informasi secara natural — seperti kenalan baru yang genuinely penasaran.
+Kalau mereka curhat, dengarkan dan empati. Jangan langsung cari solusi.
+Goal: mereka merasa nyaman ngobrol sama kamu dan mau cerita lebih banyak.
+INGAT: Di level ini kamu hanya MENDENGARKAN dan BERTANYA. Tidak ada agenda jualan.`;
       case 'lukewarm':
         return `LEVEL CUSTOMER: LUKEWARM (Sudah sedikit kenal)
-PENDEKATAN: Share cerita/masalah yang relatable. Boleh singgung solusi secara UMUM (bukan produk spesifik).
-Goal: buat mereka penasaran. Masih fokus ke mereka, bukan ke kamu.`;
+PENDEKATAN: Kamu masih teman ngobrol, tapi boleh share pengalaman/cerita yang RELATABLE.
+Boleh bilang "aku juga pernah ngalamin..." atau share insight UMUM tentang industri mereka.
+JANGAN sebut produk spesifik. Buat mereka merasa "wah, orang ini ngerti masalah gue".
+Goal: mereka mulai trust kamu dan mau ngobrol lebih dalam tentang masalah mereka.`;
       case 'warm':
         return `LEVEL CUSTOMER: WARM (Sudah terbuka)
-PENDEKATAN: Perkenalkan produkmu sebagai solusi NATURAL dari masalah yang sudah mereka ceritakan.
-Hubungkan pain points mereka dengan solusi. Goal: tumbuhkan interest.`;
+PENDEKATAN: Sekarang boleh perkenalkan apa yang kamu kerjakan secara NATURAL.
+Hubungkan langsung ke pain points yang MEREKA sudah ceritakan sendiri.
+Jangan push — biarkan mereka yang tertarik. "Kebetulan aku kerja di bidang ini..."
+Goal: mereka penasaran dan bertanya lebih lanjut tentang solusi kamu.`;
       case 'hot':
         return `LEVEL CUSTOMER: HOT (Sangat tertarik)
-PENDEKATAN: Direct pitch boleh. Bahas pricing, CTA jelas, arahkan ke next step.
-Goal: closing atau schedule meeting.`;
+PENDEKATAN: Direct pitch boleh. Bahas pricing jika ditanya, CTA jelas, arahkan ke next step.
+Tapi tetap conversational — bukan template sales. Sesuaikan dengan personality mereka.
+Goal: closing, schedule meeting, atau next step yang jelas.`;
     }
   }
 
@@ -377,16 +389,20 @@ Goal: closing atau schedule meeting.`;
    * Get dynamic message count instruction based on context.
    */
   private getMessageCountInstruction(guidance: number, level: CustomerEngagementLevel): string {
-    if (level === 'cold' && guidance <= 2) {
-      return `JUMLAH PESAN: Kirim ${guidance} pesan saja. Untuk sapaan pertama, cukup 1-2 bubble pendek. Jangan overload.`;
+    // Dynamic — guidance is already randomized, give AI freedom to adjust
+    const minMsg = Math.max(1, guidance - 1);
+    const maxMsg = Math.min(8, guidance + 2);
+
+    if (level === 'cold') {
+      return `JUMLAH PESAN: Kirim ${minMsg}-${Math.min(3, maxMsg)} bubble. Sapaan pertama harus ringan. JANGAN selalu kirim jumlah yang sama — variasikan berdasarkan konteks.`;
     }
-    if (guidance <= 2) {
-      return `JUMLAH PESAN: Kirim sekitar ${guidance} pesan. Singkat dan to the point.`;
+    if (level === 'lukewarm') {
+      return `JUMLAH PESAN: Kirim ${minMsg}-${maxMsg} bubble. Variasikan — kadang pendek, kadang lebih detail kalau konteksnya butuh. JANGAN selalu 3 bubble.`;
     }
-    if (guidance <= 4) {
-      return `JUMLAH PESAN: Kirim sekitar ${guidance} pesan. Cukup detail tapi jangan bertele-tele.`;
+    if (level === 'warm' || level === 'hot') {
+      return `JUMLAH PESAN: Kirim ${minMsg}-${maxMsg} bubble. Untuk penjelasan panjang, boleh sampai 6-8 bubble. Untuk respons singkat, cukup 1-2. SESUAIKAN dengan apa yang dibutuhkan, bukan template.`;
     }
-    return `JUMLAH PESAN: Kirim ${guidance}-${guidance + 2} pesan. Boleh detail karena konteksnya butuh penjelasan.`;
+    return `JUMLAH PESAN: Kirim ${minMsg}-${maxMsg} bubble. Variasikan jumlahnya — JANGAN selalu sama.`;
   }
 
   private async draft(
@@ -395,7 +411,7 @@ Goal: closing atau schedule meeting.`;
     profile: TargetProfile,
     model: string
   ): Promise<DraftedMessage> {
-    const gemini = getModel(model, { temperature: 0.7, maxOutputTokens: 400 });
+    const gemini = getModel(model, { temperature: 0.8, maxOutputTokens: 800 });
 
     const structureGuide = this.getStructureGuide(task.task_type);
     const dataWarning = profile.data_completeness < 30
@@ -420,25 +436,30 @@ Goal: closing atau schedule meeting.`;
 
     try {
       const result = await gemini.generateContent({
-        systemInstruction: `Kamu adalah Mandala, asisten percakapan dari Jadisatu. Buat pesan WhatsApp sesuai konteks.
+        systemInstruction: `Kamu adalah Mandala. Kamu chat di WhatsApp seperti manusia biasa — bukan bot, bukan template.
 
-Kamu adalah teman ngobrol, BUKAN sales. Jualan hanya saat customer sudah di level tinggi.
-Gunakan skills sebagai panduan, bukan skrip. Adaptasi berdasarkan konteks percakapan.
+PRINSIP UTAMA: Fokus ke CUSTOMER dulu, bukan produk. Hitung dulu mereka di level mana, lalu sesuaikan pendekatan.
+
+Skills yang kamu punya adalah PANDUAN DASAR — bukan skrip yang harus diikuti kata per kata.
+Semakin banyak percakapan yang kamu tangani, semakin kamu harus BELAJAR dan ADAPTASI sendiri.
+Kalau ada pendekatan yang lebih natural untuk konteks ini, GUNAKAN — jangan terpaku template.
 
 ${engagementInstructions}
 
 ${messageCountInstr}
 
 ATURAN PESAN:
-- Bahasa Indonesia casual tapi sopan
-- PENDEK — setiap bagian max 2-3 kalimat
+- Bahasa Indonesia casual tapi sopan — seperti chat sama teman
+- Setiap bubble max 2-3 kalimat (tapi boleh lebih pendek, 1 kalimat juga ok)
 - Pisahkan pesan dengan ||| (untuk split jadi beberapa bubble WA)
-- Jumlah bubble harus sesuai konteks (JANGAN selalu 3)
-- Jangan sebut harga (kecuali customer level HOT)
+- PENTING: Jumlah bubble HARUS BERVARIASI — kadang 1, kadang 3, kadang 5-6. JANGAN selalu 3!
+- Untuk penjelasan detail, bisa pecah sampai 6-8 bubble pendek
+- Untuk sapaan ringan, cukup 1-2 bubble
+- Jangan sebut harga (kecuali customer level HOT dan mereka yang tanya)
 - Jangan pakai numbered list
 - Jangan pakai kata: "penawaran", "promo", "diskon", "solusi terbaik"
-- Terasa seperti dari manusia, bukan template
-- Ada 1 CTA yang jelas (boleh berupa pertanyaan casual)
+- Terasa seperti dari manusia — casual, ada typo kecil sesekali juga gapapa
+- Ada 1 CTA natural (boleh berupa pertanyaan casual)
 
 ANTI-HALLUCINATION (WAJIB):
 - HANYA referensikan fakta dari data yang tersedia
@@ -538,10 +559,10 @@ Buat pesan (pisahkan dengan |||, jumlah bubble sesuai konteks — bisa 1, 2, 3, 
       detail: hasMetadata ? 'Metadata internal bocor ke pesan' : undefined,
     });
 
-    // Message count should match context complexity (not fixed "max 3 paragraphs")
+    // Message count should match context complexity — generous range for dynamic variation
     const maxPartsForContext = reasoning?.messageCountGuidance
-      ? reasoning.messageCountGuidance + 3 // allow some flexibility above guidance
-      : 8; // generous fallback
+      ? reasoning.messageCountGuidance + 4 // generous flexibility for detailed responses
+      : 10; // generous fallback — up to 10 bubbles for complex explanations
     const maxParagraphsPerPart = 4; // per individual bubble
     const tooManyParts = parts.length > maxPartsForContext;
     const tooLongPart = parts.some((p) => p.content.split('\n\n').length > maxParagraphsPerPart);
@@ -601,33 +622,42 @@ Buat pesan (pisahkan dengan |||, jumlah bubble sesuai konteks — bisa 1, 2, 3, 
   // ═══════════════════════════════════════
 
   /**
-   * Issue 4: Restructured timing for natural behavior.
-   * 1. Pre-read delay: 5-30s (simulates "not staring at phone")
+   * Issue 4 (CEO feedback): Timing yang natural seperti manusia.
+   *
+   * Pattern: Baca pesan (delay lama & bervariasi) → begitu read, langsung balas cepat.
+   * Ini meniru perilaku real: orang buka WA setelah beberapa saat, baca, lalu langsung ngetik.
+   *
+   * 1. Pre-read delay: 8-45s VARIED (kadang cepat, kadang lama — hindari pola yang bisa di-ban WA)
    * 2. Mark as read
-   * 3. Typing delay: 1-3s (quick typing after reading)
+   * 3. Quick typing delay: 0.5-2s (begitu baca, langsung ngetik)
    * 4. Send first message
-   * 5. Between messages: 1-4s (natural typing speed, varied)
+   * 5. Between messages: 0.8-3s (ngetik cepat, natural speed)
    */
   private async send(targetNumber: string, parts: MessagePart[]): Promise<boolean> {
     try {
-      // Step 1: Pre-read delay — simulate not staring at phone
-      const preReadDelay = naturalDelay(5, 30);
-      console.log(`[task-executor] Pre-read delay: ${(preReadDelay / 1000).toFixed(1)}s for ${targetNumber}`);
+      // Step 1: Pre-read delay — LAMA & BERVARIASI (anti-ban + natural)
+      // 15% chance delay panjang (30-60s), sisanya 8-25s
+      const isLongDelay = Math.random() < 0.15;
+      const preReadDelay = isLongDelay
+        ? naturalDelay(30, 60)   // kadang lama (sibuk, belum buka HP)
+        : naturalDelay(8, 25);   // biasanya 8-25 detik
+      console.log(`[task-executor] Pre-read delay: ${(preReadDelay / 1000).toFixed(1)}s for ${targetNumber} ${isLongDelay ? '(long)' : ''}`);
       await this.sleep(preReadDelay);
 
-      // Step 2: Mark as read (if adapter supports it)
+      // Step 2: Mark as read
       await this.wa.markAsRead(targetNumber);
       console.log(`[task-executor] Marked as read for ${targetNumber}`);
 
-      // Step 3: Short typing delay before first message
-      const typingDelay = naturalDelay(1, 3);
+      // Step 3: Quick typing delay — begitu baca, LANGSUNG balas
+      const typingDelay = naturalDelay(0.5, 2);
       await this.sleep(typingDelay);
 
-      // Step 4-5: Send messages with natural between-message delays
+      // Step 4-5: Send messages with FAST between-message delays (sudah ngetik, tinggal kirim)
       for (let i = 0; i < parts.length; i++) {
         if (i > 0) {
-          // Between-message delay: 1-4 seconds (varied natural typing)
-          const betweenDelay = naturalDelay(1, 4);
+          // Between-message delay: cepat karena sedang dalam flow ngetik
+          // Variasi kecil: 0.8-3s (simulasi ngetik bubble berikutnya)
+          const betweenDelay = naturalDelay(0.8, 3);
           await this.sleep(betweenDelay);
         }
         const sent = await this.wa.send(targetNumber, parts[i].content);
