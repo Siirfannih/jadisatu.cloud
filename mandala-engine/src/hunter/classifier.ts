@@ -22,6 +22,13 @@ export type PainType =
 
 export type HunterDecision = 'skip' | 'low_priority' | 'high_priority' | 'contact_now';
 
+export interface DataCompleteness {
+  available_fields: string[];
+  missing_fields: string[];
+  completeness_pct: number;
+  is_sufficient: boolean;
+}
+
 export interface ClassificationResult {
   pain_type: PainType;
   pain_score: number;
@@ -29,6 +36,7 @@ export interface ClassificationResult {
   reasoning: string;
   messaging_angle: string;
   blind_spots: string[];
+  data_completeness: DataCompleteness;
 }
 
 export class PainClassifier {
@@ -55,6 +63,10 @@ export class PainClassifier {
 
     const enrichment = prospect.enrichment_data || {};
     const reviews = prospect.reviews || [];
+
+    // Assess data completeness before classification
+    const completeness = this.assessDataCompleteness(prospect, enrichment, reviews);
+    console.log(`[classifier] Data completeness for ${prospect.business_name}: ${completeness.completeness_pct}% (${completeness.available_fields.length}/${completeness.available_fields.length + completeness.missing_fields.length} fields)`);
 
     // Build context for AI classification
     const businessContext = this.buildContext(prospect, enrichment, reviews);
@@ -103,6 +115,7 @@ Decision guide:
           reasoning: parsed.reasoning || '',
           messaging_angle: parsed.messaging_angle || '',
           blind_spots: parsed.blind_spots || [],
+          data_completeness: completeness,
         };
 
         // Update prospect in DB
@@ -125,6 +138,45 @@ Decision guide:
     }
 
     return null;
+  }
+
+  /**
+   * Assess data completeness before classification to prevent hallucination.
+   * Tracks which fields are available vs missing so AI doesn't fabricate data.
+   */
+  private assessDataCompleteness(prospect: any, enrichment: any, reviews: any[]): DataCompleteness {
+    const available: string[] = [];
+    const missing: string[] = [];
+
+    // Core business fields
+    if (prospect.business_name) available.push('business_name'); else missing.push('business_name');
+    if (prospect.address) available.push('address'); else missing.push('address');
+    if (prospect.phone) available.push('phone'); else missing.push('phone');
+    if (prospect.website) available.push('website'); else missing.push('website');
+    if (prospect.rating != null) available.push('rating'); else missing.push('rating');
+    if (prospect.review_count) available.push('review_count'); else missing.push('review_count');
+    if (prospect.types?.length > 0) available.push('business_types'); else missing.push('business_types');
+
+    // Enrichment fields
+    if (enrichment.has_website !== undefined) available.push('website_check'); else missing.push('website_check');
+    if (enrichment.has_whatsapp !== undefined) available.push('whatsapp_check'); else missing.push('whatsapp_check');
+    if (enrichment.digital_presence_score !== undefined) available.push('digital_score'); else missing.push('digital_score');
+    if (enrichment.has_instagram) available.push('instagram'); else missing.push('instagram');
+    if (enrichment.social_media?.length > 0) available.push('social_media'); else missing.push('social_media');
+    if (enrichment.review_analysis) available.push('review_analysis'); else missing.push('review_analysis');
+
+    // Reviews
+    if (reviews.length > 0) available.push('reviews'); else missing.push('reviews');
+
+    const total = available.length + missing.length;
+    const completeness_pct = total > 0 ? Math.round((available.length / total) * 100) : 0;
+
+    return {
+      available_fields: available,
+      missing_fields: missing,
+      completeness_pct,
+      is_sufficient: completeness_pct >= 30 && available.includes('business_name'),
+    };
   }
 
   private buildContext(prospect: any, enrichment: any, reviews: any[]): string {
