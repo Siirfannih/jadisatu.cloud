@@ -106,17 +106,44 @@ Output JSON:
   }
 
   private buildUserMessage(context: AssembledContext, lastMessage: string): string {
+    // Determine engagement context from lead score and phase
+    const score = context.lead_score?.score ?? 0;
+    const phase = context.phase_instruction || '';
+    let engagementGuide = '';
+
+    if (score >= 70) {
+      engagementGuide = 'LEVEL: HOT — customer sangat tertarik. Boleh direct, bahas detail, pricing jika ditanya. Tetap conversational.';
+    } else if (score >= 50) {
+      engagementGuide = 'LEVEL: WARM — customer mulai terbuka. Boleh perkenalkan apa yang kamu kerjakan secara natural, hubungkan ke pain points mereka. Jangan push.';
+    } else if (score >= 30) {
+      engagementGuide = 'LEVEL: LUKEWARM — customer sedikit kenal. Fokus share pengalaman yang relatable. JANGAN sebut produk spesifik. Bangun trust.';
+    } else {
+      engagementGuide = 'LEVEL: COLD — belum kenal. Kamu TEMAN CURHAT, BUKAN sales. JANGAN sebut produk/layanan. Fokus 100% ke MEREKA — tanya, dengarkan, empati. Gali informasi secara natural.';
+    }
+
     const parts = [
       `Customer mengirim: "${lastMessage}"`,
       '',
-      'INSTRUKSI:',
-      '1. Reply seperti admin biasa di WhatsApp (casual, singkat)',
-      '2. Jika perlu pecah jadi beberapa pesan, pisahkan dengan |||',
-      '3. Di akhir, tambahkan metadata dalam format:',
-      '   [META]{"intent":"...","confidence":0-1,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
+      engagementGuide,
       '',
-      'Contoh output:',
-      'harganya 1.5jt per bulan kak|||itu udah include setup ya|||[META]{"intent":"answer_price","confidence":0.9,"score_delta":2,"should_flag":false,"flag_reason":""}[/META]',
+      'INSTRUKSI:',
+      '1. Reply seperti admin biasa di WhatsApp — casual, natural, seperti chat sama teman',
+      '2. FOKUS ke customer dulu, bukan produk. Dengarkan, tanya, empati.',
+      '3. Jumlah pesan HARUS BERVARIASI berdasarkan konteks:',
+      '   - Jawaban singkat: 1 bubble saja ("oke kak" / "siap")',
+      '   - Percakapan normal: 2-3 bubble',
+      '   - Penjelasan detail: 4-6 bubble pendek',
+      '   - JANGAN selalu kirim jumlah yang sama!',
+      '4. Jika perlu pecah jadi beberapa pesan, pisahkan dengan |||',
+      '5. Di akhir, tambahkan metadata: [META]{"intent":"...","confidence":0-1,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
+      '',
+      'Contoh output (variasi jumlah bubble):',
+      '',
+      'Contoh 1 bubble: oke kak siap ditunggu ya|||[META]{"intent":"acknowledge","confidence":0.9,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
+      '',
+      'Contoh 2 bubble: wah menarik nih kak bisnisnya|||btw selama ini kelola sosmednya sendiri atau ada tim?|||[META]{"intent":"qualifying","confidence":0.8,"score_delta":1,"should_flag":false,"flag_reason":""}[/META]',
+      '',
+      'Contoh 5 bubble: harganya 1.5jt per bulan kak|||itu udah include setup awal|||terus dapet reporting bulanan juga|||jadi kakak tinggal terima report aja|||mau coba free audit dulu kak?|||[META]{"intent":"answer_price","confidence":0.9,"score_delta":2,"should_flag":false,"flag_reason":""}[/META]',
     ];
 
     return parts.join('\n');
