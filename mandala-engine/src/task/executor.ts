@@ -16,6 +16,7 @@ import type {
   SelfCheckItem,
   TaskReport,
   TargetProfile,
+  CustomerEngagementLevel,
 } from './types.js';
 
 /**
@@ -211,6 +212,46 @@ export class TaskExecutor {
   // STAGE 2: REASONING
   // ═══════════════════════════════════════
 
+  /**
+   * Determine customer engagement level.
+   * For FIRST CONTACT (no prior conversation), ALWAYS start as Cold regardless of hunter score.
+   * Hunter pain_score only affects PRIORITY of who to contact, not HOW to talk.
+   */
+  private determineEngagementLevel(
+    task: import('./types.js').ParsedTask,
+    profile: TargetProfile
+  ): CustomerEngagementLevel {
+    // First contact = always cold. Build rapport first.
+    if (!task.contact_history) return 'cold';
+
+    const score = task.contact_history.last_score;
+    if (score >= 70) return 'hot';
+    if (score >= 50) return 'warm';
+    if (score >= 30) return 'lukewarm';
+    return 'cold';
+  }
+
+  /**
+   * Suggest how many messages are appropriate based on context.
+   */
+  private suggestMessageCount(
+    task: import('./types.js').ParsedTask,
+    engagementLevel: CustomerEngagementLevel
+  ): number {
+    // First contact / greetings: keep it short
+    if (!task.contact_history || task.task_type === 'outreach') {
+      return engagementLevel === 'cold' ? 1 : 2;
+    }
+    // Follow-ups: moderate
+    if (task.task_type === 'follow_up') return 2;
+    // Rescue: brief and respectful
+    if (task.task_type === 'rescue') return 2;
+    // Qualification with warm/hot: can be more detailed
+    if (engagementLevel === 'warm' || engagementLevel === 'hot') return 4;
+    // Default moderate
+    return 3;
+  }
+
   private async reason(
     task: import('./types.js').ParsedTask,
     profile: TargetProfile,
@@ -222,11 +263,15 @@ export class TaskExecutor {
     else if (task.task_type === 'rescue') approach = 'rescue';
     else if (profile.data_completeness >= 40 && profile.pain_points.length > 0) approach = 'pain_based';
 
+    // Issue 2: Determine engagement level based on conversation history, NOT hunter data
+    const engagementLevel = this.determineEngagementLevel(task, profile);
+    const messageCountGuidance = this.suggestMessageCount(task, engagementLevel);
+
     try {
       const gemini = getModel(model, { temperature: 0.2, maxOutputTokens: 512 });
 
       const result = await gemini.generateContent({
-        systemInstruction: `Kamu adalah strategi planner untuk Mandala sales agent. Jawab 5 pertanyaan pre-eksekusi. Output JSON ONLY.`,
+        systemInstruction: `Kamu adalah strategi planner untuk Mandala sales agent. Jawab 6 pertanyaan pre-eksekusi. Output JSON ONLY.`,
         contents: [{
           role: 'user',
           parts: [{
@@ -234,7 +279,7 @@ export class TaskExecutor {
 Objective: ${task.objective_raw}
 Target: ${task.target_number}
 ${task.contact_name ? `Nama: ${task.contact_name}` : ''}
-${task.contact_history ? `Riwayat: fase ${task.contact_history.last_phase}, ${task.contact_history.total_messages} pesan, skor ${task.contact_history.last_score}` : 'Kontak baru'}
+${task.contact_history ? `Riwayat: fase ${task.contact_history.last_phase}, ${task.contact_history.total_messages} pesan, skor ${task.contact_history.last_score}` : 'Kontak baru — FIRST CONTACT'}
 ${task.context_extra ? `Konteks: ${task.context_extra}` : ''}
 
 Data yang tersedia tentang target:
@@ -243,20 +288,23 @@ Data yang tersedia tentang target:
 - Tipe: ${profile.business_type || 'tidak diketahui'}
 - Pain points: ${profile.pain_points.length > 0 ? profile.pain_points.join(', ') : 'tidak ada data'}
 - Data completeness: ${profile.data_completeness}%
+- Engagement level: ${engagementLevel}
 
-Jawab 5 pertanyaan wajib:
+Jawab 6 pertanyaan wajib:
 Q1: Apa outcome nyata yang Owner inginkan?
 Q2: Siapa target ini (estimasi profil)?
 Q3: Hook apa yang relevan untuk mereka?
 Q4: Strategi apa yang paling tepat?
 Q5: Metric sukses yang realistis?
+Q6: Apa estimasi engagement level customer (cold/lukewarm/warm/hot) dan pendekatan apa yang cocok?
 
 Output JSON:
 {
   "real_objective": "outcome nyata (bukan literal objective)",
   "hook": "angle pembuka pesan yang spesifik",
   "success_metric": 1-5,
-  "reasoning_notes": "ringkasan Q1-Q5 dalam 2 kalimat"
+  "reasoning_notes": "ringkasan Q1-Q6 dalam 2 kalimat",
+  "suggested_message_count": ${messageCountGuidance}
 }`,
           }],
         }],
@@ -274,6 +322,8 @@ Output JSON:
           strategy: task.task_type,
           success_metric: Math.min(5, Math.max(1, parsed.success_metric || 3)) as TaskReasoning['success_metric'],
           approach,
+          messageCountGuidance: parsed.suggested_message_count || messageCountGuidance,
+          engagementLevel,
         };
       }
     } catch (err) {
@@ -288,12 +338,56 @@ Output JSON:
       strategy: task.task_type,
       success_metric: 3,
       approach,
+      messageCountGuidance,
+      engagementLevel,
     };
   }
 
   // ═══════════════════════════════════════
   // STAGE 3: DRAFT & SELF-CHECK
   // ═══════════════════════════════════════
+
+  /**
+   * Get engagement-level-aware messaging instructions.
+   * Cold: be a friend. Lukewarm: share stories. Warm: introduce product. Hot: direct pitch.
+   */
+  private getEngagementLevelInstructions(level: CustomerEngagementLevel): string {
+    switch (level) {
+      case 'cold':
+        return `LEVEL CUSTOMER: COLD (Belum kenal)
+PENDEKATAN: Jadilah TEMAN dulu, BUKAN sales. Tanya tentang BISNIS MEREKA, masalah mereka, kehidupan sehari-hari.
+JANGAN sebut produk sama sekali. Goal: bangun rapport dan kumpulkan info.
+Kamu adalah teman ngobrol, BUKAN sales. Jualan hanya saat customer sudah di level tinggi.`;
+      case 'lukewarm':
+        return `LEVEL CUSTOMER: LUKEWARM (Sudah sedikit kenal)
+PENDEKATAN: Share cerita/masalah yang relatable. Boleh singgung solusi secara UMUM (bukan produk spesifik).
+Goal: buat mereka penasaran. Masih fokus ke mereka, bukan ke kamu.`;
+      case 'warm':
+        return `LEVEL CUSTOMER: WARM (Sudah terbuka)
+PENDEKATAN: Perkenalkan produkmu sebagai solusi NATURAL dari masalah yang sudah mereka ceritakan.
+Hubungkan pain points mereka dengan solusi. Goal: tumbuhkan interest.`;
+      case 'hot':
+        return `LEVEL CUSTOMER: HOT (Sangat tertarik)
+PENDEKATAN: Direct pitch boleh. Bahas pricing, CTA jelas, arahkan ke next step.
+Goal: closing atau schedule meeting.`;
+    }
+  }
+
+  /**
+   * Get dynamic message count instruction based on context.
+   */
+  private getMessageCountInstruction(guidance: number, level: CustomerEngagementLevel): string {
+    if (level === 'cold' && guidance <= 2) {
+      return `JUMLAH PESAN: Kirim ${guidance} pesan saja. Untuk sapaan pertama, cukup 1-2 bubble pendek. Jangan overload.`;
+    }
+    if (guidance <= 2) {
+      return `JUMLAH PESAN: Kirim sekitar ${guidance} pesan. Singkat dan to the point.`;
+    }
+    if (guidance <= 4) {
+      return `JUMLAH PESAN: Kirim sekitar ${guidance} pesan. Cukup detail tapi jangan bertele-tele.`;
+    }
+    return `JUMLAH PESAN: Kirim ${guidance}-${guidance + 2} pesan. Boleh detail karena konteksnya butuh penjelasan.`;
+  }
 
   private async draft(
     task: import('./types.js').ParsedTask,
@@ -308,6 +402,12 @@ Output JSON:
       ? '\n\nPERINGATAN: Data sangat terbatas. Jangan sebut detail bisnis yang tidak ada. Gunakan pendekatan umum.'
       : '';
 
+    // Issue 2: Customer-level-aware instructions
+    const engagementInstructions = this.getEngagementLevelInstructions(reasoning.engagementLevel);
+
+    // Issue 1: Dynamic message count guidance
+    const messageCountInstr = this.getMessageCountInstruction(reasoning.messageCountGuidance, reasoning.engagementLevel);
+
     // Build available/missing data lists for anti-hallucination
     const availableData: string[] = [];
     const missingData: string[] = [];
@@ -320,18 +420,25 @@ Output JSON:
 
     try {
       const result = await gemini.generateContent({
-        systemInstruction: `Kamu adalah Mandala, sales agent profesional dari Jadisatu. Buat pesan WhatsApp sesuai struktur yang diminta.
+        systemInstruction: `Kamu adalah Mandala, asisten percakapan dari Jadisatu. Buat pesan WhatsApp sesuai konteks.
 
-ATURAN MUTLAK:
+Kamu adalah teman ngobrol, BUKAN sales. Jualan hanya saat customer sudah di level tinggi.
+Gunakan skills sebagai panduan, bukan skrip. Adaptasi berdasarkan konteks percakapan.
+
+${engagementInstructions}
+
+${messageCountInstr}
+
+ATURAN PESAN:
 - Bahasa Indonesia casual tapi sopan
 - PENDEK — setiap bagian max 2-3 kalimat
 - Pisahkan pesan dengan ||| (untuk split jadi beberapa bubble WA)
-- Jangan langsung jualan
-- Jangan sebut harga
+- Jumlah bubble harus sesuai konteks (JANGAN selalu 3)
+- Jangan sebut harga (kecuali customer level HOT)
 - Jangan pakai numbered list
 - Jangan pakai kata: "penawaran", "promo", "diskon", "solusi terbaik"
 - Terasa seperti dari manusia, bukan template
-- Ada 1 CTA yang jelas
+- Ada 1 CTA yang jelas (boleh berupa pertanyaan casual)
 
 ANTI-HALLUCINATION (WAJIB):
 - HANYA referensikan fakta dari data yang tersedia
@@ -344,15 +451,16 @@ ANTI-HALLUCINATION (WAJIB):
 ${task.contact_name ? `Nama: ${task.contact_name}` : ''}
 Objective: ${reasoning.real_objective}
 Approach: ${reasoning.approach}
+Engagement Level: ${reasoning.engagementLevel}
 Hook: ${reasoning.hook}
 
 DATA YANG TERSEDIA: ${availableData.length > 0 ? availableData.join(', ') : 'sangat terbatas'}
 DATA YANG TIDAK TERSEDIA (JANGAN sebut): ${missingData.length > 0 ? missingData.join(', ') : 'semua tersedia'}
 
-Struktur wajib:
+Struktur panduan (adaptasi sesuai konteks):
 ${structureGuide}
 
-Buat pesan (pisahkan dengan |||):`,
+Buat pesan (pisahkan dengan |||, jumlah bubble sesuai konteks — bisa 1, 2, 3, atau lebih):`,
           }],
         }],
       });
@@ -360,13 +468,14 @@ Buat pesan (pisahkan dengan |||):`,
       const text = result.response.text().trim();
       const rawParts = text.split('|||').map((p) => p.trim()).filter(Boolean);
 
+      // Issue 4: Natural typing delays between messages (1-4 seconds, varied)
       const parts: MessagePart[] = rawParts.map((content, i) => ({
         content,
-        delay_seconds: i === 0 ? 0 : 3 + Math.random() * 2, // 3-5 second natural delay
+        delay_seconds: i === 0 ? 0 : 1 + Math.random() * 3, // 1-4 second natural typing delay
       }));
 
       // Self-check
-      const selfCheck = this.selfCheck(parts, task, profile);
+      const selfCheck = this.selfCheck(parts, task, profile, reasoning);
 
       return { parts, self_check: selfCheck };
     } catch (err) {
@@ -380,21 +489,25 @@ Buat pesan (pisahkan dengan |||):`,
 
   /**
    * Self-check per protocol section 4.2.
+   * Issue 1: Relaxed message count — validated against context, not fixed at 3.
+   * Issue 2: Price check now considers engagement level.
    */
   private selfCheck(
     parts: MessagePart[],
     task: import('./types.js').ParsedTask,
-    profile: TargetProfile
+    profile: TargetProfile,
+    reasoning?: TaskReasoning
   ): SelfCheckResult {
     const fullMessage = parts.map((p) => p.content).join(' ');
     const lower = fullMessage.toLowerCase();
     const checks: SelfCheckItem[] = [];
+    const engagementLevel = reasoning?.engagementLevel || 'cold';
 
-    // No price unless rescue or customer asked
+    // No price unless hot engagement or rescue
     const hasPrice = /\d+\s*(jt|juta|rb|ribu|k)\b|rp\s*\.?\d/i.test(fullMessage);
     checks.push({
       rule: 'no_price',
-      passed: !hasPrice || task.task_type === 'rescue',
+      passed: !hasPrice || task.task_type === 'rescue' || engagementLevel === 'hot',
       detail: hasPrice ? 'Pesan mengandung harga' : undefined,
     });
 
@@ -406,8 +519,10 @@ Buat pesan (pisahkan dengan |||):`,
       detail: hasNumberedList ? 'Mengandung numbered list' : undefined,
     });
 
-    // No forbidden words
-    const forbiddenWords = ['penawaran', 'promo', 'diskon', 'solusi terbaik'];
+    // No forbidden words (relax for hot customers)
+    const forbiddenWords = engagementLevel === 'hot'
+      ? ['promo', 'diskon'] // hot customers: only block discount language
+      : ['penawaran', 'promo', 'diskon', 'solusi terbaik'];
     const foundForbidden = forbiddenWords.filter((w) => lower.includes(w));
     checks.push({
       rule: 'no_forbidden_words',
@@ -423,12 +538,21 @@ Buat pesan (pisahkan dengan |||):`,
       detail: hasMetadata ? 'Metadata internal bocor ke pesan' : undefined,
     });
 
-    // Max 3 paragraphs per part
-    const tooLong = parts.some((p) => p.content.split('\n\n').length > 3);
+    // Message count should match context complexity (not fixed "max 3 paragraphs")
+    const maxPartsForContext = reasoning?.messageCountGuidance
+      ? reasoning.messageCountGuidance + 3 // allow some flexibility above guidance
+      : 8; // generous fallback
+    const maxParagraphsPerPart = 4; // per individual bubble
+    const tooManyParts = parts.length > maxPartsForContext;
+    const tooLongPart = parts.some((p) => p.content.split('\n\n').length > maxParagraphsPerPart);
     checks.push({
-      rule: 'max_length',
-      passed: !tooLong,
-      detail: tooLong ? 'Pesan terlalu panjang (>3 paragraf)' : undefined,
+      rule: 'message_count_matches_context',
+      passed: !tooManyParts && !tooLongPart,
+      detail: tooManyParts
+        ? `Terlalu banyak bubble (${parts.length}) untuk konteks ini (max ~${maxPartsForContext})`
+        : tooLongPart
+        ? `Ada bubble yang terlalu panjang (>4 paragraf per bubble)`
+        : undefined,
     });
 
     // Has a CTA (question or call to action)
@@ -450,6 +574,17 @@ Buat pesan (pisahkan dengan |||):`,
       });
     }
 
+    // Cold engagement should NOT mention product
+    if (engagementLevel === 'cold') {
+      const productMentions = ['jadisatu', 'platform kami', 'produk kami', 'layanan kami', 'jasa kami'];
+      const foundProduct = productMentions.filter((w) => lower.includes(w));
+      checks.push({
+        rule: 'cold_no_product_mention',
+        passed: foundProduct.length === 0,
+        detail: foundProduct.length > 0 ? `Cold customer: jangan sebut produk (${foundProduct.join(', ')})` : undefined,
+      });
+    }
+
     // Not empty
     checks.push({
       rule: 'not_empty',
@@ -465,11 +600,35 @@ Buat pesan (pisahkan dengan |||):`,
   // STAGE 4: SEND
   // ═══════════════════════════════════════
 
+  /**
+   * Issue 4: Restructured timing for natural behavior.
+   * 1. Pre-read delay: 5-30s (simulates "not staring at phone")
+   * 2. Mark as read
+   * 3. Typing delay: 1-3s (quick typing after reading)
+   * 4. Send first message
+   * 5. Between messages: 1-4s (natural typing speed, varied)
+   */
   private async send(targetNumber: string, parts: MessagePart[]): Promise<boolean> {
     try {
+      // Step 1: Pre-read delay — simulate not staring at phone
+      const preReadDelay = naturalDelay(5, 30);
+      console.log(`[task-executor] Pre-read delay: ${(preReadDelay / 1000).toFixed(1)}s for ${targetNumber}`);
+      await this.sleep(preReadDelay);
+
+      // Step 2: Mark as read (if adapter supports it)
+      await this.wa.markAsRead(targetNumber);
+      console.log(`[task-executor] Marked as read for ${targetNumber}`);
+
+      // Step 3: Short typing delay before first message
+      const typingDelay = naturalDelay(1, 3);
+      await this.sleep(typingDelay);
+
+      // Step 4-5: Send messages with natural between-message delays
       for (let i = 0; i < parts.length; i++) {
-        if (parts[i].delay_seconds > 0) {
-          await this.sleep(parts[i].delay_seconds * 1000);
+        if (i > 0) {
+          // Between-message delay: 1-4 seconds (varied natural typing)
+          const betweenDelay = naturalDelay(1, 4);
+          await this.sleep(betweenDelay);
         }
         const sent = await this.wa.send(targetNumber, parts[i].content);
         if (!sent) {
@@ -761,4 +920,15 @@ Buat pesan (pisahkan dengan |||):`,
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+/**
+ * Generate a human-like random delay in milliseconds.
+ * Uses slight gaussian-like distribution (sum of 2 randoms) for more natural feel.
+ */
+export function naturalDelay(minSeconds: number, maxSeconds: number): number {
+  // Average of two random values gives a slight bell-curve distribution
+  const r = (Math.random() + Math.random()) / 2;
+  const seconds = minSeconds + r * (maxSeconds - minSeconds);
+  return Math.round(seconds * 1000);
 }

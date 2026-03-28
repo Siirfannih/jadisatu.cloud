@@ -74,12 +74,21 @@ export class ContextAssembler {
   buildPrompt(context: AssembledContext): string {
     const parts: string[] = [];
 
-    // Core identity & rules (always)
+    // Core identity & rules — framed as base skills, not rigid rules
     parts.push(context.identity);
-    parts.push(context.rules);
 
-    // Mode config
-    parts.push(context.mode);
+    // Issue 3: Frame rules and mode config as learnable skills, not rigid rules
+    parts.push(`---
+# PANDUAN DASAR (kembangkan sesuai pengalaman)
+
+File panduan berikut adalah SKILLS dasar. Kamu boleh mengadaptasi dan mengembangkan approach-mu berdasarkan pengalaman percakapan sebelumnya. Yang penting: hasilnya efektif, bukan patuh 100% pada template.
+
+${context.rules}`);
+
+    // Mode config — also framed as guidelines
+    parts.push(`---
+# Mode Guidelines (adaptasi sesuai situasi)
+${context.mode}`);
 
     // Phase instruction (sales mode only)
     if (context.phase_instruction) {
@@ -91,9 +100,9 @@ export class ContextAssembler {
       parts.push(`---\n${context.customer_memory}`);
     }
 
-    // Skills (only loaded ones)
+    // Skills — framed as learnable capabilities
     if (context.skills.length > 0) {
-      parts.push('---\n# Active Skills\n' + context.skills.join('\n\n---\n'));
+      parts.push('---\n# Active Skills (panduan, bukan skrip — adaptasi berdasarkan konteks)\n' + context.skills.join('\n\n---\n'));
     }
 
     // Knowledge

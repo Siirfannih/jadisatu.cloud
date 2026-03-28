@@ -43,6 +43,32 @@ export class WhatsAppAdapter {
     return this.sendViaMeta(to, message);
   }
 
+  /**
+   * Mark messages from a contact as read (send read receipt).
+   * Supports delayed read to simulate natural "not staring at phone" behavior.
+   */
+  async markAsRead(contactNumber: string): Promise<boolean> {
+    if (this.provider === 'openclaw') {
+      return this.markAsReadViaOpenClaw(contactNumber);
+    }
+    // Fonnte and Meta don't have a straightforward markAsRead in this adapter;
+    // silently succeed — the read receipt will happen implicitly on send.
+    return true;
+  }
+
+  private async markAsReadViaOpenClaw(contactNumber: string): Promise<boolean> {
+    try {
+      const jid = contactNumber.includes('@') ? contactNumber : `${contactNumber}@s.whatsapp.net`;
+      const cmd = `openclaw message read --channel whatsapp --target '${jid}'`;
+      await execAsync(cmd, { timeout: 10000 });
+      return true;
+    } catch (err: any) {
+      // Non-critical — if read receipt fails, continue with send
+      console.warn(`[whatsapp/openclaw] markAsRead failed (non-critical):`, err.message || err);
+      return true;
+    }
+  }
+
   private async sendViaOpenClaw(to: string, message: string): Promise<boolean> {
     try {
       // Format: openclaw message send --channel whatsapp --target <JID> --message <text>
