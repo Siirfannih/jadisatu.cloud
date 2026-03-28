@@ -60,12 +60,32 @@ export class AIEngine {
 
       const userMessage = this.buildTaskUserMessage(task, context);
 
+      console.log(`[ai-engine] System prompt size: ${systemPrompt.length} chars, user message: ${userMessage.length} chars`);
+
       const result = await model.generateContent({
         systemInstruction: systemPrompt,
         contents: [{ role: 'user', parts: [{ text: userMessage }] }],
       });
 
-      const text = result.response.text();
+      // Diagnostic: check for safety blocks or empty candidates
+      const response = result.response;
+      const candidates = response.candidates;
+      const feedback = response.promptFeedback;
+      if (!candidates || candidates.length === 0) {
+        console.error('[ai-engine] Gemini returned 0 candidates!', {
+          promptFeedback: JSON.stringify(feedback),
+          blockReason: feedback?.blockReason,
+        });
+      } else {
+        const finishReason = candidates[0].finishReason;
+        if (finishReason && finishReason !== 'STOP') {
+          console.warn(`[ai-engine] Gemini finish reason: ${finishReason}`, {
+            safetyRatings: JSON.stringify(candidates[0].safetyRatings),
+          });
+        }
+      }
+
+      const text = response.text();
       console.log(`[ai-engine] Task raw response (${text.length} chars):`, text.slice(0, 500));
       const parsed = this.parseResponse(text);
       console.log(`[ai-engine] Task parsed: ${parsed.messages.length} messages, intent=${parsed.internal.intent}`);

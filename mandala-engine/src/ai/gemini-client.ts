@@ -1,12 +1,20 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 /**
  * Gemini API Client — Singleton for all AI operations.
  *
  * Uses @google/generative-ai SDK.
- * Replaces Anthropic SDK entirely.
+ * Safety settings relaxed for legitimate business use (WhatsApp sales AI).
  */
 let genAI: GoogleGenerativeAI | null = null;
+
+const SAFETY_SETTINGS = [
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE },
+];
 
 export function getGeminiClient(): GoogleGenerativeAI {
   if (!genAI) {
@@ -27,5 +35,6 @@ export function getModel(modelName: string, config?: { temperature?: number; max
       temperature: config?.temperature,
       maxOutputTokens: config?.maxOutputTokens,
     },
+    safetySettings: SAFETY_SETTINGS,
   });
 }
