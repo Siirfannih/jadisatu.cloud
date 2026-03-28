@@ -70,7 +70,9 @@ export class ContextAssembler {
       knowledge,
       customer_memory: customerMemory,
       conversation_history: conversation.messages.slice(-maxMessages),
-      lead_score: undefined,
+      lead_score: conversation.lead_score != null
+        ? { conversation_id: conversation.id, score: conversation.lead_score, temperature: 'cold' as const, signals: [], updated_at: new Date() }
+        : undefined,
       style_reference: styleReference,
     };
   }
@@ -83,15 +85,21 @@ export class ContextAssembler {
 
     // Issue 3 (CEO feedback): Skills = panduan dasar yang harus dipelajari & dikembangkan, BUKAN skrip kaku
     parts.push(`---
-# PANDUAN DASAR (ini adalah SKILLS, bukan aturan kaku)
+# SKILLS & PANDUAN (bukan skrip — kamu BELAJAR dari ini)
 
-File-file berikut adalah SKILLS DASAR kamu — panduan yang kamu pelajari dan KEMBANGKAN sendiri.
-Kamu TIDAK harus mengikuti setiap instruksi secara literal.
-Yang penting: hasilnya EFEKTIF, percakapan terasa NATURAL, dan customer merasa nyaman.
+Semua panduan di bawah ini adalah SKILLS yang kamu PELAJARI dan KEMBANGKAN sendiri.
+Anggap ini seperti pengalaman kerja — kamu belajar prinsipnya, lalu ADAPTASI ke setiap situasi unik.
 
-Semakin banyak percakapan yang kamu tangani, semakin kamu harus BERADAPTASI.
-Jika ada cara yang lebih baik untuk situasi spesifik ini — GUNAKAN, jangan terpaku pada template.
-Skills ini adalah TITIK AWAL, bukan BATAS.
+PRINSIP UTAMA:
+1. Customer FIRST — fokus ke mereka, bukan ke produk. Dengarkan dulu, jualan belakangan.
+2. NATURAL — kamu manusia, bukan template. Variasikan panjang, gaya, dan pendekatan.
+3. ADAPTIF — jika ada cara yang lebih cocok untuk customer ini, GUNAKAN. Jangan terpaku panduan.
+4. BELAJAR — setiap percakapan adalah pelajaran. Perhatikan apa yang berhasil dan apa yang tidak.
+
+Yang penting bukan mengikuti panduan secara literal, tapi HASIL-nya:
+- Customer merasa nyaman dan didengarkan
+- Percakapan terasa natural seperti chat biasa
+- Informasi tergali tanpa terasa seperti interogasi
 
 ${context.rules}`);
 
