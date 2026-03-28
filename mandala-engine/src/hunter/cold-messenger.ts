@@ -1,6 +1,7 @@
 import { getModel } from '../ai/gemini-client.js';
 import { getSupabase } from '../memory/supabase-client.js';
 import { BaileysProvider } from '../channels/baileys-provider.js';
+import { naturalDelay } from '../task/executor.js';
 
 /**
  * Cold Messenger — Sends personalized first messages to qualified prospects.
@@ -65,9 +66,30 @@ export class ColdMessenger {
     const message = await this.generateMessage(prospect, classification, conversationModel);
     if (!message) return false;
 
+    // Issue 4: Pre-send delay — randomized 5-30 seconds between contacts (anti-ban)
+    const preSendMs = naturalDelay(5, 30);
+    console.log(`[cold-messenger] Pre-send delay: ${(preSendMs / 1000).toFixed(1)}s`);
+    await this.sleep(preSendMs);
+
     // Send via WhatsApp
     const targetNumber = prospect.enrichment_data?.whatsapp_number || prospect.phone;
-    const sent = await this.wa.send(targetNumber, message);
+
+    // If message has multiple parts (split by |||), send with natural delays
+    const messageParts = message.split('|||').map((p: string) => p.trim()).filter(Boolean);
+    let sent = true;
+
+    for (let i = 0; i < messageParts.length; i++) {
+      if (i > 0) {
+        // Between message parts: 1.5-4 seconds (varied, not fixed)
+        const betweenMs = naturalDelay(1.5, 4);
+        await this.sleep(betweenMs);
+      }
+      const partSent = await this.wa.send(targetNumber, messageParts[i]);
+      if (!partSent) {
+        sent = false;
+        break;
+      }
+    }
 
     if (sent) {
       this.dailyCount++;
@@ -207,5 +229,9 @@ Buat pesan WhatsApp pertama (MAX 4 kalimat, natural). HANYA referensikan data ya
 
   getDailyCount(): number {
     return this.dailyCount;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

@@ -69,6 +69,8 @@ export interface ClarificationRequest {
   context: string;
 }
 
+export type CustomerEngagementLevel = 'cold' | 'lukewarm' | 'warm' | 'hot';
+
 export interface TaskReasoning {
   real_objective: string;
   target_profile: TargetProfile;
@@ -76,6 +78,8 @@ export interface TaskReasoning {
   strategy: TaskType;
   success_metric: SuccessLevel;
   approach: 'pain_based' | 'curiosity_based' | 'follow_up' | 'rescue';
+  messageCountGuidance: number;
+  engagementLevel: CustomerEngagementLevel;
 }
 
 export interface TargetProfile {
