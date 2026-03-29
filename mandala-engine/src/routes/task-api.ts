@@ -46,6 +46,30 @@ taskRoutes.post('/', async (c) => {
     return c.json({ error: `Invalid approval_mode. Must be one of: ${VALID_APPROVAL_MODES.join(', ')}` }, 400);
   }
 
+  // ── Deduplication: check for active/recent tasks for the same customer + type ──
+  const DEDUP_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+  const existingTasks = await taskStore.listByTenant(tenant_id, undefined, 100);
+  const duplicate = existingTasks.find((t) => {
+    if (t.target.customer_number !== target.customer_number) return false;
+    if (t.type !== type) return false;
+    // Active tasks (pending, in_progress, awaiting_review) always block
+    if (['pending', 'in_progress', 'awaiting_review'].includes(t.status)) return true;
+    // Recently executed tasks within dedup window also block
+    if (t.status === 'executed' && t.executed_at) {
+      const executedAt = new Date(t.executed_at).getTime();
+      if (Date.now() - executedAt < DEDUP_WINDOW_MS) return true;
+    }
+    return false;
+  });
+
+  if (duplicate) {
+    return c.json({
+      error: 'Duplicate task',
+      detail: `A ${type} task for ${target.customer_number} already exists (id: ${duplicate.id}, status: ${duplicate.status})`,
+      existing_task_id: duplicate.id,
+    }, 409);
+  }
+
   const input: CreateTaskInput = {
     tenant_id,
     type,

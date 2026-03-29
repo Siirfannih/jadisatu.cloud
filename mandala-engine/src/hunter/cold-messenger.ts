@@ -1,6 +1,7 @@
 import { getModel } from '../ai/gemini-client.js';
 import { getSupabase } from '../memory/supabase-client.js';
 import { WhatsAppAdapter } from '../channels/whatsapp.js';
+import { isInternalMessage, sanitizeMessage } from '../channels/message-guard.js';
 import { naturalDelay } from '../task/executor.js';
 
 /**
@@ -76,15 +77,34 @@ export class ColdMessenger {
 
     // If message has multiple parts (split by |||), send with natural delays
     const messageParts = message.split('|||').map((p: string) => p.trim()).filter(Boolean);
+
+    // Safety guard: filter out any parts containing internal messages
+    const safeParts = messageParts.filter((part) => {
+      const guard = isInternalMessage(part);
+      if (guard.blocked) {
+        console.error(
+          `[cold-messenger] BLOCKED internal message to ${targetNumber}: ${guard.reason}\n` +
+          `  Content: "${part.substring(0, 100)}..."`
+        );
+        return false;
+      }
+      return true;
+    });
+
+    if (safeParts.length === 0) {
+      console.error(`[cold-messenger] ALL message parts blocked by guard for ${targetNumber} — nothing to send`);
+      return false;
+    }
+
     let sent = true;
 
-    for (let i = 0; i < messageParts.length; i++) {
+    for (let i = 0; i < safeParts.length; i++) {
       if (i > 0) {
         // Between message parts: 1.5-4 seconds (varied, not fixed)
         const betweenMs = naturalDelay(1.5, 4);
         await this.sleep(betweenMs);
       }
-      const partSent = await this.wa.send(targetNumber, messageParts[i]);
+      const partSent = await this.wa.send(targetNumber, safeParts[i]);
       if (!partSent) {
         sent = false;
         break;

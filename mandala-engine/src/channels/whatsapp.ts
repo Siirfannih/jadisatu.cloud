@@ -12,6 +12,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { BaileysManager } from './baileys-manager.js';
 import { isInternalMessage } from './message-guard.js';
+import { SendRateLimiter } from './send-rate-limiter.js';
 
 const execAsync = promisify(exec);
 
@@ -22,6 +23,7 @@ export class WhatsAppAdapter {
   private metaToken: string;
   private metaPhoneId: string;
   private baileysManager: BaileysManager | null = null;
+  private rateLimiter = SendRateLimiter.getInstance();
 
   private constructor() {
     this.provider = (process.env.WA_PROVIDER as 'baileys' | 'openclaw' | 'fonnte' | 'meta_cloud_api') || 'openclaw';
@@ -60,6 +62,15 @@ export class WhatsAppAdapter {
           `  Content preview: "${message.substring(0, 120)}..."\n` +
           `  This message should be sent to the operator, not the customer.`
         );
+        return false;
+      }
+    }
+
+    // Anti-spam: rate limit + dedup per target number
+    if (!skipGuard) {
+      const rateCheck = this.rateLimiter.check(to, message);
+      if (!rateCheck.allowed) {
+        console.error(`[whatsapp] RATE LIMITED: ${rateCheck.reason}`);
         return false;
       }
     }
