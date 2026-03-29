@@ -70,7 +70,9 @@ export class ContextAssembler {
       knowledge,
       customer_memory: customerMemory,
       conversation_history: conversation.messages.slice(-maxMessages),
-      lead_score: undefined,
+      lead_score: conversation.lead_score != null
+        ? { conversation_id: conversation.id, score: conversation.lead_score, temperature: 'cold' as const, signals: [], updated_at: new Date() }
+        : undefined,
       style_reference: styleReference,
     };
   }
@@ -78,12 +80,33 @@ export class ContextAssembler {
   async buildPrompt(context: AssembledContext): Promise<string> {
     const parts: string[] = [];
 
-    // Core identity & rules (always)
+    // Core identity & rules — framed as base skills, not rigid rules
     parts.push(context.identity);
-    parts.push(context.rules);
 
-    // Mode config
-    parts.push(context.mode);
+    // Issue 3 (CEO feedback): Skills = panduan dasar yang harus dipelajari & dikembangkan, BUKAN skrip kaku
+    parts.push(`---
+# SKILLS & PANDUAN (bukan skrip — kamu BELAJAR dari ini)
+
+Semua panduan di bawah ini adalah SKILLS yang kamu PELAJARI dan KEMBANGKAN sendiri.
+Anggap ini seperti pengalaman kerja — kamu belajar prinsipnya, lalu ADAPTASI ke setiap situasi unik.
+
+PRINSIP UTAMA:
+1. Customer FIRST — fokus ke mereka, bukan ke produk. Dengarkan dulu, jualan belakangan.
+2. NATURAL — kamu manusia, bukan template. Variasikan panjang, gaya, dan pendekatan.
+3. ADAPTIF — jika ada cara yang lebih cocok untuk customer ini, GUNAKAN. Jangan terpaku panduan.
+4. BELAJAR — setiap percakapan adalah pelajaran. Perhatikan apa yang berhasil dan apa yang tidak.
+
+Yang penting bukan mengikuti panduan secara literal, tapi HASIL-nya:
+- Customer merasa nyaman dan didengarkan
+- Percakapan terasa natural seperti chat biasa
+- Informasi tergali tanpa terasa seperti interogasi
+
+${context.rules}`);
+
+    // Mode config — also framed as guidelines
+    parts.push(`---
+# Mode Guidelines (adaptasi sesuai situasi)
+${context.mode}`);
 
     // Phase instruction (sales mode only)
     if (context.phase_instruction) {
@@ -101,9 +124,9 @@ export class ContextAssembler {
       parts.push(`---\n${context.customer_memory}`);
     }
 
-    // Skills (only loaded ones)
+    // Skills — explicitly framed as reference material that Mandala learns from, NOT rigid scripts
     if (context.skills.length > 0) {
-      parts.push('---\n# Active Skills\n' + context.skills.join('\n\n---\n'));
+      parts.push('---\n# Reference Skills (PELAJARI & KEMBANGKAN — bukan skrip yang harus diikuti)\n\nSkills ini adalah panduan dasar. Kamu boleh adaptasi, kombinasikan, atau abaikan bagian yang tidak relevan untuk konteks percakapan ini. Yang penting: customer merasa nyaman dan percakapan terasa natural.\n\n' + context.skills.join('\n\n---\n'));
     }
 
     // Knowledge

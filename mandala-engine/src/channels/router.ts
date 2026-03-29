@@ -4,7 +4,7 @@ import { ContextAssembler } from '../ai/context-assembler.js';
 import { AIEngine } from '../ai/engine.js';
 import { LeadScorer } from '../tools/lead-scorer.js';
 import { HandoffTimer } from '../queue/handoff-timer.js';
-import { BaileysManager } from './baileys-manager.js';
+import { WhatsAppAdapter } from './whatsapp.js';
 import { ShadowEvaluator } from '../evaluator/shadow-evaluator.js';
 import { ResistanceDetector } from '../evaluator/resistance-detector.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
@@ -29,7 +29,7 @@ export class MessageRouter {
   private aiEngine = AIEngine.getInstance();
   private scorer = LeadScorer.getInstance();
   private handoffTimer = HandoffTimer.getInstance();
-  private waManager = BaileysManager.getInstance();
+  private waManager = WhatsAppAdapter.getInstance();
   private shadowEvaluator = ShadowEvaluator.getInstance();
   private resistanceDetector = ResistanceDetector.getInstance();
   private memoryUpdater = MemoryUpdater.getInstance();
@@ -203,6 +203,7 @@ export class MessageRouter {
 
     // ── Step 6: Handoff timer or direct response ──
     if (conversation.current_handler === 'owner' || conversation.current_handler === 'admin') {
+      // Owner was handling — give them full handoff timer to reply
       console.log(`[router] Owner was handling. Starting ${tenant.handoff.auto_takeover_delay_seconds}s timer.`);
       this.handoffTimer.start2MinTimer(conversation.id, async () => {
         await this.mandalaTakeOver(conversation, tenant);
@@ -211,9 +212,36 @@ export class MessageRouter {
     }
 
     if (conversation.current_handler === 'mandala' || conversation.current_handler === 'unassigned') {
+      // Mandala is handling — use natural human timing (not the full 2-min handoff timer)
+      // Pattern: varied pre-read delay → markAsRead → quick reply
+      // This replaces the old 120s timer for mandala-handled conversations
+      const naturalReplyDelay = this.naturalPreReadDelay();
+      console.log(`[router] Mandala handling. Natural reply in ${(naturalReplyDelay / 1000).toFixed(1)}s`);
       this.handoffTimer.start2MinTimer(conversation.id, async () => {
         await this.mandalaTakeOver(conversation, tenant);
-      }, tenant.handoff.auto_takeover_delay_seconds * 1000);
+      }, naturalReplyDelay);
+    }
+  }
+
+  /**
+   * Natural pre-read delay — simulates human behavior of not staring at phone.
+   * Varied delays to avoid WA ban patterns.
+   * Returns delay in milliseconds.
+   */
+  private naturalPreReadDelay(): number {
+    const roll = Math.random();
+    if (roll < 0.10) {
+      // 10% chance: very quick (just happened to be on phone) — 5-10s
+      return (5 + Math.random() * 5) * 1000;
+    } else if (roll < 0.55) {
+      // 45% chance: normal — 15-35s
+      return (15 + Math.random() * 20) * 1000;
+    } else if (roll < 0.85) {
+      // 30% chance: a bit busy — 35-60s
+      return (35 + Math.random() * 25) * 1000;
+    } else {
+      // 15% chance: really busy — 60-90s
+      return (60 + Math.random() * 30) * 1000;
     }
   }
 
@@ -233,7 +261,12 @@ export class MessageRouter {
     console.log(`[router] Mandala taking over conversation ${freshConv.id} [phase=${freshConv.phase}]`);
     freshConv.current_handler = 'mandala';
 
-    // Get customer memory for context injection
+    // ── Issue 4 (CEO feedback): Natural timing ──
+    // Step 1: Mark as read — the pre-read delay already happened via naturalPreReadDelay()
+    await this.waManager.markAsRead(freshConv.customer_number);
+    console.log(`[router] Marked as read for ${freshConv.customer_number}`);
+
+    // Step 2: Generate AI response (happens during "typing" — customer sees "read" then quick reply)
     const memory = await this.memoryUpdater.getMemory(freshConv.id);
     const memoryMarkdown = memory ? this.memoryUpdater.renderForContext(memory) : undefined;
 
@@ -250,13 +283,22 @@ export class MessageRouter {
       await this.flagOwner(freshConv, response.internal.flag_reason || 'Needs attention', tenant);
     }
 
+    // Step 3: Quick typing delay — begitu baca, langsung ngetik & balas
+    // Short delay (1-3s) simulates reading + start typing
+    const typingDelay = (1 + Math.random() * 2) * 1000;
+    await this.sleep(typingDelay);
+
+    // Step 4: Send messages with fast between-message delays (already "typing")
     for (let i = 0; i < response.messages.length; i++) {
-      const delay = response.delays[i] || this.randomDelay(tenant.handoff.response_delay);
-      await this.sleep(delay);
+      if (i > 0) {
+        // Between bubbles: 0.8-3s (natural typing speed between messages)
+        const betweenDelay = (0.8 + Math.random() * 2.2) * 1000;
+        await this.sleep(betweenDelay);
+      }
 
       const check = await this.store.get(freshConv.id);
       if (check && check.current_handler === 'owner') {
-        console.log(`[router] Owner jumped in during delay, aborting Mandala reply`);
+        console.log(`[router] Owner jumped in during reply, aborting Mandala`);
         return;
       }
 
@@ -287,7 +329,7 @@ export class MessageRouter {
     conversation.messages.push(message);
 
     if (channel === 'whatsapp') {
-      await this.waManager.send(conversation.tenant_id, conversation.customer_number, content);
+      await this.waManager.send(conversation.customer_number, content);
     }
 
     console.log(`[send] → ${conversation.customer_number}: "${content.substring(0, 60)}..."`);
@@ -315,7 +357,7 @@ export class MessageRouter {
       `Konteks: ${reason}\n` +
       `Last msg: "${conversation.messages[conversation.messages.length - 1]?.content?.substring(0, 100)}"`;
 
-    await this.waManager.send(conversation.tenant_id, ownerNumber, flagMsg);
+    await this.waManager.send(ownerNumber, flagMsg);
   }
 
   private resolveMode(routing: RoutingConfig, sender: string): Mode {
