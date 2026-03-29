@@ -2,25 +2,28 @@
  * WhatsApp Channel Adapter
  *
  * Supports multiple providers:
- * - openclaw (recommended — uses Baileys via OpenClaw gateway, no WA restriction risk)
+ * - baileys (direct — uses BaileysManager for multi-tenant sessions)
+ * - openclaw (uses Baileys via OpenClaw gateway)
  * - fonnte (third-party API, risk of WA account restriction)
  * - Meta Cloud API (official, requires business verification)
  */
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import type { BaileysManager } from './baileys-manager.js';
 
 const execAsync = promisify(exec);
 
 export class WhatsAppAdapter {
   private static instance: WhatsAppAdapter;
-  private provider: 'openclaw' | 'fonnte' | 'meta_cloud_api';
+  private provider: 'baileys' | 'openclaw' | 'fonnte' | 'meta_cloud_api';
   private fonteToken: string;
   private metaToken: string;
   private metaPhoneId: string;
+  private baileysManager: BaileysManager | null = null;
 
   private constructor() {
-    this.provider = (process.env.WA_PROVIDER as 'openclaw' | 'fonnte' | 'meta_cloud_api') || 'openclaw';
+    this.provider = (process.env.WA_PROVIDER as 'baileys' | 'openclaw' | 'fonnte' | 'meta_cloud_api') || 'openclaw';
     this.fonteToken = process.env.FONNTE_TOKEN || '';
     this.metaToken = process.env.META_WA_TOKEN || '';
     this.metaPhoneId = process.env.META_PHONE_ID || '';
@@ -33,7 +36,14 @@ export class WhatsAppAdapter {
     return WhatsAppAdapter.instance;
   }
 
-  async send(to: string, message: string): Promise<boolean> {
+  setBaileysManager(manager: BaileysManager): void {
+    this.baileysManager = manager;
+  }
+
+  async send(to: string, message: string, tenantId = 'mandala'): Promise<boolean> {
+    if (this.provider === 'baileys') {
+      return this.sendViaBaileys(to, message, tenantId);
+    }
     if (this.provider === 'openclaw') {
       return this.sendViaOpenClaw(to, message);
     }
@@ -48,12 +58,22 @@ export class WhatsAppAdapter {
    * Supports delayed read to simulate natural "not staring at phone" behavior.
    */
   async markAsRead(contactNumber: string): Promise<boolean> {
-    if (this.provider === 'openclaw') {
+    if (this.provider === 'baileys' || this.provider === 'openclaw') {
+      if (this.provider === 'baileys') return true; // Baileys handles read receipts in session
       return this.markAsReadViaOpenClaw(contactNumber);
     }
     // Fonnte and Meta don't have a straightforward markAsRead in this adapter;
     // silently succeed — the read receipt will happen implicitly on send.
     return true;
+  }
+
+  private async sendViaBaileys(to: string, message: string, tenantId: string): Promise<boolean> {
+    if (!this.baileysManager) {
+      console.error('[whatsapp/baileys] BaileysManager not set — call setBaileysManager() first');
+      console.log(`[whatsapp/dry] → ${to}: ${message}`);
+      return false;
+    }
+    return this.baileysManager.send(tenantId, to, message);
   }
 
   private async markAsReadViaOpenClaw(contactNumber: string): Promise<boolean> {
