@@ -3,7 +3,6 @@ import { ConversationStore } from '../memory/conversation-store.js';
 import { HandoffTimer } from '../queue/handoff-timer.js';
 import { HunterPipeline } from '../hunter/index.js';
 import { HunterScheduler } from '../hunter/scheduler.js';
-import { BaileysManager } from '../channels/baileys-manager.js';
 import { TaskExecutor } from '../task/executor.js';
 import { TargetIntel } from '../task/target-intel.js';
 import { getSupabase } from '../memory/supabase-client.js';
@@ -199,80 +198,6 @@ apiRoutes.post('/hunter/trigger', async (c) => {
 
   scheduler.runCycle().catch((err) => console.error('[hunter/trigger] Error:', err));
   return c.json({ status: 'triggered' });
-});
-
-// WHATSAPP SESSION API ROUTES
-// ══════════════════════════════════════════
-
-const waManager = BaileysManager.getInstance();
-
-// Get WhatsApp session status for a tenant
-apiRoutes.get('/wa/status/:tenantId', async (c) => {
-  const tenantId = c.req.param('tenantId');
-
-  // First check in-memory state
-  const memState = waManager.getSessionState(tenantId);
-  if (memState) {
-    return c.json(memState);
-  }
-
-  // Fallback: check Supabase for persisted state
-  const db = getSupabase();
-  const { data } = await db
-    .from('mandala_wa_sessions')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .single();
-
-  if (!data) {
-    return c.json({
-      tenantId,
-      status: 'disconnected',
-    });
-  }
-
-  return c.json({
-    tenantId: data.tenant_id,
-    status: data.status,
-    qrCode: data.qr_code,
-    phoneNumber: data.phone_number,
-    connectedAt: data.connected_at,
-    disconnectedAt: data.disconnected_at,
-    lastQrAt: data.last_qr_at,
-    errorMessage: data.error_message,
-  });
-});
-
-// Start/connect a WhatsApp session for a tenant
-apiRoutes.post('/wa/connect/:tenantId', async (c) => {
-  const tenantId = c.req.param('tenantId');
-
-  try {
-    const state = await waManager.startSession(tenantId);
-    return c.json({ success: true, ...state });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return c.json({ success: false, error: message }, 400);
-  }
-});
-
-// Disconnect a WhatsApp session for a tenant
-apiRoutes.post('/wa/disconnect/:tenantId', async (c) => {
-  const tenantId = c.req.param('tenantId');
-
-  try {
-    await waManager.disconnectSession(tenantId);
-    return c.json({ success: true, status: 'disconnected' });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return c.json({ success: false, error: message }, 400);
-  }
-});
-
-// List all active WhatsApp sessions
-apiRoutes.get('/wa/sessions', async (c) => {
-  const sessions = waManager.listSessions();
-  return c.json({ sessions });
 });
 
 // ══════════════════════════════════════════

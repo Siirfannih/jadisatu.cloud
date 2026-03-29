@@ -1,6 +1,6 @@
 import { getModel } from '../ai/gemini-client.js';
 import { getSupabase } from '../memory/supabase-client.js';
-import { BaileysProvider } from '../channels/baileys-provider.js';
+import { WhatsAppAdapter } from '../channels/whatsapp.js';
 import { naturalDelay } from '../task/executor.js';
 
 /**
@@ -12,7 +12,7 @@ import { naturalDelay } from '../task/executor.js';
 
 export class ColdMessenger {
   private static instance: ColdMessenger;
-  private wa = BaileysProvider.getInstance();
+  private wa = WhatsAppAdapter.getInstance();
   private dailyCount = 0;
   private lastResetDate = '';
 
