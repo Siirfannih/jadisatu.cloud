@@ -5,6 +5,7 @@ import { AIEngine } from '../ai/engine.js';
 import { LeadScorer } from '../tools/lead-scorer.js';
 import { HandoffTimer } from '../queue/handoff-timer.js';
 import { WhatsAppAdapter } from './whatsapp.js';
+import { isInternalMessage } from './message-guard.js';
 import { ShadowEvaluator } from '../evaluator/shadow-evaluator.js';
 import { ResistanceDetector } from '../evaluator/resistance-detector.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
@@ -314,6 +315,16 @@ export class MessageRouter {
     content: string,
     channel: 'whatsapp' | 'telegram'
   ): Promise<void> {
+    // Safety guard: block internal messages from reaching customers
+    const guard = isInternalMessage(content);
+    if (guard.blocked) {
+      console.error(
+        `[router] BLOCKED internal message to customer ${conversation.customer_number}: ${guard.reason}\n` +
+        `  Content: "${content.substring(0, 120)}..."`
+      );
+      return;
+    }
+
     const message: Message = {
       id: crypto.randomUUID(),
       conversation_id: conversation.id,
@@ -357,7 +368,8 @@ export class MessageRouter {
       `Konteks: ${reason}\n` +
       `Last msg: "${conversation.messages[conversation.messages.length - 1]?.content?.substring(0, 100)}"`;
 
-    await this.waManager.send(ownerNumber, flagMsg);
+    // skipGuard=true: this is an internal flag destined for the OWNER, not a customer
+    await this.waManager.send(ownerNumber, flagMsg, 'mandala', true);
   }
 
   private resolveMode(routing: RoutingConfig, sender: string): Mode {

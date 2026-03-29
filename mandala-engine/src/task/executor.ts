@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { getModel } from '../ai/gemini-client.js';
 import { WhatsAppAdapter } from '../channels/whatsapp.js';
+import { isInternalMessage } from '../channels/message-guard.js';
 import { ConversationStore } from '../memory/conversation-store.js';
 import { getSupabase } from '../memory/supabase-client.js';
 import { TenantManager } from '../tenants/manager.js';
@@ -635,6 +636,24 @@ Buat pesan (pisahkan dengan |||, jumlah bubble sesuai konteks — bisa 1, 2, 3, 
    */
   private async send(targetNumber: string, parts: MessagePart[]): Promise<boolean> {
     try {
+      // Safety guard: filter out any parts that contain internal messages
+      const safeParts = parts.filter((part) => {
+        const guard = isInternalMessage(part.content);
+        if (guard.blocked) {
+          console.error(
+            `[task-executor] BLOCKED internal message from reaching customer ${targetNumber}: ${guard.reason}\n` +
+            `  Content: "${part.content.substring(0, 100)}..."`
+          );
+          return false;
+        }
+        return true;
+      });
+
+      if (safeParts.length === 0) {
+        console.error(`[task-executor] ALL messages blocked by guard for ${targetNumber} — nothing to send`);
+        return false;
+      }
+
       // Step 1: Pre-read delay — LAMA & BERVARIASI (anti-ban + natural)
       // 15% chance delay panjang (30-60s), sisanya 8-25s
       const isLongDelay = Math.random() < 0.15;
@@ -653,19 +672,19 @@ Buat pesan (pisahkan dengan |||, jumlah bubble sesuai konteks — bisa 1, 2, 3, 
       await this.sleep(typingDelay);
 
       // Step 4-5: Send messages with FAST between-message delays (sudah ngetik, tinggal kirim)
-      for (let i = 0; i < parts.length; i++) {
+      for (let i = 0; i < safeParts.length; i++) {
         if (i > 0) {
           // Between-message delay: cepat karena sedang dalam flow ngetik
           // Variasi kecil: 0.8-3s (simulasi ngetik bubble berikutnya)
           const betweenDelay = naturalDelay(0.8, 3);
           await this.sleep(betweenDelay);
         }
-        const sent = await this.wa.send(targetNumber, parts[i].content);
+        const sent = await this.wa.send(targetNumber, safeParts[i].content);
         if (!sent) {
           console.error(`[task-executor] Failed to send part ${i + 1} to ${targetNumber}`);
           return false;
         }
-        console.log(`[task-executor] Sent part ${i + 1}/${parts.length} to ${targetNumber}`);
+        console.log(`[task-executor] Sent part ${i + 1}/${safeParts.length} to ${targetNumber}`);
       }
       return true;
     } catch (err) {
@@ -713,7 +732,8 @@ Buat pesan (pisahkan dengan |||, jumlah bubble sesuai konteks — bisa 1, 2, 3, 
     }
 
     try {
-      await this.wa.send(ownerNumber, reportMsg);
+      // skipGuard=true: this is an internal report destined for the OWNER, not a customer
+      await this.wa.send(ownerNumber, reportMsg, 'mandala', true);
     } catch (err) {
       console.error('[task-executor] Failed to report to owner:', err);
     }
@@ -731,7 +751,8 @@ Buat pesan (pisahkan dengan |||, jumlah bubble sesuai konteks — bisa 1, 2, 3, 
       (state.clarification.context ? `\n\n${state.clarification.context}` : '');
 
     try {
-      await this.wa.send(ownerNumber, msg);
+      // skipGuard=true: this is a clarification for the OWNER, not a customer
+      await this.wa.send(ownerNumber, msg, 'mandala', true);
     } catch (err) {
       console.error('[task-executor] Failed to send clarification to owner:', err);
     }

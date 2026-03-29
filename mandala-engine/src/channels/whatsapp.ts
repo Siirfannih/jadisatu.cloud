@@ -11,6 +11,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { BaileysManager } from './baileys-manager.js';
+import { isInternalMessage } from './message-guard.js';
 
 const execAsync = promisify(exec);
 
@@ -40,7 +41,29 @@ export class WhatsAppAdapter {
     this.baileysManager = manager;
   }
 
-  async send(to: string, message: string, tenantId = 'mandala'): Promise<boolean> {
+  /**
+   * Send a message via WhatsApp.
+   *
+   * Safety: If skipGuard is false (default), messages are checked against
+   * the MessageGuard before sending. Internal/operator messages (tagged
+   * [MANDALA], [FLAG], A/B/C options, etc.) will be BLOCKED from being
+   * sent to customers. Set skipGuard=true ONLY when sending to a known
+   * operator/owner number (e.g., flagOwner, reportToOwner).
+   */
+  async send(to: string, message: string, tenantId = 'mandala', skipGuard = false): Promise<boolean> {
+    // Safety guard: block internal messages from reaching customers
+    if (!skipGuard) {
+      const guard = isInternalMessage(message);
+      if (guard.blocked) {
+        console.error(
+          `[whatsapp] BLOCKED internal message to ${to}: ${guard.reason}\n` +
+          `  Content preview: "${message.substring(0, 120)}..."\n` +
+          `  This message should be sent to the operator, not the customer.`
+        );
+        return false;
+      }
+    }
+
     if (this.provider === 'baileys') {
       return this.sendViaBaileys(to, message, tenantId);
     }

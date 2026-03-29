@@ -6,6 +6,7 @@
  */
 import { EventEmitter } from 'events';
 import { BaileysManager } from './baileys-manager.js';
+import { isInternalMessage } from './message-guard.js';
 import type { BaileysMessage } from './baileys-session.js';
 
 export type { BaileysMessage } from './baileys-session.js';
@@ -47,7 +48,18 @@ export class BaileysProvider extends EventEmitter {
     await this.manager.startSession(DEFAULT_TENANT);
   }
 
-  async send(to: string, message: string): Promise<boolean> {
+  async send(to: string, message: string, skipGuard = false): Promise<boolean> {
+    // Safety guard: block internal messages from reaching customers
+    if (!skipGuard) {
+      const guard = isInternalMessage(message);
+      if (guard.blocked) {
+        console.error(
+          `[baileys-provider] BLOCKED internal message to ${to}: ${guard.reason}\n` +
+          `  Content preview: "${message.substring(0, 120)}..."`
+        );
+        return false;
+      }
+    }
     return this.manager.send(DEFAULT_TENANT, to, message);
   }
 
