@@ -5,6 +5,7 @@ import { HandoffTimer } from './queue/handoff-timer.js';
 import { HunterScheduler } from './hunter/scheduler.js';
 import { BaileysManager } from './channels/baileys-manager.js';
 import { MessageRouter } from './channels/router.js';
+import { WhatsAppAdapter } from './channels/whatsapp.js';
 
 const PORT = parseInt(process.env.PORT || '3100');
 
@@ -31,6 +32,9 @@ async function main() {
   // Connect WhatsApp via BaileysManager (multi-tenant)
   const baileysManager = BaileysManager.getInstance();
   const router = MessageRouter.getInstance();
+
+  // Wire BaileysManager into WhatsAppAdapter so outbound messages use Baileys
+  WhatsAppAdapter.getInstance().setBaileysManager(baileysManager);
 
   // Bridge BaileysManager incoming messages → MessageRouter (with tenantId)
   baileysManager.on('message', (tenantId: string, msg: any) => {
