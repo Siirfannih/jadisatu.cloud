@@ -4,7 +4,7 @@ import { ContextAssembler } from '../ai/context-assembler.js';
 import { AIEngine } from '../ai/engine.js';
 import { LeadScorer } from '../tools/lead-scorer.js';
 import { HandoffTimer } from '../queue/handoff-timer.js';
-import { BaileysManager } from './baileys-manager.js';
+import { WhatsAppAdapter } from './whatsapp.js';
 import { ShadowEvaluator } from '../evaluator/shadow-evaluator.js';
 import { ResistanceDetector } from '../evaluator/resistance-detector.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
@@ -29,7 +29,7 @@ export class MessageRouter {
   private aiEngine = AIEngine.getInstance();
   private scorer = LeadScorer.getInstance();
   private handoffTimer = HandoffTimer.getInstance();
-  private waManager = BaileysManager.getInstance();
+  private waManager = WhatsAppAdapter.getInstance();
   private shadowEvaluator = ShadowEvaluator.getInstance();
   private resistanceDetector = ResistanceDetector.getInstance();
   private memoryUpdater = MemoryUpdater.getInstance();
@@ -263,7 +263,7 @@ export class MessageRouter {
 
     // ── Issue 4 (CEO feedback): Natural timing ──
     // Step 1: Mark as read — the pre-read delay already happened via naturalPreReadDelay()
-    await this.wa.markAsRead(freshConv.customer_number);
+    await this.waManager.markAsRead(freshConv.customer_number);
     console.log(`[router] Marked as read for ${freshConv.customer_number}`);
 
     // Step 2: Generate AI response (happens during "typing" — customer sees "read" then quick reply)
@@ -329,7 +329,7 @@ export class MessageRouter {
     conversation.messages.push(message);
 
     if (channel === 'whatsapp') {
-      await this.waManager.send(conversation.tenant_id, conversation.customer_number, content);
+      await this.waManager.send(conversation.customer_number, content);
     }
 
     console.log(`[send] → ${conversation.customer_number}: "${content.substring(0, 60)}..."`);
@@ -357,7 +357,7 @@ export class MessageRouter {
       `Konteks: ${reason}\n` +
       `Last msg: "${conversation.messages[conversation.messages.length - 1]?.content?.substring(0, 100)}"`;
 
-    await this.waManager.send(conversation.tenant_id, ownerNumber, flagMsg);
+    await this.waManager.send(ownerNumber, flagMsg);
   }
 
   private resolveMode(routing: RoutingConfig, sender: string): Mode {
