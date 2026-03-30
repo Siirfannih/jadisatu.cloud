@@ -1,5 +1,6 @@
 import { getModel } from './gemini-client.js';
 import { ContextAssembler } from './context-assembler.js';
+import { isInternalMessage } from '../channels/message-guard.js';
 import type { AssembledContext, AIConfig, AIResponse } from '../types/shared.js';
 import type { MandalaTask } from '../tasks/types.js';
 
@@ -306,11 +307,32 @@ Output JSON:
     }
 
     // Extract messages (split by |||)
-    const cleanText = text.replace(/\[META\].*?\[\/META\]/s, '').trim();
+    let cleanText = text.replace(/\[META\].*?\[\/META\]/s, '').trim();
+
+    // Additional cleanup: strip any remaining internal artifacts
+    cleanText = cleanText
+      .replace(/\[MANDALA[^\]]*\]/gi, '')           // [MANDALA ...] tags
+      .replace(/\[FLAG[^\]]*\]/gi, '')               // [FLAG ...] tags
+      .replace(/\{[^}]*"intent"\s*:/gi, '')          // Leaked JSON metadata
+      .replace(/\{[^}]*"confidence"\s*:/gi, '')
+      .replace(/\{[^}]*"score_delta"\s*:/gi, '')
+      .replace(/━+/g, '')                            // Report separators
+      .replace(/\n{3,}/g, '\n\n')                    // Collapse excess newlines
+      .trim();
+
     const messages = cleanText
       .split('|||')
       .map((m) => m.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      // Final safety: filter out any messages that still contain internal patterns
+      .filter((m) => {
+        const guard = isInternalMessage(m);
+        if (guard.blocked) {
+          console.warn(`[ai-engine] Stripped internal message from AI output: ${guard.reason}`);
+          return false;
+        }
+        return true;
+      });
 
     // Generate natural delays between messages
     const delays = messages.map((_, i) =>

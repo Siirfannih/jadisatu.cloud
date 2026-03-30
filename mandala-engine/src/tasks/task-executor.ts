@@ -19,6 +19,7 @@ import { ContextAssembler } from '../ai/context-assembler.js';
 import { AIEngine } from '../ai/engine.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
 import { BaileysProvider } from '../channels/baileys-provider.js';
+import { isInternalMessage } from '../channels/message-guard.js';
 import { TaskStore } from './task-store.js';
 import type { MandalaTask, TaskDraft, TaskLogEntry } from './types.js';
 import type { Conversation, Message, Mode, TenantConfig } from '../types/shared.js';
@@ -412,8 +413,26 @@ export class TaskExecutor {
     conversation: Conversation,
     drafts: TaskDraft[]
   ): Promise<void> {
-    for (let i = 0; i < drafts.length; i++) {
-      const draft = drafts[i];
+    // Safety guard: filter out any drafts containing internal messages
+    const safeDrafts = drafts.filter((draft) => {
+      const guard = isInternalMessage(draft.content);
+      if (guard.blocked) {
+        console.error(
+          `[task-executor] BLOCKED internal draft from reaching customer ${conversation.customer_number}: ${guard.reason}\n` +
+          `  Content: "${draft.content.substring(0, 100)}..."`
+        );
+        return false;
+      }
+      return true;
+    });
+
+    if (safeDrafts.length === 0) {
+      console.error(`[task-executor] ALL drafts blocked by guard for ${conversation.customer_number} — nothing to send`);
+      return;
+    }
+
+    for (let i = 0; i < safeDrafts.length; i++) {
+      const draft = safeDrafts[i];
 
       // Apply delay for natural pacing (skip delay for first message)
       if (i > 0 && draft.delay_ms > 0) {
@@ -440,7 +459,7 @@ export class TaskExecutor {
         await this.wa.send(conversation.customer_number, draft.content);
       }
 
-      console.log(`[task-executor] Sent message ${i + 1}/${drafts.length} to ${conversation.customer_number}`);
+      console.log(`[task-executor] Sent message ${i + 1}/${safeDrafts.length} to ${conversation.customer_number}`);
     }
   }
 
