@@ -697,65 +697,30 @@ Buat pesan (pisahkan dengan |||, jumlah bubble sesuai konteks — bisa 1, 2, 3, 
   // STAGE 5: REPORTING
   // ═══════════════════════════════════════
 
-  private async reportToOwner(state: TaskState, tenantId: string): Promise<void> {
-    const tenant = this.tenantManager.get(tenantId);
-    const ownerNumber = tenant?.owner?.whatsapp;
-    if (!ownerNumber) return;
-
-    let reportMsg: string;
-
+  /**
+   * Task reports and escalations are NOT sent via WhatsApp — they are only
+   * stored in state and returned via the API response for the dashboard.
+   * The API endpoint returns state.report and state.escalation in its JSON response.
+   */
+  private async reportToOwner(state: TaskState, _tenantId: string): Promise<void> {
     if (state.status === 'sent' && state.report) {
-      const messagePreview = state.report.messages_sent
-        .map((m, i) => `${i + 1}. "${m.substring(0, 80)}${m.length > 80 ? '...' : ''}"`)
-        .join('\n');
-
-      reportMsg = `[MANDALA TASK REPORT]\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Task: ${state.report.task_type}\n` +
-        `Target: ${state.report.target_number}${state.report.target_name ? ` (${state.report.target_name})` : ''}\n` +
-        `Status: TERKIRIM\n\n` +
-        `Pesan:\n${messagePreview}\n\n` +
-        `Next: ${state.report.next_action}\n` +
-        `━━━━━━━━━━━━━━━━━━━━`;
+      console.log(`[task-executor] Task ${state.id} SENT report available via API`);
     } else if (state.status === 'escalated' && state.escalation) {
-      reportMsg = `[MANDALA ESKALASI]\n` +
-        `━━━━━━━━━━━━━━━━━\n` +
-        `Target: ${state.escalation.target_number}\n` +
-        `Situasi: ${state.escalation.situation}\n` +
-        `Yang dibutuhkan: ${state.escalation.needed_from_owner}\n` +
-        `Opsi:\n${state.escalation.options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join('\n')}\n` +
-        `━━━━━━━━━━━━━━━━━`;
+      console.log(`[task-executor] Task ${state.id} ESCALATED — available via API`);
     } else if (state.status === 'failed') {
-      reportMsg = `[MANDALA] Task GAGAL ke ${state.input.target_number}. Pesan tidak terkirim.`;
-    } else {
-      return;
-    }
-
-    try {
-      // skipGuard=true: this is an internal report destined for the OWNER, not a customer
-      await this.wa.send(ownerNumber, reportMsg, 'mandala', true);
-    } catch (err) {
-      console.error('[task-executor] Failed to report to owner:', err);
+      console.log(`[task-executor] Task ${state.id} FAILED — available via API`);
     }
   }
 
-  private async reportClarificationToOwner(state: TaskState, tenantId: string): Promise<void> {
-    const tenant = this.tenantManager.get(tenantId);
-    const ownerNumber = tenant?.owner?.whatsapp;
-    if (!ownerNumber || !state.clarification) return;
-
-    const msg = `[MANDALA]\n` +
-      `Sebelum saya hubungi ${state.clarification.target}, saya butuh satu klarifikasi:\n\n` +
-      `${state.clarification.question}\n\n` +
-      state.clarification.options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join('\n') +
-      (state.clarification.context ? `\n\n${state.clarification.context}` : '');
-
-    try {
-      // skipGuard=true: this is a clarification for the OWNER, not a customer
-      await this.wa.send(ownerNumber, msg, 'mandala', true);
-    } catch (err) {
-      console.error('[task-executor] Failed to send clarification to owner:', err);
-    }
+  /**
+   * Clarification is NOT sent via WhatsApp — it is only stored in state
+   * and returned via the API response for the dashboard to display.
+   * The API endpoint (POST /api/task/execute) returns state.clarification
+   * in its JSON response, so the task creator sees it on the website.
+   */
+  private async reportClarificationToOwner(state: TaskState, _tenantId: string): Promise<void> {
+    if (!state.clarification) return;
+    console.log(`[task-executor] Clarification needed for task ${state.id} — available via API (not sent via WhatsApp)`);
   }
 
   // ═══════════════════════════════════════
