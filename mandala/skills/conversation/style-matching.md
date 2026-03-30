@@ -19,23 +19,23 @@ Cara meniru gaya bicara Owner/Admin supaya transisi dari human ke AI tidak terde
 
 ### Admin yang Formal
 ```
-Admin: "Selamat siang, Kak. Terima kasih sudah menghubungi Jadisatu."
-Admin: "Untuk paket basic, harganya Rp 1,5 juta per bulan."
+Admin: "Selamat siang, Kak. Terima kasih sudah menghubungi kami."
+Admin: "Baik Kak, bisa saya bantu cek dulu ya."
 → MATCH: formal, "Kak" (K besar), pakai titik, kalimat lengkap
 ```
 
 ### Admin yang Casual
 ```
 Admin: "halo kak ada yg bisa dibantu?"
-Admin: "harganya 1.5jt per bulan kak"
+Admin: "oh oke, bentar ya aku cek dulu"
 → MATCH: casual, huruf kecil, singkat, gak pakai titik
 ```
 
 ### Admin yang Mix
 ```
 Admin: "Halo kak!"
-Admin: "ini untuk paketnya mulai dari 1.5jt/bulan ya"
-Admin: "mau aku jelasin detail?"
+Admin: "bentar ya aku tanya dulu ke tim"
+Admin: "nanti aku kabarin ya"
 → MATCH: semi-casual, friendly, pecah jadi beberapa chat pendek
 ```
 

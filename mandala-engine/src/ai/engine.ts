@@ -201,8 +201,9 @@ Output JSON:
     parts.push('3. Jika perlu pecah jadi beberapa pesan, pisahkan dengan |||');
     parts.push('4. Pesan HARUS terasa dari manusia, bukan template. Singkat, natural, ada hook spesifik.');
     parts.push('5. DILARANG bocorkan metadata internal ke customer (JSON, confidence, intent, score)');
-    parts.push('6. DILARANG sebut harga di pesan pertama kecuali task type rescue atau customer sudah tanya');
+    parts.push('6. DILARANG sebut produk, layanan, harga, atau apa yang kamu/Jadisatu jual di pesan outreach pertama');
     parts.push('7. DILARANG pakai numbered list, bold, atau format template');
+    parts.push('8. Pesan outreach pertama HARUS fokus ke MEREKA (tanya kabar, tanya bisnis) — bukan tentang kamu atau Jadisatu');
 
     // Constraints
     const constraints: string[] = [];
@@ -230,8 +231,13 @@ Output JSON:
     parts.push('Di akhir, tambahkan metadata:');
     parts.push('[META]{"intent":"outreach|follow_up|rescue|qualification","confidence":0-1,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]');
     parts.push('');
-    parts.push('Contoh output outreach:');
-    parts.push('Halo kak, saya Mandala dari Jadisatu 👋|||Kami bantu bisnis UMKM biar nggak kehilangan leads karena admin kewalahan. Boleh tanya dulu, bisnis kakak sekarang bergerak di bidang apa?|||[META]{"intent":"outreach","confidence":0.8,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]');
+    parts.push('Contoh output outreach (PERHATIKAN: tidak menyebut produk/layanan):');
+    parts.push('halo kak, apa kabar?|||aku Mandala, boleh kenalan? 😊|||[META]{"intent":"outreach","confidence":0.8,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]');
+    parts.push('');
+    parts.push('Contoh SALAH (JANGAN ditiru):');
+    parts.push('❌ "kami bantu bisnis biar ga pusing balasin chat" — ini JUALAN, bukan kenalan');
+    parts.push('❌ "Jadisatu punya layanan..." — ini PITCHING, bukan rapport');
+    parts.push('❌ menyebut AI, otomasi, setup, produk, layanan, solusi — DILARANG di outreach pertama');
 
     return parts.join('\n');
   }
