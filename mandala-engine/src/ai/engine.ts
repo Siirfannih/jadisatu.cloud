@@ -204,6 +204,7 @@ Output JSON:
     parts.push('6. DILARANG sebut produk, layanan, harga, atau apa yang kamu/Jadisatu jual di pesan outreach pertama');
     parts.push('7. DILARANG pakai numbered list, bold, atau format template');
     parts.push('8. Pesan outreach pertama HARUS fokus ke MEREKA (tanya kabar, tanya bisnis) — bukan tentang kamu atau Jadisatu');
+    parts.push('9. WAJIB akhiri dengan pertanyaan atau hook yang MEMANCING customer reply. Jangan kirim pesan dead-end (hanya acknowledge tanpa lanjutan).');
 
     // Constraints
     const constraints: string[] = [];
@@ -234,10 +235,14 @@ Output JSON:
     parts.push('Contoh output outreach (PERHATIKAN: tidak menyebut produk/layanan):');
     parts.push('halo kak, apa kabar?|||aku Mandala, boleh kenalan? 😊|||[META]{"intent":"outreach","confidence":0.8,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]');
     parts.push('');
+    parts.push('Contoh output follow_up (PERHATIKAN: SELALU ada pertanyaan di akhir):');
+    parts.push('wah seneng dengernya kak|||lagi ngerjain apa nih kak sekarang?|||[META]{"intent":"follow_up","confidence":0.8,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]');
+    parts.push('');
     parts.push('Contoh SALAH (JANGAN ditiru):');
     parts.push('❌ "kami bantu bisnis biar ga pusing balasin chat" — ini JUALAN, bukan kenalan');
     parts.push('❌ "Jadisatu punya layanan..." — ini PITCHING, bukan rapport');
     parts.push('❌ menyebut AI, otomasi, setup, produk, layanan, solusi — DILARANG di outreach pertama');
+    parts.push('❌ "wah seneng dengernya kak" (TANPA pertanyaan lanjutan) — ini DEAD-END, customer gak akan reply');
 
     return parts.join('\n');
   }
@@ -255,7 +260,7 @@ Output JSON:
     } else if (score >= 30) {
       engagementGuide = 'LEVEL: LUKEWARM — customer sedikit kenal. Fokus share pengalaman yang relatable. JANGAN sebut produk spesifik. Bangun trust.';
     } else {
-      engagementGuide = 'LEVEL: COLD — belum kenal. Kamu TEMAN CURHAT, BUKAN sales. JANGAN sebut produk/layanan. Fokus 100% ke MEREKA — tanya, dengarkan, empati. Gali informasi secara natural.';
+      engagementGuide = 'LEVEL: COLD — belum kenal. Kamu TEMAN CURHAT, BUKAN sales. JANGAN sebut produk/layanan. Fokus 100% ke MEREKA — tanya, dengarkan, empati. Gali informasi secara natural. WAJIB akhiri dengan pertanyaan yang memancing mereka reply.';
     }
 
     const parts = [
@@ -268,6 +273,7 @@ Output JSON:
       '2. DILARANG menjawab dengan informasi yang tidak ditanya oleh customer.',
       '3. Reply seperti admin biasa di WhatsApp — casual, natural, seperti chat sama teman.',
       '4. FOKUS ke customer dulu, bukan produk. Dengarkan, tanya, empati.',
+      '   PENTING: SELALU akhiri dengan pertanyaan atau hook yang memancing customer reply. Jangan pernah kirim pesan yang jadi dead-end (hanya acknowledge tanpa lanjutan).',
       '5. Jumlah pesan HARUS BERVARIASI berdasarkan konteks:',
       '   - Jawaban singkat: 1 bubble saja ("oke kak" / "siap")',
       '   - Percakapan normal: 2-3 bubble',
@@ -278,11 +284,13 @@ Output JSON:
       '',
       'Contoh output (variasi jumlah bubble):',
       '',
-      'Contoh 1 bubble: oke kak siap ditunggu ya|||[META]{"intent":"acknowledge","confidence":0.9,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
+      'Contoh 1 bubble: oke kak, lagi sibuk apa nih sekarang?|||[META]{"intent":"rapport","confidence":0.9,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
       '',
-      'Contoh 2 bubble: oh keren kak, sosmed management ya?|||boleh tau biasanya handle berapa klien kak?|||[META]{"intent":"discovery","confidence":0.8,"score_delta":3,"should_flag":false,"flag_reason":""}[/META]',
+      'Contoh 2 bubble: wah seneng dengernya kak|||lagi ngerjain apa nih kak sekarang?|||[META]{"intent":"rapport","confidence":0.8,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
       '',
-      'Contoh 4 bubble: wah lumayan tuh kak|||handle 5 klien sekaligus pasti hectic ya|||apalagi kalau mesti bales chat satu-satu|||selama ini ada bantuan tim atau sendirian kak?|||[META]{"intent":"qualifying","confidence":0.8,"score_delta":2,"should_flag":false,"flag_reason":""}[/META]',
+      'Contoh 3 bubble: oh keren kak, sosmed management ya?|||pasti rame banget ya|||handle berapa klien kak sekarang?|||[META]{"intent":"discovery","confidence":0.8,"score_delta":3,"should_flag":false,"flag_reason":""}[/META]',
+      '',
+      'POLA WAJIB: Perhatikan setiap contoh di atas SELALU diakhiri pertanyaan. Ini WAJIB. Jangan pernah reply hanya "wah keren" atau "oke kak" tanpa lanjutan pertanyaan.',
     ];
 
     return parts.join('\n');
