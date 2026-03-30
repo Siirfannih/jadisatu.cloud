@@ -19,8 +19,8 @@ interface NumberTracker {
   recentContentHashes: Map<string, number>;
 }
 
-const DEFAULT_MAX_PER_HOUR = 10;
-const DEFAULT_MAX_PER_MINUTE = 3;
+const DEFAULT_MAX_PER_HOUR = 100;
+const DEFAULT_MAX_PER_MINUTE = 10;
 const DEDUP_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 

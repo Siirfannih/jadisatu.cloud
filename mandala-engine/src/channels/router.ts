@@ -340,7 +340,11 @@ export class MessageRouter {
     conversation.messages.push(message);
 
     if (channel === 'whatsapp') {
-      await this.waManager.send(conversation.customer_number, content);
+      const sent = await this.waManager.send(conversation.customer_number, content);
+      if (!sent) {
+        console.error(`[send] FAILED → ${conversation.customer_number}: "${content.substring(0, 60)}..."`);
+        return;
+      }
     }
 
     console.log(`[send] → ${conversation.customer_number}: "${content.substring(0, 60)}..."`);
