@@ -41,8 +41,10 @@ export class ContextAssembler {
     // Load skills based on mode and phase
     const skills = await this.loadSkills(mode, conversation);
 
-    // Load knowledge (DB first, then filesystem fallback)
-    const knowledge = await this.loadKnowledgeWithDB(tenant);
+    // Load knowledge — phase-gated for sales mode, full for CEO mode
+    const knowledge = mode === 'sales-shadow'
+      ? await this.loadPhaseGatedKnowledge(conversation.phase, tenant)
+      : await this.loadKnowledgeWithDB(tenant);
 
     // Build phase instruction for sales mode
     let phaseInstruction: string | undefined;
@@ -228,6 +230,64 @@ Customer menunjukkan resistance. Tujuan:
     };
 
     return phaseMap[phase] + `\n\n_${config.description}_`;
+  }
+
+  /**
+   * Load knowledge files gated by the current conversation phase.
+   * In early phases (kenalan), NO product knowledge is loaded — the AI
+   * should focus on rapport, not regurgitate FAQ answers.
+   * DB knowledge is also skipped in kenalan to prevent knowledge leakage.
+   */
+  private async loadPhaseGatedKnowledge(
+    phase: import('../types/shared.js').ConversationPhase,
+    tenant: TenantConfig
+  ): Promise<string[]> {
+    const allowedPaths = this.phaseController.getKnowledgeForPhase(phase);
+
+    // No knowledge allowed in this phase — return empty
+    if (allowedPaths.length === 0) {
+      return [];
+    }
+
+    const results: string[] = [];
+
+    // Load allowed filesystem knowledge
+    for (const kPath of allowedPaths) {
+      const content = await this.loadFile(kPath);
+      if (content) results.push(content);
+    }
+
+    // Load DB knowledge only if phase allows any knowledge at all
+    try {
+      if (!this.dbKnowledgeCache || Date.now() > this.dbCacheExpiry) {
+        const db = getSupabase();
+        const { data } = await db
+          .from('mandala_knowledge')
+          .select('title, content, category')
+          .eq('tenant_id', tenant.id)
+          .eq('active', true)
+          .order('priority', { ascending: false });
+
+        if (data && data.length > 0) {
+          this.dbKnowledgeCache = data.map(
+            (entry: { title: string; content: string; category: string }) =>
+              `## ${entry.title} [${entry.category}]\n${entry.content}`
+          );
+          this.dbCacheExpiry = Date.now() + 60_000;
+        } else {
+          this.dbKnowledgeCache = [];
+          this.dbCacheExpiry = Date.now() + 30_000;
+        }
+      }
+
+      if (this.dbKnowledgeCache && this.dbKnowledgeCache.length > 0) {
+        results.push(...this.dbKnowledgeCache);
+      }
+    } catch (err) {
+      console.error('[context-assembler] DB knowledge load failed:', err);
+    }
+
+    return results;
   }
 
   private async loadKnowledge(knowledgePaths: string[]): Promise<string[]> {

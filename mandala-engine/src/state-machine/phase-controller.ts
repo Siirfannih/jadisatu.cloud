@@ -28,6 +28,7 @@ export class PhaseController {
         'skills/conversation/style-matching.md',
         'skills/sales/qualifying.md',
       ],
+      knowledge: [],  // NO knowledge — kenalan is pure rapport, no product info
       maxContextMessages: 10,
       description: 'Perkenalan & bangun rapport. Tujuan: kenali bisnis customer.',
     },
@@ -39,6 +40,9 @@ export class PhaseController {
         'skills/conversation/style-matching.md',
         'skills/sales/qualifying.md',
         'skills/sales/product-knowledge.md',
+      ],
+      knowledge: [
+        'knowledge/jadisatu-products.md',  // Know what we sell, but don't pitch yet
       ],
       maxContextMessages: 15,
       description: 'Gali pain points bisnis. Tujuan: customer sadar ada masalah.',
@@ -52,6 +56,11 @@ export class PhaseController {
         'skills/sales/objection-handling.md',
         'skills/sales/qualifying.md',
       ],
+      knowledge: [
+        'knowledge/jadisatu-products.md',
+        'knowledge/faq.md',
+        'knowledge/competitors.md',
+      ],
       maxContextMessages: 15,
       description: 'Presentasi solusi & handle objections. Tujuan: customer tertarik.',
     },
@@ -63,6 +72,10 @@ export class PhaseController {
         'skills/sales/closing.md',
         'skills/sales/product-knowledge.md',
       ],
+      knowledge: [
+        'knowledge/jadisatu-products.md',
+        'knowledge/faq.md',
+      ],
       maxContextMessages: 10,
       description: 'Closing deal. Tujuan: schedule meeting / deal.',
     },
@@ -73,6 +86,9 @@ export class PhaseController {
         'skills/conversation/natural-flow.md',
         'skills/conversation/style-matching.md',
         'skills/sales/objection-handling.md',
+      ],
+      knowledge: [
+        'knowledge/faq.md',  // FAQ for handling questions, not hard sell
       ],
       maxContextMessages: 10,
       description: 'Customer resistant. Tujuan: rebuild trust, offer value.',
@@ -89,6 +105,10 @@ export class PhaseController {
 
   getMaxContextMessages(phase: ConversationPhase): number {
     return this.getPhaseConfig(phase).maxContextMessages;
+  }
+
+  getKnowledgeForPhase(phase: ConversationPhase): string[] {
+    return this.getPhaseConfig(phase).knowledge;
   }
 
   /**

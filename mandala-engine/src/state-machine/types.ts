@@ -21,6 +21,7 @@ export interface PhaseConfig {
   phase: ConversationPhase;
   scoreRange: { min: number; max: number };
   skills: string[];       // Relative paths under mandala/ dir
+  knowledge: string[];    // Knowledge files allowed in this phase (empty = none)
   maxContextMessages: number;
   description: string;
 }

@@ -1,57 +1,34 @@
-# FAQ — Pertanyaan yang Sering Ditanya
+# FAQ — Referensi Internal
+
+PENTING: Ini adalah referensi INTERNAL untuk menjawab pertanyaan customer.
+JANGAN copy-paste jawaban ini langsung. Gunakan informasi ini sebagai BAHAN
+untuk merangkai jawaban yang natural sesuai konteks percakapan saat ini.
+Jawab HANYA jika customer benar-benar menanyakan topik tersebut.
 
 ## Setup & Onboarding
 
-Q: "Setup-nya ribet gak?"
-A: gak ribet kak, kita yang handle semua. kakak tinggal kirim data produk sama FAQ aja
-
-Q: "Berapa lama setup-nya?"
-A: 1-2 hari kerja kak, tergantung banyaknya produk
-
-Q: "Aku harus ngapain?"
-A: cuma kirim: 1) list produk + harga, 2) FAQ yang sering ditanya customer, 3) tone yang kakak mau (formal/casual)
-
-Q: "Bisa setup sendiri?"
-A: gak perlu kak, itu bagian kita. makanya namanya terima beres
+- Setup ditangani penuh oleh tim Jadisatu (terima beres)
+- Yang perlu disiapkan customer: data produk, FAQ bisnis mereka, preferensi tone
+- Durasi setup: 1-2 hari kerja, tergantung kompleksitas
+- Customer tidak perlu setup sendiri
 
 ## Harga & Pembayaran
 
-Q: "Kok mahal?"
-A: sebenernya lebih murah dari gaji admin kak, dan ini 24 jam nonstop
-
-Q: "Ada trial gak?"
-A: ada kak, bisa coba dulu
-
-Q: "Bayarnya gimana?"
-A: transfer bank kak, nanti aku kasih detailnya
-
-Q: "Kalau mau berhenti?"
-A: bulanan kak, gak ada kontrak. stop kapan aja
+- Positioning: lebih murah dari gaji admin, tapi 24 jam nonstop
+- Ada opsi trial
+- Pembayaran: transfer bank
+- Model: bulanan tanpa kontrak, bisa stop kapan saja
 
 ## Teknis
 
-Q: "Ini chatbot ya?"
-A: beda kak, ini AI yang dilatih khusus buat bisnis kakak, bukan template
+- Bukan chatbot template — AI yang dilatih khusus per bisnis, paham konteks
+- Safety net: jika AI tidak yakin, otomatis forward ke admin manusia
+- Channel: WhatsApp ready, Instagram coming soon
+- Data terenkripsi, hanya bisa diakses oleh pemilik bisnis
+- Fokus Bahasa Indonesia
 
-Q: "Kalau AI-nya salah jawab?"
-A: kita ada safety net kak, kalau AI gak yakin langsung di-forward ke admin beneran
+## Perbandingan dengan Alternatif
 
-Q: "Support WA sama IG?"
-A: WA udah ready kak, IG coming soon
-
-Q: "Data customer aman?"
-A: aman kak, semua terenkripsi dan cuma bisa diakses sama kakak
-
-Q: "Bisa bahasa apa aja?"
-A: fokus Bahasa Indonesia kak untuk sekarang
-
-## Perbandingan
-
-Q: "Bedanya sama chatbot biasa?"
-A: chatbot biasa keyword-based kak, kalau customer nanya beda dikit langsung bingung. ini beneran paham konteks
-
-Q: "Kenapa gak hire admin aja?"
-A: boleh juga kak, tapi admin gak bisa 24 jam, kadang mood-nya naik turun, dan kalau resign datanya ikut pergi
-
-Q: "Ada kompetitor yang lebih murah"
-A: bisa jadi kak, tapi cek dulu kualitasnya. yang murah biasanya chatbot template, bukan AI yang di-custom per bisnis
+- vs Chatbot biasa: chatbot keyword-based, mudah bingung. Jadisatu paham konteks
+- vs Hire admin: admin tidak 24 jam, mood bervariasi, data hilang kalau resign
+- vs Kompetitor murah: biasanya chatbot template, bukan AI custom per bisnis
