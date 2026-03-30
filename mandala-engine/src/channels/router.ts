@@ -69,6 +69,22 @@ export class MessageRouter {
     const senderType = this.resolveSenderType(tenant.routing, msg.sender);
 
     let conversation = await this.store.getByCustomer(tenantId, msg.sender);
+
+    // LID fallback: if sender is a LID and no conversation found,
+    // look for a recent outreach-only conversation (phone number) that hasn't received a reply yet.
+    // This merges the LID identity into the existing outreach conversation.
+    if (!conversation && msg.sender.endsWith('@lid')) {
+      const outreach = await this.store.findRecentOutreachOnly(tenantId);
+      if (outreach) {
+        console.log(`[router] LID fallback: merging ${msg.sender} into outreach conversation ${outreach.id} (${outreach.customer_number})`);
+        // Update the conversation to use the LID as customer_number since
+        // all future messages from this person will come from this LID
+        await this.store.updateCustomerNumber(outreach.id, msg.sender);
+        outreach.customer_number = msg.sender;
+        conversation = outreach;
+      }
+    }
+
     if (!conversation) {
       conversation = await this.createConversation(tenantId, msg.sender, mode);
     }

@@ -138,6 +138,64 @@ export class ConversationStore {
     return this.toConversation(conv, messages);
   }
 
+  /**
+   * Find a recent outreach-only conversation (only outgoing messages, no incoming).
+   * Used as fallback when a LID message arrives and we can't resolve to phone number.
+   */
+  async findRecentOutreachOnly(tenantId: string): Promise<Conversation | undefined> {
+    const db = getSupabase();
+    // Find active conversations created in the last 24 hours
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: convs } = await db
+      .from('mandala_conversations')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .not('customer_number', 'like', '%@lid')
+      .gte('created_at', cutoff)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (!convs || convs.length === 0) return undefined;
+
+    // Check each conversation to find one with only outgoing messages (outreach, no reply yet)
+    for (const conv of convs) {
+      const { data: msgs } = await db
+        .from('mandala_messages')
+        .select('direction')
+        .eq('conversation_id', conv.id)
+        .limit(20);
+
+      if (!msgs || msgs.length === 0) continue;
+
+      const hasIncoming = msgs.some((m: any) => m.direction === 'incoming');
+      if (!hasIncoming) {
+        const messages = await this.getMessages(conv.id);
+        return this.toConversation(conv, messages);
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Update the customer_number on an existing conversation (e.g. after LID resolution).
+   */
+  async updateCustomerNumber(conversationId: string, newNumber: string): Promise<void> {
+    const db = getSupabase();
+    await db
+      .from('mandala_conversations')
+      .update({ customer_number: newNumber })
+      .eq('id', conversationId);
+
+    // Also update messages sender_number for outgoing messages
+    await db
+      .from('mandala_messages')
+      .update({ sender_number: newNumber })
+      .eq('conversation_id', conversationId)
+      .eq('direction', 'incoming');
+  }
+
   async listByTenant(tenantId: string, status?: string): Promise<Conversation[]> {
     const db = getSupabase();
     let query = db

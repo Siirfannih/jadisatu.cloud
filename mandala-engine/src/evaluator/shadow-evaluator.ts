@@ -35,12 +35,15 @@ export class ShadowEvaluator {
       .map((m) => `[${m.sender}] ${m.content}`)
       .join('\n');
 
+    const style = memory?.communication_style as Record<string, string> | undefined;
+    const position = memory?.negotiation_position as Record<string, unknown> | undefined;
     const memoryContext = memory
       ? `Business: ${memory.business_name || 'unknown'} (${memory.business_type || 'unknown'})
 Pain points: ${memory.pain_points.join(', ') || 'none identified'}
-Style: ${memory.communication_style}
-Position: ${memory.negotiation_position}
-Key facts: ${memory.key_facts.join(', ') || 'none'}`
+Style: ${style?.tone || 'unknown'}
+Position: ${position?.stage || 'unknown'}
+Interests: ${memory.interests.join(', ') || 'none'}
+Objections: ${memory.objections_raised.join(', ') || 'none'}`
       : 'No prior memory.';
 
     try {

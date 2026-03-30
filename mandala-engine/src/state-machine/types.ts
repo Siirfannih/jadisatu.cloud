@@ -45,17 +45,5 @@ export interface ResistanceSignal {
   message_hint?: string;
 }
 
-export interface CustomerMemory {
-  conversation_id: string;
-  tenant_id: string;
-  customer_number: string;
-  business_name?: string;
-  business_type?: string;
-  pain_points: string[];
-  communication_style: 'formal' | 'casual' | 'mixed';
-  budget_indication?: string;
-  decision_maker: boolean;
-  negotiation_position: 'exploring' | 'interested' | 'comparing' | 'ready' | 'resistant';
-  key_facts: string[];
-  last_updated: Date;
-}
+// CustomerMemory is now defined in evaluator/memory-updater.ts to match Supabase schema
+export type { CustomerMemory } from '../evaluator/memory-updater.js';

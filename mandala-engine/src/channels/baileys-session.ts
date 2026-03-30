@@ -53,6 +53,8 @@ export class BaileysSession extends EventEmitter {
   private isConnecting = false;
   private recoveringJids = new Set<string>();
   private _status: SessionStatus = 'disconnected';
+  /** LID → phone JID mapping (e.g. "48224043823326@lid" → "6281353848164@s.whatsapp.net") */
+  private lidToPhone = new Map<string, string>();
   private _qrCode?: string;
   private _phoneNumber?: string;
   private _connectedAt?: Date;
@@ -135,6 +137,38 @@ export class BaileysSession extends EventEmitter {
 
       sock.ev.on('creds.update', saveCreds);
 
+      // LID mapping: capture LID → phone JID from Baileys events
+      sock.ev.on('chats.phoneNumberShare' as any, ({ lid, jid }: { lid: string; jid: string }) => {
+        if (lid && jid) {
+          this.lidToPhone.set(lid, jid);
+          this.log(`LID mapped: ${lid} → ${jid}`);
+        }
+      });
+
+      sock.ev.on('contacts.upsert', (contacts: any[]) => {
+        for (const contact of contacts) {
+          if (contact.lid && contact.jid) {
+            this.lidToPhone.set(contact.lid, contact.jid);
+          } else if (contact.lid && contact.id?.endsWith('@s.whatsapp.net')) {
+            this.lidToPhone.set(contact.lid, contact.id);
+          } else if (contact.id?.endsWith('@lid') && contact.jid) {
+            this.lidToPhone.set(contact.id, contact.jid);
+          }
+        }
+        const mapped = contacts.filter((c) => c.lid || c.id?.endsWith('@lid')).length;
+        if (mapped > 0) this.log(`Contacts synced: ${mapped} LID mapping(s) captured`);
+      });
+
+      sock.ev.on('contacts.update', (contacts: any[]) => {
+        for (const contact of contacts) {
+          if (contact.lid && contact.jid) {
+            this.lidToPhone.set(contact.lid, contact.jid);
+          } else if (contact.id?.endsWith('@lid') && contact.jid) {
+            this.lidToPhone.set(contact.id, contact.jid);
+          }
+        }
+      });
+
       sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
 
@@ -192,10 +226,10 @@ export class BaileysSession extends EventEmitter {
 
           for (const msg of messages) {
             try {
-              const jid = msg.key.remoteJid || '';
-              if (jid === 'status@broadcast') continue;
+              const rawJid = msg.key.remoteJid || '';
+              if (rawJid === 'status@broadcast') continue;
               if (msg.key.fromMe) continue;
-              if (jid.endsWith('@g.us')) continue;
+              if (rawJid.endsWith('@g.us')) continue;
 
               const text =
                 msg.message?.conversation ||
@@ -206,13 +240,19 @@ export class BaileysSession extends EventEmitter {
 
               if (!text.trim()) continue;
 
-              this.log(`From ${jid} (${msg.pushName || 'unknown'}): "${text.substring(0, 80)}"`);
+              // Resolve LID to phone JID if possible
+              const sender = this.resolveLid(rawJid);
+              if (sender !== rawJid) {
+                this.log(`LID resolved: ${rawJid} → ${sender}`);
+              }
+
+              this.log(`From ${sender} (${msg.pushName || 'unknown'}): "${text.substring(0, 80)}"`);
 
               // Mark as read
               try { await sock.readMessages([msg.key]); } catch { /* non-critical */ }
 
               this.emit('message', {
-                sender: jid,
+                sender,
                 content: text,
                 timestamp: new Date((msg.messageTimestamp as number) * 1000),
                 messageId: msg.key.id || '',
@@ -302,6 +342,33 @@ export class BaileysSession extends EventEmitter {
       clean = '62' + clean.slice(1);
     }
     return `${clean}@s.whatsapp.net`;
+  }
+
+  /**
+   * Resolve a LID JID to a phone JID using the cached mapping.
+   * If no mapping exists, returns the original JID unchanged.
+   */
+  private resolveLid(jid: string): string {
+    if (!jid.endsWith('@lid')) return jid;
+    const phone = this.lidToPhone.get(jid);
+    return phone || jid;
+  }
+
+  /**
+   * Register a LID → phone mapping manually (e.g. from conversation context).
+   */
+  registerLidMapping(lid: string, phoneJid: string): void {
+    if (lid && phoneJid) {
+      this.lidToPhone.set(lid, phoneJid);
+      this.log(`LID registered: ${lid} → ${phoneJid}`);
+    }
+  }
+
+  /**
+   * Get all known LID mappings (for debugging/API).
+   */
+  getLidMappings(): Record<string, string> {
+    return Object.fromEntries(this.lidToPhone);
   }
 
   private async pruneSessionFiles(): Promise<void> {
