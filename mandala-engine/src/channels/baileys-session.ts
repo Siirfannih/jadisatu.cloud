@@ -296,7 +296,11 @@ export class BaileysSession extends EventEmitter {
 
   private toJid(input: string): string {
     if (input.includes('@')) return input;
-    const clean = input.replace(/^\+/, '');
+    let clean = input.replace(/^\+/, '');
+    // Convert Indonesian local format (08xxx) to international (628xxx)
+    if (clean.startsWith('0')) {
+      clean = '62' + clean.slice(1);
+    }
     return `${clean}@s.whatsapp.net`;
   }
 
