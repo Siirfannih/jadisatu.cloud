@@ -103,6 +103,34 @@ apiRoutes.get('/leads', async (c) => {
   return c.json({ leads });
 });
 
+// Delete conversation (hard delete — removes all messages, scores, memory)
+apiRoutes.delete('/conversations/:id', async (c) => {
+  const id = c.req.param('id');
+  const conv = await store.get(id);
+
+  if (!conv) {
+    return c.json({ error: 'Conversation not found' }, 404);
+  }
+
+  await store.delete(id);
+  console.log(`[api] Deleted conversation ${id} (${conv.customer_number})`);
+  return c.json({ status: 'deleted', conversation_id: id });
+});
+
+// Reset conversation (keep record, clear messages/scores, reset to kenalan/0)
+apiRoutes.post('/conversations/:id/reset', async (c) => {
+  const id = c.req.param('id');
+  const conv = await store.get(id);
+
+  if (!conv) {
+    return c.json({ error: 'Conversation not found' }, 404);
+  }
+
+  await store.reset(id);
+  console.log(`[api] Reset conversation ${id} (${conv.customer_number}) → kenalan, score=0`);
+  return c.json({ status: 'reset', conversation_id: id, phase: 'kenalan', score: 0 });
+});
+
 // Stats endpoint
 apiRoutes.get('/stats', async (c) => {
   const tenant = c.req.query('tenant') || 'mandala';

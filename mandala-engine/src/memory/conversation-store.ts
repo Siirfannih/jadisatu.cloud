@@ -182,6 +182,29 @@ export class ConversationStore {
       .eq('id', conversationId);
   }
 
+  async delete(conversationId: string): Promise<void> {
+    const db = getSupabase();
+    // Delete in order: messages → lead scores → customer memory → conversation
+    await db.from('mandala_messages').delete().eq('conversation_id', conversationId);
+    await db.from('mandala_lead_scores').delete().eq('conversation_id', conversationId);
+    await db.from('mandala_customer_memory').delete().eq('conversation_id', conversationId);
+    await db.from('mandala_conversations').delete().eq('id', conversationId);
+  }
+
+  async reset(conversationId: string): Promise<void> {
+    const db = getSupabase();
+    // Delete messages and scoring, reset conversation to kenalan/0
+    await db.from('mandala_messages').delete().eq('conversation_id', conversationId);
+    await db.from('mandala_lead_scores').delete().eq('conversation_id', conversationId);
+    await db.from('mandala_customer_memory').delete().eq('conversation_id', conversationId);
+    await db.from('mandala_conversations').update({
+      phase: 'kenalan',
+      lead_score: 0,
+      current_handler: 'unassigned',
+      status: 'active',
+    }).eq('id', conversationId);
+  }
+
   async stats(tenantId: string): Promise<{
     total: number;
     active: number;
