@@ -1,12 +1,13 @@
 /**
- * Gemini Embedding Wrapper — text-embedding-004
+ * Gemini Embedding Wrapper — gemini-embedding-001
  *
- * Dimension: 768 (matching Pinecone index config)
+ * Dimension: 768 (truncated via outputDimensionality, matching Pinecone index config)
  * Uses the existing @google/generative-ai SDK.
  */
 import { getGeminiClient } from '../ai/gemini-client.js';
 
-const EMBEDDING_MODEL = 'text-embedding-004';
+const EMBEDDING_MODEL = 'gemini-embedding-001';
+const OUTPUT_DIMENSIONALITY = 768;
 
 /**
  * Embed a single text string into a 768-dimensional vector.
@@ -14,7 +15,10 @@ const EMBEDDING_MODEL = 'text-embedding-004';
 export async function embed(text: string): Promise<number[]> {
   const client = getGeminiClient();
   const model = client.getGenerativeModel({ model: EMBEDDING_MODEL });
-  const result = await model.embedContent(text);
+  const result = await model.embedContent({
+    content: { role: 'user', parts: [{ text }] },
+    outputDimensionality: OUTPUT_DIMENSIONALITY,
+  });
   return result.embedding.values;
 }
 
