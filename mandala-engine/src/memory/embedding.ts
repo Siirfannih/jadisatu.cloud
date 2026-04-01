@@ -4,6 +4,7 @@
  * Dimension: 768 (truncated via outputDimensionality, matching Pinecone index config)
  * Uses the existing @google/generative-ai SDK.
  */
+import type { EmbedContentRequest } from '@google/generative-ai';
 import { getGeminiClient } from '../ai/gemini-client.js';
 
 const EMBEDDING_MODEL = 'gemini-embedding-001';
@@ -15,10 +16,11 @@ const OUTPUT_DIMENSIONALITY = 768;
 export async function embed(text: string): Promise<number[]> {
   const client = getGeminiClient();
   const model = client.getGenerativeModel({ model: EMBEDDING_MODEL });
-  const result = await model.embedContent({
+  const request = {
     content: { role: 'user', parts: [{ text }] },
     outputDimensionality: OUTPUT_DIMENSIONALITY,
-  });
+  } as EmbedContentRequest;
+  const result = await model.embedContent(request);
   return result.embedding.values;
 }
 
