@@ -56,23 +56,35 @@ async function main() {
   await baileysManager.restoreActiveSessions();
   console.log('✓ Baileys WhatsApp — active sessions restored');
 
+  // Start stale session cleanup (qr_pending > 5min → disconnect)
+  baileysManager.startStaleCleanup();
+  console.log('✓ Stale session cleanup started');
+
   // Start HTTP server
   serve({ fetch: app.fetch, port: PORT }, (info) => {
     console.log(`✓ Engine running on http://localhost:${info.port}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('  Endpoints:');
-    console.log('  - POST /webhook/whatsapp       (WhatsApp fallback webhook)');
-    console.log('  - POST /webhook/telegram       (Telegram incoming)');
-    console.log('  - GET  /api/conversations      (List conversations)');
-    console.log('  - GET  /api/leads              (Lead pipeline)');
-    console.log('  - GET  /api/hunter/prospects    (Hunter prospects)');
-    console.log('  - POST /api/hunter/run          (Trigger hunter)');
-    console.log('  - POST /api/tasks              (Create task)');
-    console.log('  - GET  /api/tasks              (List tasks)');
-    console.log('  - GET  /api/wa/status/:tenantId (WA session status)');
-    console.log('  - POST /api/wa/connect/:tenantId (Start WA session)');
+    console.log('  - POST /webhook/whatsapp          (WhatsApp fallback webhook)');
+    console.log('  - POST /webhook/telegram          (Telegram incoming)');
+    console.log('  - GET  /api/conversations         (List conversations)');
+    console.log('  - POST /api/conversations/:id/close (Close + learn)');
+    console.log('  - GET  /api/leads                 (Lead pipeline)');
+    console.log('  - GET  /api/hunter/prospects       (Hunter prospects)');
+    console.log('  - POST /api/hunter/run             (Trigger hunter)');
+    console.log('  - POST /api/tasks                 (Create task + analyze)');
+    console.log('  - GET  /api/tasks                 (List tasks)');
+    console.log('  - GET  /api/tasks/:id/plan         (View execution plan)');
+    console.log('  - POST /api/tasks/:id/approve-plan (Approve plan)');
+    console.log('  - POST /api/tasks/:id/reject-plan  (Reject plan + feedback)');
+    console.log('  - POST /api/wa/connect/:tenantId   (Start WA session)');
+    console.log('  - GET  /api/wa/qr/:tenantId        (Get QR code)');
+    console.log('  - GET  /api/wa/status/:tenantId    (WA session status)');
     console.log('  - POST /api/wa/disconnect/:tenantId (Stop WA session)');
-    console.log('  - GET  /health                 (Health check)');
+    console.log('  - GET  /api/wa/sessions            (List all WA sessions)');
+    console.log('  - POST /api/tenants               (Create tenant)');
+    console.log('  - GET  /api/tenants               (List tenants)');
+    console.log('  - GET  /health                    (Health check)');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   });
 }

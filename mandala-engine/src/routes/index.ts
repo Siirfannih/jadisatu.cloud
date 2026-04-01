@@ -3,6 +3,8 @@ import { cors } from 'hono/cors';
 import { webhookRoutes } from './webhooks.js';
 import { apiRoutes } from './api.js';
 import { taskRoutes } from './task-api.js';
+import { waRoutes } from './wa-api.js';
+import { tenantRoutes } from './tenant-api.js';
 
 export const app = new Hono();
 
@@ -27,3 +29,9 @@ app.route('/api', apiRoutes);
 
 // Task engine routes
 app.route('/api/tasks', taskRoutes);
+
+// WhatsApp session management routes
+app.route('/api/wa', waRoutes);
+
+// Tenant management routes
+app.route('/api/tenants', tenantRoutes);

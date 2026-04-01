@@ -13,6 +13,7 @@ const MAX_SESSIONS = parseInt(process.env.MAX_WA_SESSIONS || '10');
 export class BaileysManager extends EventEmitter {
   private static instance: BaileysManager;
   private sessions = new Map<string, BaileysSession>();
+  private staleCleanupInterval?: ReturnType<typeof setInterval>;
 
   static getInstance(): BaileysManager {
     if (!BaileysManager.instance) {
@@ -186,6 +187,104 @@ export class BaileysManager extends EventEmitter {
       // Forward with tenantId so the router knows which tenant this belongs to
       this.emit('message', tenantId, msg);
     });
+  }
+
+  /**
+   * Get QR code for a tenant with expiry information.
+   * Checks in-memory session first, then Supabase fallback.
+   */
+  async getQrCode(tenantId: string): Promise<{
+    qrCode: string | null;
+    generatedAt: Date | null;
+    expiresInMs: number;
+    status: string;
+  }> {
+    const session = this.sessions.get(tenantId);
+
+    if (session?.state.qrCode) {
+      const qrAge = session.state.lastQrAt
+        ? Date.now() - session.state.lastQrAt.getTime()
+        : 0;
+      return {
+        qrCode: session.state.qrCode,
+        generatedAt: session.state.lastQrAt || null,
+        expiresInMs: Math.max(0, 90_000 - qrAge),
+        status: session.state.status,
+      };
+    }
+
+    // Supabase fallback
+    const db = getSupabase();
+    const { data } = await db
+      .from('mandala_wa_sessions')
+      .select('qr_code, last_qr_at, status')
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (data?.qr_code) {
+      const lastQrAt = data.last_qr_at ? new Date(data.last_qr_at) : null;
+      const qrAge = lastQrAt ? Date.now() - lastQrAt.getTime() : 999_999;
+      return {
+        qrCode: data.qr_code,
+        generatedAt: lastQrAt,
+        expiresInMs: Math.max(0, 90_000 - qrAge),
+        status: data.status,
+      };
+    }
+
+    return {
+      qrCode: null,
+      generatedAt: null,
+      expiresInMs: 0,
+      status: session?.state.status || 'disconnected',
+    };
+  }
+
+  /**
+   * Start periodic cleanup of stale qr_pending sessions.
+   * Sessions stuck in qr_pending for > 5 minutes are disconnected.
+   */
+  startStaleCleanup(intervalMs = 5 * 60_000): void {
+    if (this.staleCleanupInterval) return;
+
+    this.staleCleanupInterval = setInterval(async () => {
+      try {
+        const db = getSupabase();
+        const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+
+        const { data: staleSessions } = await db
+          .from('mandala_wa_sessions')
+          .select('tenant_id')
+          .eq('status', 'qr_pending')
+          .lt('last_qr_at', fiveMinAgo);
+
+        if (staleSessions && staleSessions.length > 0) {
+          for (const row of staleSessions) {
+            console.log(`[baileys-manager] Cleaning stale qr_pending session: ${row.tenant_id}`);
+            try {
+              await this.disconnectSession(row.tenant_id);
+            } catch {
+              // Force-update DB status if disconnect fails
+              await db
+                .from('mandala_wa_sessions')
+                .update({ status: 'disconnected', qr_code: null, updated_at: new Date().toISOString() })
+                .eq('tenant_id', row.tenant_id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[baileys-manager] Stale cleanup error:', err);
+      }
+    }, intervalMs);
+
+    console.log('[baileys-manager] Stale session cleanup started (every 5 min)');
+  }
+
+  stopStaleCleanup(): void {
+    if (this.staleCleanupInterval) {
+      clearInterval(this.staleCleanupInterval);
+      this.staleCleanupInterval = undefined;
+    }
   }
 
   /**

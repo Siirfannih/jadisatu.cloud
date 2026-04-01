@@ -9,6 +9,9 @@ import type {
   TaskStatus,
   TaskDraft,
   TaskLogEntry,
+  TaskClarification,
+  TaskPlan,
+  SubTask,
 } from './types.js';
 import crypto from 'crypto';
 
@@ -193,6 +196,155 @@ export class TaskStore {
       .eq('id', id);
   }
 
+  /**
+   * Set or update clarification data on a task.
+   */
+  async setClarification(id: string, clarification: TaskClarification): Promise<void> {
+    const db = getSupabase();
+    await db
+      .from('mandala_tasks')
+      .update({
+        clarification,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+  }
+
+  /**
+   * Update task context (used after clarification answers are merged in).
+   */
+  async updateContext(id: string, newContext: string): Promise<void> {
+    const db = getSupabase();
+    await db
+      .from('mandala_tasks')
+      .update({
+        context: newContext,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+  }
+
+  /**
+   * Set or update the execution plan on a task.
+   */
+  async setPlan(id: string, plan: TaskPlan): Promise<void> {
+    const db = getSupabase();
+    await db
+      .from('mandala_tasks')
+      .update({
+        plan,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+  }
+
+  /**
+   * Approve a task's plan. Sets approved flag + timestamp.
+   */
+  async approvePlan(id: string): Promise<void> {
+    const task = await this.get(id);
+    if (!task?.plan) throw new Error(`No plan found for task ${id}`);
+
+    task.plan.approved = true;
+    task.plan.approved_at = new Date();
+
+    const db = getSupabase();
+    await db
+      .from('mandala_tasks')
+      .update({
+        plan: task.plan,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+  }
+
+  /**
+   * Store subtasks generated from the plan.
+   * Also persists to mandala_subtasks table if it exists.
+   */
+  async setSubtasks(id: string, subtasks: SubTask[]): Promise<void> {
+    // Store on the task object
+    const db = getSupabase();
+    await db
+      .from('mandala_tasks')
+      .update({
+        subtasks,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    // Also persist to dedicated subtasks table (best-effort)
+    try {
+      const rows = subtasks.map(st => ({
+        id: st.id,
+        task_id: st.parent_task_id,
+        tenant_id: '', // Will be set from task
+        order_num: st.order,
+        objective: st.objective,
+        action: st.action,
+        status: st.status,
+        result: st.result || null,
+        created_at: st.created_at.toISOString(),
+        executed_at: st.executed_at?.toISOString() || null,
+      }));
+
+      // Get tenant_id from parent task
+      const task = await this.get(id);
+      if (task) {
+        for (const row of rows) {
+          row.tenant_id = task.tenant_id;
+        }
+      }
+
+      await db.from('mandala_subtasks').upsert(rows);
+    } catch {
+      // mandala_subtasks table may not exist yet — non-fatal
+    }
+  }
+
+  /**
+   * Update a single subtask's status and result.
+   */
+  async updateSubtask(
+    taskId: string,
+    subtaskId: string,
+    updates: { status: TaskStatus; result?: string; error?: string }
+  ): Promise<void> {
+    const task = await this.get(taskId);
+    if (!task?.subtasks) return;
+
+    const subtask = task.subtasks.find(st => st.id === subtaskId);
+    if (!subtask) return;
+
+    subtask.status = updates.status;
+    if (updates.result) subtask.result = updates.result;
+    if (updates.error) subtask.error = updates.error;
+    if (updates.status === 'executed') subtask.executed_at = new Date();
+
+    const db = getSupabase();
+    await db
+      .from('mandala_tasks')
+      .update({
+        subtasks: task.subtasks,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', taskId);
+
+    // Also update dedicated table (best-effort)
+    try {
+      await db
+        .from('mandala_subtasks')
+        .update({
+          status: updates.status,
+          result: updates.result || null,
+          executed_at: updates.status === 'executed' ? new Date().toISOString() : null,
+        })
+        .eq('id', subtaskId);
+    } catch {
+      // non-fatal
+    }
+  }
+
   // ── Row conversion ──
 
   private toRow(task: MandalaTask) {
@@ -210,6 +362,9 @@ export class TaskStore {
       log: task.log,
       result_conversation_id: task.result_conversation_id ?? null,
       error: task.error ?? null,
+      clarification: task.clarification ?? null,
+      plan: task.plan ?? null,
+      subtasks: task.subtasks ?? null,
       created_by: task.created_by,
       created_at: task.created_at.toISOString(),
       updated_at: task.updated_at.toISOString(),
@@ -232,6 +387,9 @@ export class TaskStore {
       log: (row.log as MandalaTask['log']) || [],
       result_conversation_id: row.result_conversation_id as string | undefined,
       error: row.error as string | undefined,
+      clarification: row.clarification as MandalaTask['clarification'],
+      plan: row.plan as MandalaTask['plan'],
+      subtasks: row.subtasks as MandalaTask['subtasks'],
       created_by: row.created_by as string,
       created_at: new Date(row.created_at as string),
       updated_at: new Date(row.updated_at as string),

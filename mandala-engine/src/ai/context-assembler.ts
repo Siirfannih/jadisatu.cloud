@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import type { Conversation, Mode, TenantConfig, AssembledContext, ConversationPhase } from '../types/shared.js';
 import { PhaseController } from '../state-machine/phase-controller.js';
 import { getSupabase } from '../memory/supabase-client.js';
+import { SemanticStore } from '../memory/semantic-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MANDALA_DIR = join(__dirname, '../../../mandala');
@@ -12,6 +13,7 @@ export class ContextAssembler {
   private static instance: ContextAssembler;
   private cache = new Map<string, string>();
   private phaseController = PhaseController.getInstance();
+  private semanticStore = SemanticStore.getInstance();
   private dbKnowledgeCache: string[] | null = null;
   private dbPolicyCache: string[] | null = null;
   private dbCacheExpiry = 0;
@@ -27,7 +29,8 @@ export class ContextAssembler {
     conversation: Conversation,
     mode: Mode,
     tenant: TenantConfig,
-    customerMemory?: string
+    customerMemory?: string,
+    taskContext?: string
   ): Promise<AssembledContext> {
     // Always load core
     const [identity, rules] = await Promise.all([
@@ -58,6 +61,18 @@ export class ContextAssembler {
       styleReference = this.extractOwnerStyle(conversation);
     }
 
+    // Pinecone memory recall — query relevant memories for this conversation
+    let memoryRecall: string | undefined;
+    try {
+      memoryRecall = await this.recallMemories(
+        conversation.tenant_id,
+        conversation.customer_number,
+        conversation.messages
+      );
+    } catch (err) {
+      console.error('[context-assembler] Memory recall failed (non-fatal):', err);
+    }
+
     // Limit context messages based on phase
     const maxMessages = mode === 'sales-shadow'
       ? this.phaseController.getMaxContextMessages(conversation.phase)
@@ -68,9 +83,11 @@ export class ContextAssembler {
       rules,
       mode: modeConfig,
       phase_instruction: phaseInstruction,
+      task_context: taskContext,
       skills,
       knowledge,
       customer_memory: customerMemory,
+      memory_recall: memoryRecall,
       conversation_history: conversation.messages.slice(-maxMessages),
       lead_score: conversation.lead_score != null
         ? { conversation_id: conversation.id, score: conversation.lead_score, temperature: 'cold' as const, signals: [], updated_at: new Date() }
@@ -115,6 +132,11 @@ ${context.mode}`);
       parts.push(context.phase_instruction);
     }
 
+    // Task context (injected when conversation was initiated by a task)
+    if (context.task_context) {
+      parts.push(`---\n${context.task_context}`);
+    }
+
     // Active policies from DB
     const activePolicies = await this.loadActivePolicies();
     if (activePolicies.length > 0) {
@@ -124,6 +146,11 @@ ${context.mode}`);
     // Customer memory (if available)
     if (context.customer_memory) {
       parts.push(`---\n${context.customer_memory}`);
+    }
+
+    // Pinecone memory recall (episodic + procedural + semantic)
+    if (context.memory_recall) {
+      parts.push(`---\n${context.memory_recall}`);
     }
 
     // Skills — explicitly framed as reference material that Mandala learns from, NOT rigid scripts
@@ -323,6 +350,68 @@ Customer menunjukkan resistance. Tujuan:
     } catch {
       return '';
     }
+  }
+
+  /**
+   * Query Pinecone for relevant memories based on the conversation context.
+   * Returns formatted text ready for prompt injection, or undefined if nothing found.
+   */
+  private async recallMemories(
+    tenantId: string,
+    customerNumber: string,
+    messages: import('../types/shared.js').Message[]
+  ): Promise<string | undefined> {
+    // Build a query from the last few messages
+    const recentMessages = messages.slice(-5);
+    if (recentMessages.length === 0) return undefined;
+
+    // Check if Pinecone is configured
+    if (!process.env.PINECONE_API_KEY) return undefined;
+
+    const query = recentMessages
+      .map(m => m.content)
+      .join(' ')
+      .substring(0, 500);
+
+    const recalled = await this.semanticStore.recallAll(tenantId, query, customerNumber);
+
+    const sections: string[] = [];
+
+    // Episodic memories (per-customer history)
+    if (recalled.episodic.length > 0) {
+      const items = recalled.episodic
+        .map(m => `- ${m.content}`)
+        .join('\n');
+      sections.push(`## Riwayat Customer Ini\n${items}`);
+    }
+
+    // Procedural memories (what has worked before)
+    if (recalled.procedural.length > 0) {
+      const items = recalled.procedural
+        .map(m => `- ${m.content}`)
+        .join('\n');
+      sections.push(`## Pendekatan yang Pernah Berhasil\n${items}`);
+    }
+
+    // Semantic memories (conversation patterns)
+    if (recalled.semantic.length > 0) {
+      const items = recalled.semantic
+        .map(m => `- ${m.content}`)
+        .join('\n');
+      sections.push(`## Konteks Relevan\n${items}`);
+    }
+
+    // Base skills (only if other memories are sparse)
+    if (sections.length === 0 && recalled.baseSkills.length > 0) {
+      const items = recalled.baseSkills
+        .map(m => `- ${m.content}`)
+        .join('\n');
+      sections.push(`## Best Practice\n${items}`);
+    }
+
+    if (sections.length === 0) return undefined;
+
+    return `# Memory Recall (dari pengalaman sebelumnya)\n${sections.join('\n\n')}`;
   }
 
   clearCache(): void {

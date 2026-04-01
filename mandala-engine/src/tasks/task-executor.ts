@@ -21,7 +21,8 @@ import { MemoryUpdater } from '../evaluator/memory-updater.js';
 import { BaileysProvider } from '../channels/baileys-provider.js';
 import { isInternalMessage } from '../channels/message-guard.js';
 import { TaskStore } from './task-store.js';
-import type { MandalaTask, TaskDraft, TaskLogEntry } from './types.js';
+import { TaskAnalyzer } from './task-analyzer.js';
+import type { MandalaTask, TaskDraft, TaskLogEntry, TaskPlan, SubTask } from './types.js';
 import type { Conversation, Message, Mode, TenantConfig } from '../types/shared.js';
 import crypto from 'crypto';
 
@@ -38,6 +39,7 @@ export class TaskExecutor {
   private memoryUpdater = MemoryUpdater.getInstance();
   private wa = BaileysProvider.getInstance();
   private taskStore = TaskStore.getInstance();
+  private analyzer = TaskAnalyzer.getInstance();
 
   static getInstance(): TaskExecutor {
     if (!TaskExecutor.instance) {
@@ -80,6 +82,27 @@ export class TaskExecutor {
       const conversation = await this.resolveConversation(task, tenant);
       await this.taskStore.setResultConversation(task.id, conversation.id);
       log('conversation_resolved', { conversation_id: conversation.id, is_new: !task.target.conversation_id });
+
+      // Persist task context in conversation metadata so the router can
+      // inject it when handling follow-up replies from the customer
+      conversation.metadata = {
+        ...conversation.metadata,
+        active_task: {
+          task_id: task.id,
+          objective: task.objective,
+          context: task.context,
+          type: task.type,
+        },
+      };
+      await this.store.update(conversation);
+
+      // ── Plan-based execution: if task has an approved plan, execute subtasks ──
+      if (task.plan?.approved && task.subtasks?.length) {
+        await this.executePlanSubtasks(task, tenant, conversation, log);
+        return;
+      }
+
+      // ── Standard execution (no plan, or legacy tasks) ──
 
       // Step 3: Load customer memory
       const memory = await this.memoryUpdater.getMemory(conversation.id);
@@ -234,6 +257,171 @@ export class TaskExecutor {
     }
 
     await this.taskStore.updateStatus(task.id, 'cancelled', { cancelled_by: 'manual' });
+  }
+
+  // ── Task Analysis & Planning ──
+
+  /**
+   * Run AI analysis on a task. Returns clarification questions if needed,
+   * or null if the task is clear enough to proceed to planning.
+   *
+   * Called by task-api after the basic TaskValidator passes.
+   */
+  async analyzeTask(task: MandalaTask): Promise<{ questions: import('./types.js').ClarificationQuestion[] } | null> {
+    const tenant = this.tenantManager.get(task.tenant_id);
+    if (!tenant) throw new Error(`Tenant not found: ${task.tenant_id}`);
+
+    await this.taskStore.updateStatus(task.id, 'analyzing');
+    await this.taskStore.appendLog(task.id, {
+      timestamp: new Date(),
+      event: 'analysis_started',
+    });
+
+    const classifierModel = tenant.ai?.classifier_model || 'gemini-2.0-flash';
+    const questions = await this.analyzer.analyzeAndClarify(task, classifierModel);
+
+    if (questions && questions.length > 0) {
+      await this.taskStore.setClarification(task.id, {
+        questions,
+        answered: {},
+        status: 'pending',
+      });
+      await this.taskStore.updateStatus(task.id, 'needs_clarification');
+      await this.taskStore.appendLog(task.id, {
+        timestamp: new Date(),
+        event: 'analysis_needs_clarification',
+        details: { question_count: questions.length },
+      });
+      return { questions };
+    }
+
+    await this.taskStore.appendLog(task.id, {
+      timestamp: new Date(),
+      event: 'analysis_clear',
+    });
+
+    return null;
+  }
+
+  /**
+   * Generate an execution plan for a task.
+   * Called after analysis passes or clarification is answered.
+   */
+  async planTask(task: MandalaTask): Promise<TaskPlan> {
+    const tenant = this.tenantManager.get(task.tenant_id);
+    if (!tenant) throw new Error(`Tenant not found: ${task.tenant_id}`);
+
+    await this.taskStore.updateStatus(task.id, 'planning');
+    await this.taskStore.appendLog(task.id, {
+      timestamp: new Date(),
+      event: 'planning_started',
+    });
+
+    const conversationModel = tenant.ai?.conversation_model || 'gemini-2.5-pro';
+    const plan = await this.analyzer.generatePlan(task, conversationModel);
+
+    // Store the plan
+    await this.taskStore.setPlan(task.id, plan);
+
+    // Create subtasks from plan steps
+    const subtasks: SubTask[] = plan.steps.map((step, i) => ({
+      id: crypto.randomUUID(),
+      parent_task_id: task.id,
+      order: step.order || i + 1,
+      objective: step.description,
+      action: step.action,
+      description: step.description,
+      status: 'pending' as const,
+      created_at: new Date(),
+    }));
+
+    await this.taskStore.setSubtasks(task.id, subtasks);
+    await this.taskStore.updateStatus(task.id, 'awaiting_plan_approval');
+    await this.taskStore.appendLog(task.id, {
+      timestamp: new Date(),
+      event: 'plan_generated',
+      details: {
+        step_count: plan.steps.length,
+        approach: plan.approach,
+      },
+    });
+
+    return plan;
+  }
+
+  /**
+   * Regenerate a plan after rejection with feedback.
+   */
+  async replanTask(task: MandalaTask, feedback: string): Promise<TaskPlan> {
+    const tenant = this.tenantManager.get(task.tenant_id);
+    if (!tenant) throw new Error(`Tenant not found: ${task.tenant_id}`);
+
+    await this.taskStore.updateStatus(task.id, 'planning');
+    await this.taskStore.appendLog(task.id, {
+      timestamp: new Date(),
+      event: 'replanning_started',
+      details: { feedback },
+    });
+
+    const conversationModel = tenant.ai?.conversation_model || 'gemini-2.5-pro';
+    const plan = await this.analyzer.regeneratePlan(task, feedback, conversationModel);
+
+    // Update the plan
+    await this.taskStore.setPlan(task.id, plan);
+
+    // Recreate subtasks
+    const subtasks: SubTask[] = plan.steps.map((step, i) => ({
+      id: crypto.randomUUID(),
+      parent_task_id: task.id,
+      order: step.order || i + 1,
+      objective: step.description,
+      action: step.action,
+      description: step.description,
+      status: 'pending' as const,
+      created_at: new Date(),
+    }));
+
+    await this.taskStore.setSubtasks(task.id, subtasks);
+    await this.taskStore.updateStatus(task.id, 'awaiting_plan_approval');
+    await this.taskStore.appendLog(task.id, {
+      timestamp: new Date(),
+      event: 'plan_regenerated',
+      details: {
+        step_count: plan.steps.length,
+        approach: plan.approach,
+        rejection_feedback: feedback,
+      },
+    });
+
+    return plan;
+  }
+
+  /**
+   * Approve a plan and start execution with subtasks.
+   */
+  async approvePlan(taskId: string): Promise<void> {
+    const task = await this.taskStore.get(taskId);
+    if (!task) throw new Error(`Task not found: ${taskId}`);
+    if (task.status !== 'awaiting_plan_approval') {
+      throw new Error(`Task ${taskId} is not awaiting plan approval (status: ${task.status})`);
+    }
+    if (!task.plan) {
+      throw new Error(`Task ${taskId} has no plan to approve`);
+    }
+
+    await this.taskStore.approvePlan(taskId);
+    await this.taskStore.appendLog(taskId, {
+      timestamp: new Date(),
+      event: 'plan_approved',
+    });
+
+    // Re-fetch with approved plan and execute
+    const refreshed = await this.taskStore.get(taskId);
+    if (refreshed) {
+      this.execute(refreshed).catch((err) =>
+        console.error(`[task-executor] Plan execution error for task ${taskId}:`, err)
+      );
+    }
   }
 
   // ── Private helpers ──
@@ -461,6 +649,143 @@ export class TaskExecutor {
 
       console.log(`[task-executor] Sent message ${i + 1}/${safeDrafts.length} to ${conversation.customer_number}`);
     }
+  }
+
+  /**
+   * Execute subtasks sequentially based on the approved plan.
+   * Each subtask gets its own AI generation with the subtask objective injected.
+   */
+  private async executePlanSubtasks(
+    task: MandalaTask,
+    tenant: TenantConfig,
+    conversation: Conversation,
+    log: (event: string, details?: Record<string, unknown>) => void
+  ): Promise<void> {
+    const subtasks = (task.subtasks || [])
+      .filter(st => st.status === 'pending')
+      .sort((a, b) => a.order - b.order);
+
+    log('plan_execution_started', {
+      total_subtasks: subtasks.length,
+      approach: task.plan?.approach,
+    });
+
+    const allDrafts: TaskDraft[] = [];
+
+    for (const subtask of subtasks) {
+      log('subtask_started', { subtask_id: subtask.id, action: subtask.action, order: subtask.order });
+
+      await this.taskStore.updateSubtask(task.id, subtask.id, { status: 'in_progress' });
+
+      try {
+        // Load customer memory
+        const memory = await this.memoryUpdater.getMemory(conversation.id);
+        const memoryMarkdown = memory ? this.memoryUpdater.renderForContext(memory) : undefined;
+
+        // Assemble context
+        const mode = this.resolveMode(task);
+        const context = await this.assembler.assemble(conversation, mode, tenant, memoryMarkdown);
+
+        // Inject subtask-specific instructions
+        const subtaskInstruction = this.buildSubtaskInstruction(task, subtask, subtasks);
+        context.phase_instruction = subtaskInstruction;
+
+        // Load task skills
+        const taskSkills = await this.loadTaskSkills(task);
+        context.skills.push(...taskSkills);
+
+        // Generate response for this subtask
+        const response = await this.aiEngine.generateForTask(context, tenant.ai, task);
+
+        const messages = response.messages.slice(0, subtask.action === 'greet' ? 1 : 2);
+        const delays = response.delays.slice(0, messages.length);
+
+        const subtaskDrafts: TaskDraft[] = messages.map((content, i) => ({
+          content,
+          delay_ms: delays[i] || 0,
+          confidence: response.internal.confidence,
+        }));
+
+        allDrafts.push(...subtaskDrafts);
+
+        await this.taskStore.updateSubtask(task.id, subtask.id, {
+          status: 'executed',
+          result: messages.join('\n---\n'),
+        });
+
+        log('subtask_completed', {
+          subtask_id: subtask.id,
+          action: subtask.action,
+          message_count: messages.length,
+        });
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await this.taskStore.updateSubtask(task.id, subtask.id, {
+          status: 'failed',
+          error: errMsg,
+        });
+        log('subtask_failed', { subtask_id: subtask.id, error: errMsg });
+        // Continue to next subtask — partial execution is better than total failure
+      }
+    }
+
+    // Store all collected drafts
+    await this.taskStore.setDrafts(task.id, allDrafts);
+    log('plan_drafts_collected', { total_drafts: allDrafts.length });
+
+    if (allDrafts.length === 0) {
+      throw new Error('Plan execution generated 0 draft messages');
+    }
+
+    // Apply approval mode (same logic as standard execution)
+    if (task.approval_mode === 'draft_only') {
+      await this.taskStore.updateStatus(task.id, 'awaiting_review');
+      log('awaiting_review', { reason: 'draft_only mode (plan execution)' });
+      return;
+    }
+
+    // For semi_auto, check average confidence
+    if (task.approval_mode === 'semi_auto') {
+      const avgConfidence = allDrafts.reduce((sum, d) => sum + d.confidence, 0) / allDrafts.length;
+      if (avgConfidence < 0.5) {
+        await this.taskStore.updateStatus(task.id, 'awaiting_review');
+        log('awaiting_review', { reason: 'low_confidence (plan execution)', confidence: avgConfidence });
+        return;
+      }
+    }
+
+    // Send all drafts
+    await this.sendDrafts(task, conversation, allDrafts);
+    await this.taskStore.updateStatus(task.id, 'executed');
+    log('plan_executed', { messages_sent: allDrafts.length });
+  }
+
+  /**
+   * Build context instructions for a single subtask within a plan.
+   */
+  private buildSubtaskInstruction(
+    task: MandalaTask,
+    subtask: SubTask,
+    allSubtasks: SubTask[]
+  ): string {
+    const completedSteps = allSubtasks
+      .filter(st => st.status === 'executed')
+      .map(st => `✓ Step ${st.order}: ${st.action} — ${st.result?.substring(0, 100) || 'done'}`)
+      .join('\n');
+
+    return `# Task Objective
+${task.objective}
+
+# Current Step (${subtask.order}/${allSubtasks.length})
+Action: ${subtask.action}
+Description: ${subtask.description || subtask.objective}
+
+${completedSteps ? `# Completed Steps\n${completedSteps}\n` : ''}
+# Instructions
+- Fokus HANYA pada step ini: "${subtask.action}"
+- Buat pesan yang natural dan sesuai konteks percakapan
+- JANGAN melompat ke step selanjutnya
+${task.context ? `\n# Additional Context\n${task.context}` : ''}`;
   }
 
   private sleep(ms: number): Promise<void> {

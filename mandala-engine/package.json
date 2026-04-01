@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
+    "@pinecone-database/pinecone": "^4.0.0",
     "@hono/node-server": "^1.13.7",
     "@supabase/supabase-js": "^2.49.0",
     "@whiskeysockets/baileys": "^6.7.16",

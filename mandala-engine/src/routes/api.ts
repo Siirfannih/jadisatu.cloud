@@ -6,6 +6,7 @@ import { HunterScheduler } from '../hunter/scheduler.js';
 import { TaskExecutor } from '../task/executor.js';
 import { TargetIntel } from '../task/target-intel.js';
 import { getSupabase } from '../memory/supabase-client.js';
+import { PostConversationPipeline } from '../memory/post-conversation-pipeline.js';
 import type { TaskInput, TaskType } from '../task/types.js';
 
 export const apiRoutes = new Hono();
@@ -129,6 +130,41 @@ apiRoutes.post('/conversations/:id/reset', async (c) => {
   await store.reset(id);
   console.log(`[api] Reset conversation ${id} (${conv.customer_number}) → kenalan, score=0`);
   return c.json({ status: 'reset', conversation_id: id, phase: 'kenalan', score: 0 });
+});
+
+// Close conversation — triggers post-conversation learning pipeline
+apiRoutes.post('/conversations/:id/close', async (c) => {
+  const id = c.req.param('id');
+  const conv = await store.get(id);
+
+  if (!conv) {
+    return c.json({ error: 'Conversation not found' }, 404);
+  }
+
+  if (conv.status === 'closed') {
+    return c.json({ error: 'Conversation already closed' }, 400);
+  }
+
+  // Cancel any active handoff timer
+  HandoffTimer.getInstance().cancel(id);
+
+  // Update status to closed
+  conv.status = 'closed';
+  await store.update(conv);
+
+  // Trigger post-conversation pipeline async (learning + memory extraction)
+  const pipeline = PostConversationPipeline.getInstance();
+  pipeline.process(conv).then((result) => {
+    console.log(`[api] Post-conversation pipeline for ${id}: episodes=${result.episodeCount}, outcome=${result.outcome}, insights=${result.insightCount}`);
+  }).catch((err) => {
+    console.error(`[api] Post-conversation pipeline failed for ${id}:`, err);
+  });
+
+  return c.json({
+    status: 'closed',
+    conversation_id: id,
+    message: 'Conversation closed. Memory extraction in progress.',
+  });
 });
 
 // Stats endpoint

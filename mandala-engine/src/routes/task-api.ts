@@ -5,12 +5,14 @@
 import { Hono } from 'hono';
 import { TaskStore } from '../tasks/task-store.js';
 import { TaskExecutor } from '../tasks/task-executor.js';
+import { TaskValidator } from '../tasks/task-validator.js';
 import type { CreateTaskInput, TaskType, TaskStatus, ApprovalMode } from '../tasks/types.js';
 
 export const taskRoutes = new Hono();
 
 const taskStore = TaskStore.getInstance();
 const taskExecutor = TaskExecutor.getInstance();
+const taskValidator = TaskValidator.getInstance();
 
 // Valid values for validation
 const VALID_TASK_TYPES: TaskType[] = ['outreach', 'follow_up', 'rescue', 'inbound_response', 'qualification'];
@@ -52,8 +54,8 @@ taskRoutes.post('/', async (c) => {
   const duplicate = existingTasks.find((t) => {
     if (t.target.customer_number !== target.customer_number) return false;
     if (t.type !== type) return false;
-    // Active tasks (pending, in_progress, awaiting_review) always block
-    if (['pending', 'in_progress', 'awaiting_review'].includes(t.status)) return true;
+    // Active tasks always block
+    if (['pending', 'analyzing', 'in_progress', 'awaiting_review', 'needs_clarification', 'planning', 'awaiting_plan_approval'].includes(t.status)) return true;
     // Recently executed tasks within dedup window also block
     if (t.status === 'executed' && t.executed_at) {
       const executedAt = new Date(t.executed_at).getTime();
@@ -88,20 +90,70 @@ taskRoutes.post('/', async (c) => {
 
   const task = await taskStore.create(input);
 
-  // Execute async — don't block the response
-  taskExecutor.execute(task).catch((err) =>
-    console.error(`[task-api] Execution error for task ${task.id}:`, err)
-  );
+  // Validate task — check if enough context to execute
+  const validation = await taskValidator.validate(task);
+
+  if (!validation.valid) {
+    // Store clarification questions, set status to needs_clarification
+    await taskStore.setClarification(task.id, {
+      questions: validation.questions,
+      answered: {},
+      status: 'pending',
+    });
+    await taskStore.updateStatus(task.id, 'needs_clarification');
+
+    return c.json({
+      task: {
+        id: task.id,
+        type: task.type,
+        status: 'needs_clarification',
+        approval_mode: task.approval_mode,
+        created_at: task.created_at,
+      },
+      clarification: validation.questions,
+      message: 'Task needs additional information before execution',
+    }, 201);
+  }
+
+  // ── AI Analysis: deeper ambiguity check + plan generation ──
+  // Run analysis asynchronously — returns quickly with task status
+  const analyzeAndPlan = async () => {
+    try {
+      // Step 1: AI analysis for deeper ambiguity detection
+      const analysisResult = await taskExecutor.analyzeTask(task);
+
+      if (analysisResult) {
+        // Task needs clarification — already updated by analyzeTask
+        return;
+      }
+
+      // Step 2: Generate execution plan
+      await taskExecutor.planTask(task);
+      // Task is now in 'awaiting_plan_approval' status
+    } catch (err) {
+      console.error(`[task-api] Analysis/planning error for task ${task.id}:`, err);
+      // Fall back to direct execution if analysis/planning fails
+      const refreshed = await taskStore.get(task.id);
+      if (refreshed) {
+        await taskStore.updateStatus(task.id, 'pending');
+        taskExecutor.execute(refreshed).catch((execErr) =>
+          console.error(`[task-api] Fallback execution error for task ${task.id}:`, execErr)
+        );
+      }
+    }
+  };
+
+  analyzeAndPlan();
 
   return c.json({
     task: {
       id: task.id,
       type: task.type,
-      status: task.status,
+      status: 'analyzing',
       approval_mode: task.approval_mode,
       created_at: task.created_at,
     },
-    message: 'Task created and queued for execution',
+    message: 'Task created — analyzing and generating execution plan',
   }, 201);
 });
 
@@ -132,6 +184,7 @@ taskRoutes.get('/', async (c) => {
       draft_count: t.drafts.length,
       result_conversation_id: t.result_conversation_id,
       error: t.error,
+      clarification: t.clarification,
       created_by: t.created_by,
       created_at: t.created_at,
       updated_at: t.updated_at,
@@ -191,6 +244,76 @@ taskRoutes.post('/:id/cancel', async (c) => {
   }
 });
 
+// ── Submit clarification answers ──
+taskRoutes.post('/:id/clarify', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => null);
+
+  if (!body?.answers || typeof body.answers !== 'object') {
+    return c.json({ error: 'Missing answers object in body' }, 400);
+  }
+
+  try {
+    const task = await taskStore.get(id);
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    if (task.status !== 'needs_clarification') {
+      return c.json({ error: `Task is not awaiting clarification (status: ${task.status})` }, 400);
+    }
+    if (!task.clarification) {
+      return c.json({ error: 'Task has no clarification data' }, 400);
+    }
+
+    // Merge new answers into existing
+    const clarification = task.clarification;
+    clarification.answered = { ...clarification.answered, ...body.answers };
+
+    // Check if all required questions are answered
+    const unanswered = clarification.questions.filter(
+      (q) => q.required && !clarification.answered[q.field]
+    );
+
+    if (unanswered.length > 0) {
+      clarification.status = 'pending';
+      await taskStore.setClarification(id, clarification);
+      return c.json({
+        task_id: id,
+        status: 'still_needs_clarification',
+        remaining: unanswered,
+      });
+    }
+
+    // All required answers provided — enrich context and generate plan
+    clarification.status = 'answered';
+    await taskStore.setClarification(id, clarification);
+
+    const enrichedContext = Object.entries(clarification.answered)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join('\n');
+
+    const newContext = (task.context || '') + '\n\n# Clarification Answers\n' + enrichedContext;
+    await taskStore.updateContext(id, newContext);
+
+    // Re-fetch and generate execution plan (async)
+    const refreshed = await taskStore.get(id);
+    if (refreshed) {
+      taskExecutor.planTask(refreshed).catch((err) =>
+        console.error(`[task-api] Planning error for clarified task ${id}:`, err)
+      );
+    }
+
+    return c.json({
+      task_id: id,
+      status: 'planning',
+      message: 'Clarification received — generating execution plan for approval',
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 400);
+  }
+});
+
 // ── Get task drafts (for review UI) ──
 taskRoutes.get('/:id/drafts', async (c) => {
   const id = c.req.param('id');
@@ -224,4 +347,105 @@ taskRoutes.get('/:id/log', async (c) => {
     status: task.status,
     log: task.log,
   });
+});
+
+// ── Get execution plan ──
+taskRoutes.get('/:id/plan', async (c) => {
+  const id = c.req.param('id');
+  const task = await taskStore.get(id);
+
+  if (!task) {
+    return c.json({ error: 'Task not found' }, 404);
+  }
+
+  if (!task.plan) {
+    return c.json({
+      task_id: id,
+      status: task.status,
+      plan: null,
+      message: task.status === 'planning'
+        ? 'Plan is being generated...'
+        : 'No plan generated yet',
+    });
+  }
+
+  return c.json({
+    task_id: id,
+    status: task.status,
+    plan: {
+      approach: task.plan.approach,
+      reasoning: task.plan.reasoning,
+      steps: task.plan.steps,
+      approved: task.plan.approved,
+      approved_at: task.plan.approved_at,
+      rejection_feedback: task.plan.rejection_feedback,
+    },
+    subtasks: (task.subtasks || []).map(st => ({
+      id: st.id,
+      order: st.order,
+      action: st.action,
+      objective: st.objective,
+      status: st.status,
+      result: st.result,
+      error: st.error,
+    })),
+    can_approve: task.status === 'awaiting_plan_approval',
+    can_reject: task.status === 'awaiting_plan_approval',
+  });
+});
+
+// ── Approve execution plan ──
+taskRoutes.post('/:id/approve-plan', async (c) => {
+  const id = c.req.param('id');
+
+  try {
+    await taskExecutor.approvePlan(id);
+    return c.json({
+      task_id: id,
+      status: 'in_progress',
+      message: 'Plan approved — execution started',
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 400);
+  }
+});
+
+// ── Reject execution plan with feedback ──
+taskRoutes.post('/:id/reject-plan', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => null);
+
+  if (!body?.feedback || typeof body.feedback !== 'string') {
+    return c.json({ error: 'Missing feedback string in body' }, 400);
+  }
+
+  try {
+    const task = await taskStore.get(id);
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    if (task.status !== 'awaiting_plan_approval') {
+      return c.json({
+        error: `Task is not awaiting plan approval (status: ${task.status})`,
+      }, 400);
+    }
+
+    const newPlan = await taskExecutor.replanTask(task, body.feedback);
+
+    return c.json({
+      task_id: id,
+      status: 'awaiting_plan_approval',
+      message: 'Plan regenerated with feedback — review the new plan',
+      plan: {
+        approach: newPlan.approach,
+        reasoning: newPlan.reasoning,
+        steps: newPlan.steps,
+        rejection_feedback: newPlan.rejection_feedback,
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 400);
+  }
 });

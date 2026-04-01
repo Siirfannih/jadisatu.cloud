@@ -147,9 +147,11 @@ export interface AssembledContext {
   rules: string;
   mode: string;
   phase_instruction?: string;
+  task_context?: string;
   skills: string[];
   knowledge: string[];
   customer_memory?: string;
+  memory_recall?: string;
   conversation_history: Message[];
   lead_score?: LeadScore;
   style_reference?: string;
