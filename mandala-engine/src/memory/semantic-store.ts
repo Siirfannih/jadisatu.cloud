@@ -53,7 +53,7 @@ export class SemanticStore {
     await ns.upsert([{
       id,
       values: vector,
-      metadata: fullMetadata as Record<string, string>,
+      metadata: fullMetadata as unknown as Record<string, string>,
     }]);
 
     return id;
