@@ -55,16 +55,22 @@ async function seed(): Promise<void> {
   console.log('Seeding base skills to Pinecone...');
   const store = SemanticStore.getInstance();
 
+  let success = 0;
+  let failed = 0;
+
   for (const skill of BASE_SKILLS) {
     try {
       const id = await store.storeBaseSkill(skill.content, skill.source);
       console.log(`  ✓ ${skill.source} → ${id}`);
+      success++;
     } catch (err) {
       console.error(`  ✗ ${skill.source}:`, err);
+      failed++;
     }
   }
 
-  console.log(`\nDone! Seeded ${BASE_SKILLS.length} base skills.`);
+  console.log(`\nDone! ${success}/${BASE_SKILLS.length} seeded successfully.${failed > 0 ? ` ${failed} failed.` : ''}`);
+  if (failed > 0) process.exit(1);
 }
 
 // Run if called directly

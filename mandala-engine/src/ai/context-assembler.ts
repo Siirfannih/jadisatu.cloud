@@ -17,6 +17,9 @@ export class ContextAssembler {
   private dbKnowledgeCache: string[] | null = null;
   private dbPolicyCache: string[] | null = null;
   private dbCacheExpiry = 0;
+  // Memory recall cache: key = "tenantId:customerNumber", value = { result, expiry }
+  private memoryRecallCache = new Map<string, { result: string | undefined; expiry: number }>();
+  private static MEMORY_RECALL_TTL_MS = 60_000; // 60 seconds
 
   static getInstance(): ContextAssembler {
     if (!ContextAssembler.instance) {
@@ -368,6 +371,13 @@ Customer menunjukkan resistance. Tujuan:
     // Check if Pinecone is configured
     if (!process.env.PINECONE_API_KEY) return undefined;
 
+    // Check cache — avoid redundant Pinecone + embedding calls for rapid messages
+    const cacheKey = `${tenantId}:${customerNumber}`;
+    const cached = this.memoryRecallCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiry) {
+      return cached.result;
+    }
+
     const query = recentMessages
       .map(m => m.content)
       .join(' ')
@@ -409,13 +419,22 @@ Customer menunjukkan resistance. Tujuan:
       sections.push(`## Best Practice\n${items}`);
     }
 
-    if (sections.length === 0) return undefined;
+    const result = sections.length === 0
+      ? undefined
+      : `# Memory Recall (dari pengalaman sebelumnya)\n${sections.join('\n\n')}`;
 
-    return `# Memory Recall (dari pengalaman sebelumnya)\n${sections.join('\n\n')}`;
+    // Cache the result
+    this.memoryRecallCache.set(cacheKey, {
+      result,
+      expiry: Date.now() + ContextAssembler.MEMORY_RECALL_TTL_MS,
+    });
+
+    return result;
   }
 
   clearCache(): void {
     this.cache.clear();
+    this.memoryRecallCache.clear();
     this.dbKnowledgeCache = null;
     this.dbPolicyCache = null;
     this.dbCacheExpiry = 0;

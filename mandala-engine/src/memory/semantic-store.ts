@@ -87,6 +87,7 @@ export class SemanticStore {
   /**
    * Recall relevant memories for a query from a tenant's namespace.
    * Optionally filter by memory type and/or customer.
+   * Pass precomputed vector to avoid redundant embed() calls.
    */
   async recall(
     tenantId: string,
@@ -96,11 +97,12 @@ export class SemanticStore {
       customerNumber?: string;
       topK?: number;
       minScore?: number;
+      vector?: number[];
     }
   ): Promise<MemoryRecord[]> {
-    const { type, customerNumber, topK = 5, minScore = 0.3 } = options || {};
+    const { type, customerNumber, topK = 5, minScore = 0.3, vector } = options || {};
 
-    const queryVector = await embed(query);
+    const queryVector = vector ?? await embed(query);
 
     // Build metadata filter
     const filter: Record<string, unknown> = {};
@@ -128,9 +130,10 @@ export class SemanticStore {
 
   /**
    * Recall from base skills namespace (shared knowledge).
+   * Pass precomputed vector to avoid redundant embed() calls.
    */
-  async recallBaseSkills(query: string, topK = 3): Promise<MemoryRecord[]> {
-    const queryVector = await embed(query);
+  async recallBaseSkills(query: string, topK = 3, vector?: number[]): Promise<MemoryRecord[]> {
+    const queryVector = vector ?? await embed(query);
 
     const ns = getBaseSkillsNamespace();
     const results = await ns.query({
@@ -151,7 +154,7 @@ export class SemanticStore {
   }
 
   /**
-   * Combined recall: query tenant memory + base skills in parallel.
+   * Combined recall: embed once, then query tenant memory + base skills in parallel.
    * Returns results grouped by type.
    */
   async recallAll(
@@ -164,11 +167,14 @@ export class SemanticStore {
     procedural: MemoryRecord[];
     baseSkills: MemoryRecord[];
   }> {
+    // Embed once, reuse for all 4 queries
+    const vector = await embed(query);
+
     const [episodic, semantic, procedural, baseSkills] = await Promise.all([
-      this.recall(tenantId, query, { type: 'episodic', customerNumber, topK: 3 }),
-      this.recall(tenantId, query, { type: 'semantic', topK: 3 }),
-      this.recall(tenantId, query, { type: 'procedural', topK: 2 }),
-      this.recallBaseSkills(query, 2),
+      this.recall(tenantId, query, { type: 'episodic', customerNumber, topK: 3, vector }),
+      this.recall(tenantId, query, { type: 'semantic', topK: 3, vector }),
+      this.recall(tenantId, query, { type: 'procedural', topK: 2, vector }),
+      this.recallBaseSkills(query, 2, vector),
     ]);
 
     return { episodic, semantic, procedural, baseSkills };
