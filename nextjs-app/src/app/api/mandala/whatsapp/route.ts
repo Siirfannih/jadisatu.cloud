@@ -1,7 +1,7 @@
 import { createClient as createServerClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-import { isMandalaOwner } from '@/lib/mandala-auth'
+import { getOrCreateTenant } from '@/lib/mandala-auth'
 
 const ENGINE_URL = process.env.MANDALA_ENGINE_URL || 'http://localhost:3100'
 
@@ -26,12 +26,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     console.log('[wa-api] User:', user.email)
-    if (!isMandalaOwner(user)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get('tenant') || 'mandala'
+    const tenantId = await getOrCreateTenant(user)
 
     // Try Supabase first, fall back to engine API if table doesn't exist
     try {
@@ -94,13 +89,9 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!isMandalaOwner(user)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
+    const tenantId = await getOrCreateTenant(user)
     const body = await request.json()
-    const { action, tenant } = body
-    const tenantId = tenant || 'mandala'
+    const { action } = body
 
     if (!action || !['connect', 'disconnect'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action. Use "connect" or "disconnect".' }, { status: 400 })

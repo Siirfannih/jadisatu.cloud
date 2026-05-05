@@ -1,15 +1,14 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Playfair_Display } from 'next/font/google'
+import { DM_Sans } from 'next/font/google'
 import './globals.css'
-import AppShell from '@/components/layout/AppShell'
 import { ThemeProvider } from '@/lib/theme'
+import { AppLayout } from '@/components/layout/app-layout'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
-const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' })
+const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' })
 
 export const metadata: Metadata = {
-  title: 'JadiSatu OS - Creator Operating System',
-  description: 'Your unified creator command center',
+  title: 'Jadisatu Dashboard — Client Product',
+  description: 'Operating System for Indonesian UMKM & Creators',
 }
 
 export const viewport: Viewport = {
@@ -20,13 +19,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="id" suppressHydrationWarning>
       <head />
-      <body className={`${inter.variable} ${playfair.variable} font-sans antialiased bg-background text-foreground`}>
+      <body className={`${dmSans.variable} font-sans antialiased`}>
         <ThemeProvider>
-          <AppShell>
+          <AppLayout>
             {children}
-          </AppShell>
+          </AppLayout>
         </ThemeProvider>
       </body>
     </html>

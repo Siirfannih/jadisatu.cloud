@@ -1,6 +1,6 @@
 import { createClient as createServerClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
-import { isMandalaOwner } from '@/lib/mandala-auth'
+import { getOrCreateTenant } from '@/lib/mandala-auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,9 +9,7 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!isMandalaOwner(user)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const tenantId = await getOrCreateTenant(user)
 
     const body = await request.json()
 
@@ -22,7 +20,7 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         query: body.query,
-        tenant: 'mandala',
+        tenant: tenantId,
         batch_size: body.batch_size || 20,
         auto_contact: false,
       }),
