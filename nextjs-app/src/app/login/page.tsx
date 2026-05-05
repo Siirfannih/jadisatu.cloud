@@ -3,6 +3,12 @@
 import { useState, useEffect, Suspense } from "react"
 import { createClient } from "@/lib/supabase-browser"
 import { useRouter, useSearchParams } from "next/navigation"
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
+
+const brand = {
+  primary: '#0060E1',
+  primaryHover: '#1D4ED8',
+}
 
 function LoginContent() {
   const [email, setEmail] = useState("")
@@ -87,73 +93,92 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100 dark:from-gray-900 dark:via-black dark:to-gray-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+      {/* Subtle background accent */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#0060E1]/[0.03] rounded-full blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-md">
-        <div className="backdrop-blur-xl bg-white/80 dark:bg-white/5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
-              JadiSatu OS
-            </h1>
-            <p className="text-slate-500 dark:text-gray-400 text-sm">
-              {isSignUp ? "Create your account" : "Welcome back"}
+      <div
+        className="relative w-full max-w-md"
+        style={{ animation: 'slide-up 0.5s cubic-bezier(0.16,1,0.3,1)', animationFillMode: 'both' }}
+      >
+        <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-slate-100 p-8">
+          {/* Brand header */}
+          <div
+            className="text-center mb-8"
+            style={{ animation: 'slide-up 0.5s cubic-bezier(0.16,1,0.3,1)', animationDelay: '0.05s', animationFillMode: 'both' }}
+          >
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <h1 className="text-2xl font-bold text-slate-800">JadiSatu</h1>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: brand.primary }} />
+            </div>
+            <p className="text-sm text-slate-400">
+              {isSignUp ? "Buat akun baru" : "Selamat datang kembali"}
             </p>
           </div>
 
+          {/* Error alert */}
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm">
-              {error}
+            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+              <p className="text-sm text-red-600">{error}</p>
             </div>
           )}
 
+          {/* Success alert */}
           {message && (
-            <div className="mb-4 p-3 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 text-green-600 dark:text-green-400 text-sm">
-              {message}
+            <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+              <p className="text-sm text-emerald-600">{message}</p>
             </div>
           )}
 
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full mb-6 py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-200 dark:border-white/20 rounded-xl text-foreground font-medium transition-all duration-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path
-                fill="currentColor"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="currentColor"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-            {loading ? "Loading..." : "Continue with Google"}
-          </button>
+          {/* Google OAuth button */}
+          <div style={{ animation: 'slide-up 0.5s cubic-bezier(0.16,1,0.3,1)', animationDelay: '0.1s', animationFillMode: 'both' }}>
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full mb-6 py-3 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-medium transition-all duration-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Menghubungkan...
+                </span>
+              ) : (
+                "Lanjutkan dengan Google"
+              )}
+            </button>
+          </div>
 
-          <div className="relative mb-6">
+          {/* Divider */}
+          <div
+            className="relative mb-6"
+            style={{ animation: 'slide-up 0.5s cubic-bezier(0.16,1,0.3,1)', animationDelay: '0.15s', animationFillMode: 'both' }}
+          >
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200 dark:border-white/10"></div>
+              <div className="w-full border-t border-slate-100" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white dark:bg-gray-900/50 text-slate-400 dark:text-gray-400">or</span>
+              <span className="px-4 bg-white text-slate-400">atau</span>
             </div>
           </div>
 
-          <form onSubmit={handleEmailAuth} className="space-y-4">
+          {/* Email form */}
+          <form
+            onSubmit={handleEmailAuth}
+            className="space-y-4"
+            style={{ animation: 'slide-up 0.5s cubic-bezier(0.16,1,0.3,1)', animationDelay: '0.2s', animationFillMode: 'both' }}
+          >
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+              <label htmlFor="email" className="block text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
                 Email
               </label>
               <input
@@ -162,13 +187,13 @@ function LoginContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-foreground placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0060E1]/20 focus:border-[#0060E1]/30 transition-all text-sm"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
                 Password
               </label>
               <input
@@ -178,35 +203,53 @@ function LoginContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-foreground placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
-                placeholder="••••••••"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0060E1]/20 focus:border-[#0060E1]/30 transition-all text-sm"
+                placeholder="Minimal 6 karakter"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25"
+              className="w-full py-3 px-4 text-white font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: brand.primary }}
+              onMouseEnter={(e) => { if (!loading) (e.target as HTMLButtonElement).style.backgroundColor = brand.primaryHover }}
+              onMouseLeave={(e) => { if (!loading) (e.target as HTMLButtonElement).style.backgroundColor = brand.primary }}
             >
-              {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Memproses...
+                </span>
+              ) : (
+                isSignUp ? "Daftar" : "Masuk"
+              )}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          {/* Toggle sign up / sign in */}
+          <div
+            className="mt-6 text-center"
+            style={{ animation: 'slide-up 0.5s cubic-bezier(0.16,1,0.3,1)', animationDelay: '0.25s', animationFillMode: 'both' }}
+          >
             <button
               onClick={() => {
                 setIsSignUp(!isSignUp)
                 setError(null)
                 setMessage(null)
               }}
-              className="text-sm text-slate-500 dark:text-gray-400 hover:text-foreground transition-colors"
+              className="text-sm text-slate-400 hover:text-slate-600 transition-colors"
             >
-              {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+              {isSignUp ? "Sudah punya akun? Masuk" : "Belum punya akun? Daftar"}
             </button>
           </div>
         </div>
 
-        <div className="text-center mt-6 text-slate-400 dark:text-gray-500 text-sm">
+        {/* Footer */}
+        <div
+          className="text-center mt-6 text-slate-300 text-xs"
+          style={{ animation: 'slide-up 0.5s cubic-bezier(0.16,1,0.3,1)', animationDelay: '0.3s', animationFillMode: 'both' }}
+        >
           Powered by JadiSatu Ecosystem
         </div>
       </div>
@@ -217,8 +260,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100 dark:from-gray-900 dark:via-black dark:to-gray-900 flex items-center justify-center">
-        <div className="text-foreground">Loading...</div>
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#0060E1' }} />
       </div>
     }>
       <LoginContent />

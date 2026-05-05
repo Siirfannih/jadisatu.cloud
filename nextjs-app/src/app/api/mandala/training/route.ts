@@ -1,7 +1,7 @@
 import { createClient as createServerClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-import { isMandalaOwner } from '@/lib/mandala-auth'
+import { getOrCreateTenant } from '@/lib/mandala-auth'
 
 function getServiceSupabase() {
   return createClient(
@@ -18,9 +18,7 @@ export async function GET(req: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!isMandalaOwner(user)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const tenantId = await getOrCreateTenant(user)
 
     const supabase = getServiceSupabase()
     const { searchParams } = new URL(req.url)
@@ -50,6 +48,7 @@ export async function GET(req: NextRequest) {
     const { data: conversations, error } = await supabase
       .from('mandala_conversations')
       .select('id, tenant_id, customer_number, customer_name, status, phase, current_handler, lead_score, created_at, updated_at')
+      .eq('tenant_id', tenantId)
       .order('updated_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -92,9 +91,7 @@ export async function POST(req: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!isMandalaOwner(user)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    await getOrCreateTenant(user)
 
     const body = await req.json()
     const { action } = body

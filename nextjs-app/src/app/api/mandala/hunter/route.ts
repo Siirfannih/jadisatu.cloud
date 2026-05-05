@@ -1,7 +1,7 @@
 import { createClient as createServerClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-import { isMandalaOwner } from '@/lib/mandala-auth'
+import { getOrCreateTenant } from '@/lib/mandala-auth'
 
 function getServiceSupabase() {
   return createClient(
@@ -17,9 +17,7 @@ export async function GET(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!isMandalaOwner(user)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const tenantId = await getOrCreateTenant(user)
 
     const supabase = getServiceSupabase()
     const { searchParams } = new URL(request.url)
@@ -31,6 +29,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('mandala_hunter_prospects')
       .select('*')
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 

@@ -1,7 +1,7 @@
 import { createClient as createServerClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { isMandalaOwner } from '@/lib/mandala-auth'
+import { getOrCreateTenant } from '@/lib/mandala-auth'
 
 function getServiceSupabase() {
   return createClient(
@@ -17,26 +17,27 @@ export async function GET() {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!isMandalaOwner(user)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const tenantId = await getOrCreateTenant(user)
 
     const supabase = getServiceSupabase()
 
-    // Conversations stats
+    // Conversations stats — scoped by tenant
     const { count: totalConversations } = await supabase
       .from('mandala_conversations')
       .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
 
     const { count: activeConversations } = await supabase
       .from('mandala_conversations')
       .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
     // Phase breakdown
     const { data: phaseData } = await supabase
       .from('mandala_conversations')
       .select('phase')
+      .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
     const phases: Record<string, number> = {}
@@ -64,6 +65,7 @@ export async function GET() {
     const { count: closingCount } = await supabase
       .from('mandala_conversations')
       .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
       .eq('phase', 'closing')
 
     const conversionRate = totalConversations
@@ -74,21 +76,25 @@ export async function GET() {
     const { count: totalProspects } = await supabase
       .from('mandala_hunter_prospects')
       .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
 
     const { count: contactedProspects } = await supabase
       .from('mandala_hunter_prospects')
       .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
       .eq('status', 'contacted')
 
     const { count: contactNowProspects } = await supabase
       .from('mandala_hunter_prospects')
       .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
       .eq('priority', 'contact_now')
 
     // Handler breakdown
     const { data: handlerData } = await supabase
       .from('mandala_conversations')
       .select('current_handler')
+      .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
     const handlers: Record<string, number> = {}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase-server"
+import { getOrCreateTenant } from "@/lib/mandala-auth"
 
 export async function POST() {
   try {
@@ -39,6 +40,9 @@ export async function POST() {
       .upsert(domainsToInsert, { onConflict: 'name', ignoreDuplicates: true })
 
     if (domainsError) throw domainsError
+
+    // Auto-provision Mandala tenant for new user
+    await getOrCreateTenant(user)
 
     return NextResponse.json({ message: "User initialized successfully" })
   } catch (error) {

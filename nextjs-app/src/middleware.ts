@@ -59,15 +59,44 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // ── REDESIGN REDIRECTS ──────────────────────────────────
+  const redirects: Record<string, string> = {
+    '/calendar': '/',
+    '/focus': '/',
+    '/tasks': '/',
+    '/kanban': '/',
+    '/projects': '/',
+    '/domains/work': '/',
+    '/domains/learn': '/',
+    '/domains/business': '/',
+    '/creative': '/content',
+    '/content-studio': '/content',
+    '/narrative-engine': '/content',
+    '/monk-mode': '/',
+    '/agents': '/mandala',
+    '/ai-agent': '/mandala',
+    '/notes': '/business-profile',
+    '/ideas': '/business-profile',
+    // '/crm' is now a real page — no redirect needed
+    '/context': '/business-profile',
+  }
+
+  if (redirects[pathname]) {
+    return NextResponse.redirect(new URL(redirects[pathname], request.url))
+  }
+
+  if (pathname.startsWith('/domains/')) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+  // ────────────────────────────────────────────────────────
+
   // Allow API routes to handle their own auth (they use getUser() directly)
   if (pathname.startsWith('/api/')) {
     return response
   }
 
   // Allow access to login and auth callback routes
-  // Note: basePath '/' is stripped before middleware runs
   if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
-    // If already logged in, redirect to dashboard
     if (session && pathname === '/login') {
       return NextResponse.redirect(new URL('/', request.url))
     }

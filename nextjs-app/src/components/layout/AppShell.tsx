@@ -27,7 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="min-h-screen flex bg-slate-50 text-slate-900">
       <Sidebar
         isMobile={isMobile}
         mobileOpen={mobileMenuOpen}

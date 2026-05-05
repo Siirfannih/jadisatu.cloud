@@ -68,22 +68,23 @@ export const PHASES = [
 ]
 
 export const TEMPERATURE_CONFIG = [
-  { key: 'hot', label: 'Hot', range: '70+', color: 'bg-red-50 border-red-200 text-red-700' },
-  { key: 'warm', label: 'Warm', range: '50-69', color: 'bg-orange-50 border-orange-200 text-orange-700' },
-  { key: 'lukewarm', label: 'Lukewarm', range: '30-49', color: 'bg-yellow-50 border-yellow-200 text-yellow-700' },
-  { key: 'cold', label: 'Cold', range: '0-29', color: 'bg-blue-50 border-blue-200 text-blue-700' },
+  { key: 'hot', label: 'Sangat Tertarik', range: '70+', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/20' },
+  { key: 'warm', label: 'Tertarik', range: '50-69', color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
+  { key: 'lukewarm', label: 'Cukup Tertarik', range: '30-49', color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+  { key: 'cold', label: 'Belum Tertarik', range: '0-29', color: 'text-[#0060E1]', bg: 'bg-[#0060E1]/10', border: 'border-[#0060E1]/20' },
 ]
 
 export const PROSPECT_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  discovered: { bg: 'bg-slate-100', text: 'text-slate-600' },
-  enriched: { bg: 'bg-blue-100', text: 'text-blue-600' },
-  qualified: { bg: 'bg-amber-100', text: 'text-amber-600' },
-  contacted: { bg: 'bg-green-100', text: 'text-green-600' },
+  discovered: { bg: 'bg-slate-100', text: 'text-slate-500' },
+  enriched: { bg: 'bg-[#0060E1]/10', text: 'text-[#0060E1]' },
+  qualified: { bg: 'bg-amber-500/10', text: 'text-amber-500' },
+  contacted: { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
 }
 
 export const DECISION_COLORS: Record<string, { bg: string; text: string }> = {
-  contact_now: { bg: 'bg-red-100', text: 'text-red-700' },
-  high_priority: { bg: 'bg-orange-100', text: 'text-orange-700' },
-  low_priority: { bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  skip: { bg: 'bg-gray-100', text: 'text-gray-500' },
+  contact_now: { bg: 'bg-red-500/10', text: 'text-red-500' },
+  high_priority: { bg: 'bg-orange-500/10', text: 'text-orange-500' },
+  low_priority: { bg: 'bg-amber-500/10', text: 'text-amber-500' },
+  skip: { bg: 'bg-slate-100', text: 'text-slate-400' },
 }
+

@@ -38,7 +38,7 @@ const nextConfig = {
   },
   // Tree-shake heavy icon libraries
   experimental: {
-    optimizePackageImports: ['lucide-react', '@dnd-kit/core', '@dnd-kit/sortable'],
+    optimizePackageImports: ['lucide-react', 'recharts'],
   },
 }
 module.exports = nextConfig
