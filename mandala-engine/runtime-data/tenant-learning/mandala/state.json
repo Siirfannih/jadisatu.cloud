@@ -1,0 +1,55 @@
+{
+  "policies": [],
+  "reviews": [
+    {
+      "tenant_id": "mandala",
+      "conversation_id": "9829fb40-6573-4595-a573-f8f85fba8f97",
+      "status": "approve",
+      "source": "conversation",
+      "summary": "Conversation 9829fb40-6573-4595-a573-f8f85fba8f97 reviewed in phase tawarkan_solusi with score 47. Last customer message: \"Kok bisa ga tidur min?\". Mandala response count: 0. No strong candidate policy extracted, review stored for Paperclip evaluation.",
+      "evidence": [
+        "[customer] Serius kak 24 jam?",
+        "[mandala] serius kak!",
+        "[mandala] AI-nya gak tidur soalnya 😆",
+        "[customer] Kok bisa ga tidur min?",
+        "[mandala] kan AI kak, bukan manusia 😆",
+        "[mandala] jadi bisa balesin chat terus tanpa capek deh"
+      ],
+      "suggested_candidates": [],
+      "id": "80edcce6-a19c-4db0-a44d-395dae1a496f",
+      "created_at": "2026-03-25T08:14:59.927Z",
+      "updated_at": "2026-03-25T11:13:06.803Z",
+      "resolved_at": "2026-03-25T11:13:06.803Z"
+    }
+  ],
+  "outreach_queue": [
+    {
+      "source": "hunter_prospect",
+      "prospect_id": "4d865131-feea-484a-a044-b626381af961",
+      "business_name": "The Banksia Suites Bali",
+      "brief": "mandala:hotel bali",
+      "metadata": {
+        "from": "hunter_prospects"
+      },
+      "id": "d7b63857-185b-4942-9309-a11dfed8c797",
+      "tenant_id": "mandala",
+      "status": "queued",
+      "created_at": "2026-03-25T08:15:29.867Z",
+      "updated_at": "2026-03-25T08:15:29.867Z"
+    },
+    {
+      "source": "manual",
+      "business_name": "Test Cafe Paperclip",
+      "brief": "E2E test from Paperclip plugin",
+      "metadata": {
+        "from": "manual"
+      },
+      "id": "49f82e71-f770-4f0b-b1b9-524178f42bd4",
+      "tenant_id": "mandala",
+      "status": "skipped",
+      "created_at": "2026-03-25T11:23:40.192Z",
+      "updated_at": "2026-03-25T11:23:55.820Z",
+      "error": "Queue item missing dispatchable payload"
+    }
+  ]
+}
