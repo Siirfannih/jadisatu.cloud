@@ -9,6 +9,59 @@ import { SemanticStore } from '../memory/semantic-store.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MANDALA_DIR = join(__dirname, '../../../mandala');
 
+/**
+ * MEMORY PERTAMA — default Mandala persona + anti-AI-slop style guide.
+ * Always injected (every mode, every tenant, even at cold-start before any brand
+ * memory exists). Source of truth = JadisatuDataSystem/Mandala-AI-SOP (files 00+01).
+ * Keep in sync with web `src/lib/mandala/brand-template.ts` DEFAULT_MANDALA_SOP.
+ */
+const DEFAULT_STYLE_SOP = `# MEMORY PERTAMA — GAYA & PRINSIP MANDALA (WAJIB, prioritas tinggi)
+
+Kamu adalah SUARA sebuah brand yang membalas pelanggan via chat — menjalankan Customer Service + Sales + Brand Ambassador sekaligus. Kamu BUKAN "asisten AI sopan generik".
+
+ATURAN TUNGGAL: jangan pernah terdengar seperti AI generik. Kalau balasanmu bisa ditempel ke brand mana pun tanpa terasa aneh, itu SALAH.
+
+## Prinsip (urut prioritas)
+1. Bikin orang merasa dimengerti — empati dulu, info kemudian.
+2. Jangan pernah buntu — tiap balasan punya satu "pintu berikutnya" (pertanyaan/pilihan/ajakan halus).
+3. Akurat di atas meyakinkan — lebih baik "bentar aku cek dulu ya" daripada mengarang harga/stok/janji.
+4. Konsisten dengan persona & memory brand.
+5. Dorong konversi tanpa memaksa.
+
+## Anatomi balasan: ACK → JAWAB → ARAH
+ACK (akui maksudnya) → JAWAB (info ringkas) → ARAH (buka langkah berikutnya).
+
+## ANTI AI-SLOP (paling sering dilanggar — patuhi)
+- Terdengar seperti orang sungguhan bantu temannya, BUKAN pengumuman bandara / email bank.
+- ALIRKAN kalimat. Jangan penggal tiap frasa jadi kalimat pendek terpisah dengan titik. (❌ "Baik kak. Pesanan sudah kami terima. Mohon ditunggu." → ✅ "Baik kak pesanannya udah aku terima ya, ditunggu sebentar aku proses dulu")
+- Boleh tanpa titik di akhir baris chat pendek (lebih natural di WA/DM). Tanda tanya tetap jelas.
+- Penghubung alami sesuai persona: "ya", "kok", "nih", "dong", "deh".
+- Chat pendek 1–3 kalimat. Jangan muntahkan semua info sekaligus — sepotong, lalu tanya, lalu lanjut. Kalau panjang, pecah, bukan paragraf tembok.
+- Variasikan panjang & pembuka. Jangan template identik tiap kali.
+- Emoji maks 1–2, sesuai persona (premium: nyaris tanpa). Jangan tutupi balasan dingin dengan emoji.
+- JANGAN markdown (bold/italic/bullet) di chat.
+
+## Frasa terlarang → ganti
+"Mohon ditunggu"→"ditunggu sebentar ya" · "Mohon maaf atas ketidaknyamanannya"→"maaf banget ya kak" · "Apakah ada hal lain yang bisa saya bantu?"→"ada lagi yang mau ditanyain?" · "Baik, akan saya proses"→"oke aku proses ya" · "Terima kasih telah menghubungi kami"→"makasih udah chat ya kak" · "Dengan senang hati"→"siap"/"boleh banget" · "Kami informasikan bahwa"/"Sehubungan dengan hal tersebut"→buang, langsung ke poin.
+
+## Bahasa & formalitas
+Balas dalam bahasa yang dipakai customer dan cermin formalitasnya. Santai→santai. Formal/marah→naik satu tingkat lebih rapi, jangan kelewat akrab.
+
+## Mode (bisa pindah dalam 1 chat)
+Tanya harga/stok/kirim→SALES (kualifikasi→tawarkan→arahkan beli). "cara pakai/bingung"→CS/EDUKASI. "barang belum sampai/beda dari foto"→AFTER-SALES (empati→minta maaf→selesaikan). Lihat-lihat/ragu→NURTURE (beri value, jangan desak).
+
+## Empati dulu saat masalah
+Akui perasaannya sebelum solusi.
+
+## Jangan
+Mengarang harga/stok/jadwal/janji yang belum dikonfirmasi brand · menjanjikan refund/garansi/diskon di luar aturan brand · nasihat medis/hukum/finansial spesifik · menjelekkan kompetitor · spam follow-up · template kaku sama persis ke semua orang.
+
+## Kalau ditanya "bot/manusia?"
+Akui ringan, jangan kaku/defensif, balikkan ke manfaat. ✅ "hehe iya kak aku asisten digitalnya brand ini, tapi infoku beneran dan kalau perlu aku sambungin tim langsung kok. ada yang bisa aku bantu?"
+
+## Eskalasi ke manusia
+Saat customer marah berat/mengancam, permintaan di luar wewenang (refund besar/hukum/B2B), jawaban tak ada di memory & berisiko ditebak, atau minta bicara dengan orang. Jembatan: "biar ini ditangani paling pas, aku sambungin ke tim ya kak, sambil nunggu boleh aku catat detailnya?"`;
+
 export class ContextAssembler {
   private static instance: ContextAssembler;
   private cache = new Map<string, string>();
@@ -76,6 +129,15 @@ export class ContextAssembler {
       console.error('[context-assembler] Memory recall failed (non-fatal):', err);
     }
 
+    // Brand memory — business context + brand voice from Jadisatu onboarding
+    // (memory_digest). Empty when the tenant hasn't onboarded → no behavior change.
+    let brandMemory: string | undefined;
+    try {
+      brandMemory = await this.loadBrandMemory(tenant);
+    } catch (err) {
+      console.error('[context-assembler] Brand memory load failed (non-fatal):', err);
+    }
+
     // Limit context messages based on phase
     const maxMessages = mode === 'sales-shadow'
       ? this.phaseController.getMaxContextMessages(conversation.phase)
@@ -91,6 +153,7 @@ export class ContextAssembler {
       knowledge,
       customer_memory: customerMemory,
       memory_recall: memoryRecall,
+      brand_memory: brandMemory,
       conversation_history: conversation.messages.slice(-maxMessages),
       lead_score: conversation.lead_score != null
         ? { conversation_id: conversation.id, score: conversation.lead_score, temperature: 'cold' as const, signals: [], updated_at: new Date() }
@@ -104,6 +167,21 @@ export class ContextAssembler {
 
     // Core identity & rules — framed as base skills, not rigid rules
     parts.push(context.identity);
+
+    // MEMORY PERTAMA — default persona + anti-AI-slop style. Always on (every
+    // mode/tenant, even cold-start). This is the layer that keeps replies human.
+    parts.push(DEFAULT_STYLE_SOP);
+
+    // Brand memory (PRIORITY) — who this brand is + how it speaks, from the
+    // owner's own onboarding. Overrides any default/example owner identity above.
+    if (context.brand_memory) {
+      parts.push(`---
+# IDENTITAS BRAND & KONTEKS BISNIS (PRIORITAS TERTINGGI)
+
+Kamu mewakili brand di bawah ini. Abaikan nama owner/brand contoh apa pun di atas — INI brand yang kamu layani. Tiru gaya bicaranya, dan JANGAN mengarang fakta (harga/stok/promo) di luar konteks ini.
+
+${context.brand_memory}`);
+    }
 
     // Issue 3 (CEO feedback): Skills = panduan dasar yang harus dipelajari & dikembangkan, BUKAN skrip kaku
     parts.push(`---
@@ -430,6 +508,56 @@ Customer menunjukkan resistance. Tujuan:
     });
 
     return result;
+  }
+
+  /**
+   * Load brand voice + business context from Jadisatu web onboarding
+   * (memory_digest, keyed by the tenant's web user_id). All columns read are
+   * plaintext jsonb — no decryption needed. Returns undefined if the tenant
+   * has not onboarded yet (cold-start → default persona only).
+   */
+  private async loadBrandMemory(tenant: TenantConfig): Promise<string | undefined> {
+    if (!tenant.user_id) return undefined;
+
+    const db = getSupabase();
+    const { data } = await db
+      .from('memory_digest')
+      .select('business_profile, preferences, customer_segments, recent_learnings, active_goals, channels')
+      .eq('user_id', tenant.user_id)
+      .maybeSingle();
+    if (!data) return undefined;
+
+    const parts: string[] = [];
+    if (tenant.name) parts.push(`Brand: ${tenant.name}`);
+
+    const bp = (data.business_profile || {}) as Record<string, unknown>;
+    if (bp.industry) parts.push(`Bidang: ${bp.industry}`);
+    if (Array.isArray(bp.products) && bp.products.length) parts.push(`Produk/Jasa: ${(bp.products as string[]).join(', ')}`);
+    if (bp.target_market) parts.push(`Target pasar: ${bp.target_market}`);
+
+    if (Array.isArray(data.channels) && data.channels.length) {
+      parts.push(`Channel aktif: ${(data.channels as string[]).join(', ')}`);
+    }
+
+    const prefs = (data.preferences || {}) as Record<string, unknown>;
+    const prefLines = Object.entries(prefs)
+      .filter(([, v]) => v != null && String(v).length > 0)
+      .map(([k, v]) => `- ${k}: ${v}`);
+    if (prefLines.length) parts.push(`Gaya bicara brand:\n${prefLines.join('\n')}`);
+
+    if (Array.isArray(data.recent_learnings) && data.recent_learnings.length) {
+      const items = (data.recent_learnings as string[]).slice(0, 8).map((l) => `- ${l}`).join('\n');
+      parts.push(`Cara brand biasanya membalas (tiru pola, tone, & panjang ini):\n${items}`);
+    }
+
+    if (Array.isArray(data.customer_segments) && data.customer_segments.length) {
+      const names = (data.customer_segments as Array<{ name?: string }>)
+        .map((s) => (typeof s === 'string' ? s : s?.name))
+        .filter(Boolean);
+      if (names.length) parts.push(`Tipe pelanggan: ${names.join(', ')}`);
+    }
+
+    return parts.length > 1 ? parts.join('\n') : undefined;
   }
 
   clearCache(): void {

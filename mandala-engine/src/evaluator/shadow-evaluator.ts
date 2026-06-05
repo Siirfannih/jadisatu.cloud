@@ -1,4 +1,4 @@
-import { getModel } from '../ai/gemini-client.js';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { getSupabase } from '../memory/supabase-client.js';
 import type { Message } from '../types/shared.js';
 import type { ConversationPhase, EvaluatorResult, CustomerMemory } from '../state-machine/types.js';
@@ -47,12 +47,19 @@ Objections: ${memory.objections_raised.join(', ') || 'none'}`
       : 'No prior memory.';
 
     try {
-      const model = getModel(classifierModel, {
-        temperature: 0,
-        maxOutputTokens: 512,
-      });
-
-      const result = await model.generateContent({
+      // Multi-key Gemini fallback (mirrors src/memory/embedding.ts): the primary
+      // GEMINI_API_KEY project can be dunning-blocked (403) or rate-limited (429).
+      // Fall through to GEMINI_API_KEY_2 so the shadow evaluator stays alive. Request
+      // shape (systemInstruction, contents, JSON parsing) is preserved exactly.
+      const generationConfig = { temperature: 0, maxOutputTokens: 512 };
+      const safetySettings = [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE },
+      ];
+      const generateRequest = {
         systemInstruction: `Kamu adalah evaluator percakapan sales B2B. Analisa pesan customer dan output JSON ONLY.
 
 Current phase: ${currentPhase}
@@ -90,7 +97,25 @@ Scoring guide:
 - comparing competitors (could be positive): +3 to +5`,
           }],
         }],
-      });
+      };
+
+      const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean) as string[];
+      let result;
+      let lastErr: unknown;
+      for (const key of keys) {
+        try {
+          const keyedModel = new GoogleGenerativeAI(key).getGenerativeModel({
+            model: classifierModel,
+            generationConfig,
+            safetySettings,
+          });
+          result = await keyedModel.generateContent(generateRequest);
+          break;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      if (!result) throw lastErr ?? new Error('[shadow-evaluator] no Gemini key available');
 
       const text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);

@@ -104,6 +104,73 @@ apiRoutes.get('/leads', async (c) => {
   return c.json({ leads });
 });
 
+// ============================================================
+// SEND FROM OWNER — Jadisatu dashboard composer
+// POST /api/conversations/:id/send-from-owner
+// Body: { content: string, owner_email?: string }
+// Inserts message + dispatches via WhatsApp channel.
+// ============================================================
+apiRoutes.post('/conversations/:id/send-from-owner', async (c) => {
+  const id = c.req.param('id');
+  let body: { content?: string; owner_email?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON' }, 400);
+  }
+  const content = (body.content ?? '').trim();
+  if (!content) return c.json({ error: 'content required' }, 400);
+  if (content.length > 4000) return c.json({ error: 'Max 4000 chars' }, 400);
+
+  const conv = await store.get(id);
+  if (!conv) return c.json({ error: 'Conversation not found' }, 404);
+
+  // Owner taking over flips handler to 'owner' (pause Mandala AI)
+  if (conv.current_handler !== 'owner') {
+    conv.current_handler = 'owner';
+    await store.update(conv);
+  }
+
+  // Persist message — direction outgoing, sender owner
+  const messageId = crypto.randomUUID();
+  await store.addMessage(id, {
+    id: messageId,
+    conversation_id: id,
+    tenant_id: conv.tenant_id,
+    direction: 'outgoing',
+    sender: 'owner',
+    sender_number: 'owner',
+    content,
+    timestamp: new Date(),
+  });
+
+  // Dispatch via WhatsApp (best effort)
+  const { WhatsAppAdapter } = await import('../channels/whatsapp.js');
+  let delivered = false;
+  try {
+    delivered = await WhatsAppAdapter.getInstance().send(
+      conv.customer_number,
+      content,
+      conv.tenant_id,
+      true // skipGuard — owner authored
+    );
+  } catch (err) {
+    console.error('[send-from-owner] WA dispatch failed:', err);
+  }
+
+  console.log(
+    `[send-from-owner] conv=${id} owner=${body.owner_email ?? 'unknown'} delivered=${delivered}`
+  );
+
+  return c.json({
+    status: 'sent',
+    conversation_id: id,
+    message_id: messageId,
+    wa_delivered: delivered,
+  });
+});
+
+
 // Delete conversation (hard delete — removes all messages, scores, memory)
 apiRoutes.delete('/conversations/:id', async (c) => {
   const id = c.req.param('id');

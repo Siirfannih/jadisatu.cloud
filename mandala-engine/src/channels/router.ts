@@ -373,6 +373,11 @@ export class MessageRouter {
   ): Promise<void> {
     const ownerNumber = tenant.owner?.whatsapp;
     if (!ownerNumber) return;
+    // Don't dump owner flags into a self-chat (owner messaging their own bot)
+    if (ownerNumber === conversation.customer_number) {
+      console.log('[router] Skip owner flag — owner is the customer (self-chat)');
+      return;
+    }
 
     const phaseLabel: Record<string, string> = {
       kenalan: 'Kenalan',

@@ -13,6 +13,8 @@ export interface TenantConfig {
   name: string;
   type: TenantType;
   active: boolean;
+  /** Web auth user id (mandala_tenants.user_id) — links to Jadisatu memory_digest. */
+  user_id?: string;
   owner?: {
     name: string;
     whatsapp: string;
@@ -152,6 +154,8 @@ export interface AssembledContext {
   knowledge: string[];
   customer_memory?: string;
   memory_recall?: string;
+  /** Brand voice + business context from Jadisatu onboarding (memory_digest). */
+  brand_memory?: string;
   conversation_history: Message[];
   lead_score?: LeadScore;
   style_reference?: string;

@@ -1,4 +1,4 @@
-import { getModel } from './gemini-client.js';
+import { generateText } from './gemini-client.js';
 import { ContextAssembler } from './context-assembler.js';
 import { isInternalMessage } from '../channels/message-guard.js';
 import type { AssembledContext, AIConfig, AIResponse } from '../types/shared.js';
@@ -26,19 +26,15 @@ export class AIEngine {
     }
 
     try {
-      const model = getModel(aiConfig.conversation_model, {
-        temperature: aiConfig.temperature,
-        maxOutputTokens: aiConfig.max_tokens,
-      });
-
       const userMessage = this.buildUserMessage(context, lastCustomerMessage.content);
 
-      const result = await model.generateContent({
-        systemInstruction: systemPrompt,
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+      const text = await generateText({
+        system: systemPrompt,
+        user: userMessage,
+        model: aiConfig.conversation_model,
+        temperature: aiConfig.temperature,
+        maxTokens: aiConfig.max_tokens,
       });
-
-      const text = result.response.text();
       return this.parseResponse(text);
     } catch (err) {
       console.error('[ai-engine] Error generating response:', err);
@@ -54,39 +50,17 @@ export class AIEngine {
     const systemPrompt = await this.assembler.buildPrompt(context);
 
     try {
-      const model = getModel(aiConfig.conversation_model, {
-        temperature: aiConfig.temperature,
-        maxOutputTokens: aiConfig.max_tokens,
-      });
-
       const userMessage = this.buildTaskUserMessage(task, context);
 
       console.log(`[ai-engine] System prompt size: ${systemPrompt.length} chars, user message: ${userMessage.length} chars`);
 
-      const result = await model.generateContent({
-        systemInstruction: systemPrompt,
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+      const text = await generateText({
+        system: systemPrompt,
+        user: userMessage,
+        model: aiConfig.conversation_model,
+        temperature: aiConfig.temperature,
+        maxTokens: aiConfig.max_tokens,
       });
-
-      // Diagnostic: check for safety blocks or empty candidates
-      const response = result.response;
-      const candidates = response.candidates;
-      const feedback = response.promptFeedback;
-      if (!candidates || candidates.length === 0) {
-        console.error('[ai-engine] Gemini returned 0 candidates!', {
-          promptFeedback: JSON.stringify(feedback),
-          blockReason: feedback?.blockReason,
-        });
-      } else {
-        const finishReason = candidates[0].finishReason;
-        if (finishReason && finishReason !== 'STOP') {
-          console.warn(`[ai-engine] Gemini finish reason: ${finishReason}`, {
-            safetyRatings: JSON.stringify(candidates[0].safetyRatings),
-          });
-        }
-      }
-
-      const text = response.text();
       console.log(`[ai-engine] Task raw response (${text.length} chars):`, text.slice(0, 500));
       const parsed = this.parseResponse(text);
       console.log(`[ai-engine] Task parsed: ${parsed.messages.length} messages, intent=${parsed.internal.intent}`);
@@ -121,18 +95,14 @@ export class AIEngine {
     recommended_action: 'continue' | 'close' | 'flag_owner';
   }> {
     try {
-      const model = getModel(classifierModel, {
+      const text = await generateText({
+        model: classifierModel,
         temperature: 0,
-        maxOutputTokens: 256,
-      });
-
-      const result = await model.generateContent({
-        systemInstruction: `Kamu adalah classifier. Analisa pesan customer berikut dan output JSON ONLY.
+        maxTokens: 256,
+        json: true,
+        system: `Kamu adalah classifier. Analisa pesan customer berikut dan output JSON ONLY.
 Context percakapan: ${conversationContext}`,
-        contents: [{
-          role: 'user',
-          parts: [{
-            text: `Analisa pesan ini: "${message}"
+        user: `Analisa pesan ini: "${message}"
 
 Output JSON:
 {
@@ -142,11 +112,7 @@ Output JSON:
   "objection": "price|quality|trust|timing|none",
   "recommended_action": "continue|close|flag_owner"
 }`,
-          }],
-        }],
       });
-
-      const text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
@@ -204,7 +170,7 @@ Output JSON:
     parts.push('6. DILARANG sebut produk, layanan, harga, atau apa yang kamu/Jadisatu jual di pesan outreach pertama');
     parts.push('7. DILARANG pakai numbered list, bold, atau format template');
     parts.push('8. Pesan outreach pertama HARUS fokus ke MEREKA (tanya kabar, tanya bisnis) — bukan tentang kamu atau Jadisatu');
-    parts.push('9. WAJIB akhiri dengan pertanyaan atau hook yang MEMANCING customer reply. Jangan kirim pesan dead-end (hanya acknowledge tanpa lanjutan).');
+    parts.push('9. Biasanya akhiri dengan pertanyaan/hook yang memancing reply, tapi kalau customer singkat/ambigu, baca situasi dulu dan jangan maksa.');
 
     // Constraints
     const constraints: string[] = [];
@@ -260,7 +226,7 @@ Output JSON:
     } else if (score >= 30) {
       engagementGuide = 'LEVEL: LUKEWARM — customer sedikit kenal. Fokus share pengalaman yang relatable. JANGAN sebut produk spesifik. Bangun trust.';
     } else {
-      engagementGuide = 'LEVEL: COLD — belum kenal. Kamu TEMAN CURHAT, BUKAN sales. JANGAN sebut produk/layanan. Fokus 100% ke MEREKA — tanya, dengarkan, empati. Gali informasi secara natural. WAJIB akhiri dengan pertanyaan yang memancing mereka reply.';
+      engagementGuide = 'LEVEL: COLD — belum kenal. Kamu TEMAN CURHAT, BUKAN sales. JANGAN sebut produk/layanan. Fokus 100% ke MEREKA — tanya, dengarkan, empati. Gali informasi secara natural. Biasanya akhiri dengan pertanyaan, KECUALI mereka capek/ambigu/mau-sudahan; saat itu baca perasaannya dulu, jangan maksa.';
     }
 
     const parts = [
@@ -273,12 +239,12 @@ Output JSON:
       '2. DILARANG menjawab dengan informasi yang tidak ditanya oleh customer.',
       '3. Reply seperti admin biasa di WhatsApp — casual, natural, seperti chat sama teman.',
       '4. FOKUS ke customer dulu, bukan produk. Dengarkan, tanya, empati.',
-      '   PENTING: SELALU akhiri dengan pertanyaan atau hook yang memancing customer reply. Jangan pernah kirim pesan yang jadi dead-end (hanya acknowledge tanpa lanjutan).',
-      '5. Jumlah pesan HARUS BERVARIASI berdasarkan konteks:',
-      '   - Jawaban singkat: 1 bubble saja ("oke kak" / "siap")',
-      '   - Percakapan normal: 2-3 bubble',
-      '   - Penjelasan detail: 4-6 bubble pendek',
-      '   - JANGAN selalu kirim jumlah yang sama!',
+      '   PERTANYAAN: biasanya pancing obrolan dengan pertanyaan/hook, TAPI bukan wajib tiap giliran. Kalau customer pendek/ambigu/capek/mau-sudahan ("capek", "udah ah", "gpp") JANGAN asumsi dan JANGAN dorong sales/topik baru. Baca dulu: tanya klarifikasi lembut soal perasaan/maksud mereka ("capek kenapa kak? sama kerjaan atau gimana?") atau kasih ruang. Lebih baik tanya daripada nebak salah.',
+      '5. Jumlah bubble HARUS benar-benar bervariasi dan natural. JANGAN selalu pola "komentar + pertanyaan = 2 bubble" karena itu pola bot, gampang ketebak customer dan berisiko kedeteksi WhatsApp:',
+      '   - 1 bubble: jawaban singkat ("oke kak"/"siap"), ATAU saat baca situasi ("capek kenapa kak?")',
+      '   - 2 bubble: ack + lanjutan',
+      '   - 3-4 bubble pendek: cerita atau jelasin bertahap',
+      '   - Pilih sesuai ISI pesan, acak senatural manusia. Manusia TIDAK konsisten jumlah bubble-nya.',
       '6. Jika perlu pecah jadi beberapa pesan, pisahkan dengan |||',
       '7. Di akhir, tambahkan metadata: [META]{"intent":"...","confidence":0-1,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
       '',
@@ -290,7 +256,7 @@ Output JSON:
       '',
       'Contoh 3 bubble: oh keren kak, sosmed management ya?|||pasti rame banget ya|||handle berapa klien kak sekarang?|||[META]{"intent":"discovery","confidence":0.8,"score_delta":3,"should_flag":false,"flag_reason":""}[/META]',
       '',
-      'POLA WAJIB: Perhatikan setiap contoh di atas SELALU diakhiri pertanyaan. Ini WAJIB. Jangan pernah reply hanya "wah keren" atau "oke kak" tanpa lanjutan pertanyaan.',
+      'POLA: biasanya ada pertanyaan/hook biar obrolan hidup, TAPI bukan hukum mati. Saat customer capek/ambigu/mau-sudahan, utamakan baca perasaan mereka dan boleh 1 bubble tanpa pertanyaan baru. Hindari dead-end yang dingin, tapi JANGAN maksa interogasi.',
     ];
 
     return parts.join('\n');
@@ -377,7 +343,7 @@ Output JSON:
       internal: {
         intent: 'error_fallback',
         confidence: 0,
-        should_flag_owner: true,
+        should_flag_owner: false, // tech/LLM errors are logged, not an owner [FLAG]
         flag_reason: 'AI engine error — need human intervention',
       },
     };

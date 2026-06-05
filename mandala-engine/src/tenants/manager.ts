@@ -91,6 +91,7 @@ export class TenantManager {
       name: row.name as string,
       type: (row.type as 'internal' | 'client') || 'client',
       active: row.active as boolean,
+      user_id: (row.user_id as string) || undefined,
       owner: row.owner_name ? {
         name: row.owner_name as string,
         whatsapp: (row.owner_whatsapp as string) || '',

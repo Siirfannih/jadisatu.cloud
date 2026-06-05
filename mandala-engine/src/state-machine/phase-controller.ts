@@ -153,10 +153,22 @@ export class PhaseController {
       const targetIndex = this.getPhaseIndex(targetPhase);
 
       if (targetIndex > currentIndex) {
+        // Double-gate: phase is a score proxy — a customer merely asking price can
+        // cross a threshold without real buying intent. Before advancing into the
+        // offer/close phases, require the evaluator to ALSO see genuine readiness
+        // (explicit advance OR a real buying signal). Score keeps accumulating
+        // (persisted upstream), so we advance as soon as readiness appears.
+        const pushyTarget = targetPhase === 'tawarkan_solusi' || targetPhase === 'closing';
+        const readiness =
+          evaluatorResult.recommended_action === 'advance_phase' ||
+          evaluatorResult.buying_signal >= 5;
+        if (pushyTarget && !readiness) {
+          return null; // hold — keep discovering, don't push solutions yet
+        }
         return {
           from: currentPhase,
           to: targetPhase,
-          reason: `Score ${currentScore} → ${newScore} (crossed ${targetPhase} threshold)`,
+          reason: `Score ${currentScore} → ${newScore} (crossed ${targetPhase}${pushyTarget ? ', readiness confirmed' : ''})`,
           score: newScore,
           timestamp: new Date(),
         };
