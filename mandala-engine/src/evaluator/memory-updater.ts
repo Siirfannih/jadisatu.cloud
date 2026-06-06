@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { generateText } from '../ai/gemini-client.js';
 import { getSupabase } from '../memory/supabase-client.js';
 import type { Message } from '../types/shared.js';
 
@@ -102,24 +102,12 @@ export class MemoryUpdater {
       : '{}';
 
     try {
-      // Multi-key Gemini fallback (mirrors src/memory/embedding.ts): the primary
-      // GEMINI_API_KEY project can be dunning-blocked (403) or rate-limited (429).
-      // Fall through to GEMINI_API_KEY_2 so memory extraction stays alive. Request
-      // shape (systemInstruction, contents, JSON parsing) is preserved exactly.
-      const generationConfig = { temperature: 0, maxOutputTokens: 512 };
-      const safetySettings = [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE },
-      ];
-      const generateRequest = {
-        systemInstruction: `Extract customer information from the conversation. Merge with existing memory. Output JSON ONLY.`,
-        contents: [{
-          role: 'user',
-          parts: [{
-            text: `Existing memory: ${existingJson}
+      // Route through the Qwen-first multi-provider orchestrator (generateText)
+      // instead of calling Gemini directly. The free-tier Gemini keys 429 under
+      // load; the orchestrator runs Qwen primary with Gemini/Groq/Gemini2 failover.
+      // Request shape (system + user prompt, JSON output, JSON parsing) preserved.
+      const system = `Extract customer information from the conversation. Merge with existing memory. Output JSON ONLY.`;
+      const user = `Existing memory: ${existingJson}
 
 Recent messages:
 ${historyText}
@@ -136,30 +124,16 @@ Extract/update JSON (merge new info with existing, keep all valid facts):
   "negotiation_position": {"stage": "exploring|interested|comparing|ready|resistant", "budget_indication": "string or null", "decision_maker": true/false},
   "objections_raised": ["array of objections/concerns mentioned"],
   "interests": ["array of topics/products they showed interest in"]
-}`,
-          }],
-        }],
-      };
+}`;
 
-      const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean) as string[];
-      let result;
-      let lastErr: unknown;
-      for (const key of keys) {
-        try {
-          const keyedModel = new GoogleGenerativeAI(key).getGenerativeModel({
-            model: classifierModel,
-            generationConfig,
-            safetySettings,
-          });
-          result = await keyedModel.generateContent(generateRequest);
-          break;
-        } catch (e) {
-          lastErr = e;
-        }
-      }
-      if (!result) throw lastErr ?? new Error('[memory-updater] no Gemini key available');
-
-      const text = result.response.text();
+      const text = await generateText({
+        system,
+        user,
+        model: classifierModel,
+        temperature: 0,
+        maxTokens: 512,
+        json: true,
+      });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
 
       if (jsonMatch) {
