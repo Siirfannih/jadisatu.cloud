@@ -39,6 +39,12 @@ const INTERNAL_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
   // Multiple-choice with lettered options on separate lines (at least 2 options)
   { pattern: /\bA\)\s+.+\n\s*B\)\s+/m, label: 'A/B lettered options block' },
 
+  // Leaked reasoning / reply-scaffold (model wrote its thinking instead of thinking it)
+  { pattern: /ACK\s*(→|->|=>|–|—)\s*JAWAB/i, label: 'Leaked ACK/JAWAB/ARAH scaffold' },
+  { pattern: /^\s*\*{0,2}Diagnosa\*{0,2}\s*:?/im, label: 'Leaked diagnosis block' },
+  { pattern: /^\s*\*{0,2}Pesan customer\*{0,2}\s*:/im, label: 'Leaked customer-message echo' },
+  { pattern: /^\s*-?\s*\*{0,2}(Bahasa|Intent|Tone|Primary intent|Intent stack)\*{0,2}\s*:/im, label: 'Leaked diagnosis label' },
+
   // Internal metadata leak
   { pattern: /\{.*"intent"\s*:/i, label: 'Leaked intent metadata' },
   { pattern: /\{.*"confidence"\s*:/i, label: 'Leaked confidence metadata' },
@@ -61,14 +67,6 @@ const INTERNAL_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
 export function isInternalMessage(content: string): GuardResult {
   if (!content || content.trim().length === 0) {
     return { blocked: false };
-  }
-
-  if (/\[\s*\/?\s*META\s*\]|"score_delta"|"should_flag"|"flag_reason"/i.test(content)) {
-    return {
-      blocked: true,
-      reason: 'Message contains leaked internal metadata',
-      pattern: 'META',
-    };
   }
 
   for (const { pattern, label } of INTERNAL_PATTERNS) {
@@ -106,7 +104,7 @@ export function isOperatorNumber(
  */
 export function sanitizeMessage(content: string): string | null {
   // If the message starts with a system tag, it's fully internal — block entirely
-  if (/^\[\s*(MANDALA|FLAG|META)/i.test(content.trim())) {
+  if (/^\[MANDALA|^\[FLAG|^\[META/i.test(content.trim())) {
     return null;
   }
 

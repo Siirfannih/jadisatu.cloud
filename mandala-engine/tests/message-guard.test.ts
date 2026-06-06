@@ -86,6 +86,28 @@ describe('MessageGuard', () => {
       const result = isInternalMessage(msg);
       expect(result.blocked).toBe(true);
     });
+
+    // Leaked reply-scaffold / reasoning (regression guard for the 37-case bench leaks)
+    it('should block a leaked ACK → JAWAB → ARAH header', () => {
+      expect(isInternalMessage('ACK → JAWAB → ARAH\n\nmau booking creambath besok ya kak?').blocked).toBe(true);
+    });
+
+    it('should block a leaked Diagnosa block', () => {
+      expect(isInternalMessage('**Diagnosa:**\n- Bahasa: Jawa\n- Intent: operasional\n\nmonggo kak').blocked).toBe(true);
+    });
+
+    it('should block a leaked "Pesan customer:" echo', () => {
+      expect(isInternalMessage('Pesan customer: "halo"\n\nhalo kak ada yang bisa dibantu?').blocked).toBe(true);
+    });
+
+    it('should block leaked diagnosis labels (Bahasa/Intent/Tone)', () => {
+      expect(isInternalMessage('Bahasa: Indonesia\nhalo kak').blocked).toBe(true);
+      expect(isInternalMessage('Intent: asking_price\nada kak').blocked).toBe(true);
+    });
+
+    it('should NOT block a normal reply that merely mentions bahasa/intent inline', () => {
+      expect(isInternalMessage('boleh pakai bahasa apa aja kak, aku ngerti kok 😊').blocked).toBe(false);
+    });
   });
 
   describe('isOperatorNumber', () => {
