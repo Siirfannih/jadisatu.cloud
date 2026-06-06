@@ -67,7 +67,7 @@ export class AIEngine {
       if (parsed.messages.length === 0 && text.length > 0) {
         // AI returned text but parsing produced 0 messages — treat the text as the message
         console.warn('[ai-engine] Fallback: using raw text as single message (no ||| found)');
-        const cleanText = text.replace(/\[META\].*?\[\/META\]/s, '').trim();
+        const cleanText = text.replace(/\[\s*META\s*\][\s\S]*?\[\s*\/\s*META\s*\]/gi, '').trim();
         if (cleanText) {
           parsed.messages = [cleanText];
           parsed.delays = [0];
@@ -264,7 +264,7 @@ Output JSON:
 
   private parseResponse(text: string): AIResponse {
     // Extract metadata
-    const metaMatch = text.match(/\[META\](.*?)\[\/META\]/s);
+    const metaMatch = text.match(/\[\s*META\s*\]([\s\S]*?)\[\s*\/\s*META\s*\]/i);
     let internal = {
       intent: 'unknown',
       confidence: 0.5,
@@ -289,7 +289,7 @@ Output JSON:
     }
 
     // Extract messages (split by |||)
-    let cleanText = text.replace(/\[META\].*?\[\/META\]/s, '').trim();
+    let cleanText = text.replace(/\[\s*META\s*\][\s\S]*?\[\s*\/\s*META\s*\]/gi, '').trim();
 
     // Additional cleanup: strip any remaining internal artifacts
     cleanText = cleanText

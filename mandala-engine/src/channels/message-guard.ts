@@ -63,6 +63,14 @@ export function isInternalMessage(content: string): GuardResult {
     return { blocked: false };
   }
 
+  if (/\[\s*\/?\s*META\s*\]|"score_delta"|"should_flag"|"flag_reason"/i.test(content)) {
+    return {
+      blocked: true,
+      reason: 'Message contains leaked internal metadata',
+      pattern: 'META',
+    };
+  }
+
   for (const { pattern, label } of INTERNAL_PATTERNS) {
     if (pattern.test(content)) {
       return {
@@ -98,7 +106,7 @@ export function isOperatorNumber(
  */
 export function sanitizeMessage(content: string): string | null {
   // If the message starts with a system tag, it's fully internal — block entirely
-  if (/^\[MANDALA|^\[FLAG|^\[META/i.test(content.trim())) {
+  if (/^\[\s*(MANDALA|FLAG|META)/i.test(content.trim())) {
     return null;
   }
 
