@@ -111,8 +111,21 @@ apiRoutes.get('/leads', async (c) => {
 // Inserts message + dispatches via WhatsApp channel.
 // ============================================================
 apiRoutes.post('/conversations/:id/send-from-owner', async (c) => {
+  // Internal shared-secret auth: this triggers a REAL WhatsApp send to a
+  // customer, so it must only be callable by the Jadisatu web backend.
+  const expectedSecret = process.env.PAPERCLIP_SHARED_TOKEN || '';
+  if (expectedSecret) {
+    const authHeader = c.req.header('authorization') || '';
+    const provided =
+      c.req.header('x-internal-secret') ||
+      authHeader.replace(/^Bearer\s+/i, '');
+    if (provided !== expectedSecret) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+  }
+
   const id = c.req.param('id');
-  let body: { content?: string; owner_email?: string };
+  let body: { content?: string; owner_email?: string; skip_persist?: boolean };
   try {
     body = await c.req.json();
   } catch {
@@ -131,20 +144,25 @@ apiRoutes.post('/conversations/:id/send-from-owner', async (c) => {
     await store.update(conv);
   }
 
-  // Persist message — direction outgoing, sender owner
+  // Persist message — direction outgoing, sender owner.
+  // When called by the Jadisatu web backend, the web already inserted the
+  // mandala_messages row, so it passes skip_persist=true to avoid a duplicate.
   const messageId = crypto.randomUUID();
-  await store.addMessage(id, {
-    id: messageId,
-    conversation_id: id,
-    tenant_id: conv.tenant_id,
-    direction: 'outgoing',
-    sender: 'owner',
-    sender_number: 'owner',
-    content,
-    timestamp: new Date(),
-  });
+  if (!body.skip_persist) {
+    await store.addMessage(id, {
+      id: messageId,
+      conversation_id: id,
+      tenant_id: conv.tenant_id,
+      direction: 'outgoing',
+      sender: 'owner',
+      sender_number: 'owner',
+      content,
+      timestamp: new Date(),
+    });
+  }
 
-  // Dispatch via WhatsApp (best effort)
+  // Dispatch via WhatsApp. This is a normal customer-facing message, so it
+  // goes through the MessageGuard + rate limiter (skipGuard=false).
   const { WhatsAppAdapter } = await import('../channels/whatsapp.js');
   let delivered = false;
   try {
@@ -152,7 +170,7 @@ apiRoutes.post('/conversations/:id/send-from-owner', async (c) => {
       conv.customer_number,
       content,
       conv.tenant_id,
-      true // skipGuard — owner authored
+      false // route through guard + anti-spam: this reaches a real customer
     );
   } catch (err) {
     console.error('[send-from-owner] WA dispatch failed:', err);
