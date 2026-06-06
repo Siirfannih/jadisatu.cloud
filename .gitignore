@@ -73,3 +73,8 @@ ecosystem.config.js.bak
 # Mandala Engine
 mandala-engine/dist/
 mandala-engine/node_modules/
+
+# Baileys WhatsApp session credentials — NEVER commit (live session creds)
+auth_info/
+mandala-engine/auth_info/
+**/auth_info/
