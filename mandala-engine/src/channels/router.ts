@@ -6,6 +6,7 @@ import { LeadScorer } from '../tools/lead-scorer.js';
 import { HandoffTimer } from '../queue/handoff-timer.js';
 import { WhatsAppAdapter } from './whatsapp.js';
 import { isInternalMessage } from './message-guard.js';
+import { isRepetitive } from '../ai/repetition.js';
 import { ShadowEvaluator } from '../evaluator/shadow-evaluator.js';
 import { ResistanceDetector } from '../evaluator/resistance-detector.js';
 import { MemoryUpdater } from '../evaluator/memory-updater.js';
@@ -298,6 +299,35 @@ export class MessageRouter {
     if (response.internal.should_flag_owner) {
       console.log(`[router] Flagging owner: ${response.internal.flag_reason}`);
       await this.flagOwner(freshConv, response.internal.flag_reason || 'Needs attention', tenant);
+    }
+
+    // ── Repetition guard: drop bubbles that repeat what Mandala already said ──
+    // Conservative + non-blocking: on any error we keep the original messages.
+    try {
+      const recent = await this.store.getRecentMessages(freshConv.id, 12);
+      const recentOutgoing = recent
+        .filter((m) => m.direction === 'outgoing' && m.sender === 'mandala')
+        .slice(-6)
+        .map((m) => m.content);
+
+      if (recentOutgoing.length > 0 && response.messages.length > 0) {
+        const filtered = response.messages.filter(
+          (bubble) => !isRepetitive(bubble, recentOutgoing)
+        );
+        if (filtered.length > 0 && filtered.length < response.messages.length) {
+          console.log(
+            `[router] Repetition guard dropped ${response.messages.length - filtered.length} repeated bubble(s)`
+          );
+          response.messages = filtered;
+        } else if (filtered.length === 0) {
+          // Whole reply was a repeat — never send empty; keep only the first
+          // original bubble so the customer still gets a response.
+          console.log('[router] Repetition guard: entire reply was a repeat, keeping first bubble only');
+          response.messages = [response.messages[0]];
+        }
+      }
+    } catch (err) {
+      console.error('[router] Repetition guard error (sending original):', err);
     }
 
     // Step 3: Quick typing delay — begitu baca, langsung ngetik & balas

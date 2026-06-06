@@ -3,6 +3,7 @@ import { app } from './routes/index.js';
 import { TenantManager } from './tenants/manager.js';
 import { HandoffTimer } from './queue/handoff-timer.js';
 import { HunterScheduler } from './hunter/scheduler.js';
+import { NotificationPusherScheduler } from './jobs/notification-pusher.js';
 import { BaileysManager } from './channels/baileys-manager.js';
 import { MessageRouter } from './channels/router.js';
 import { WhatsAppAdapter } from './channels/whatsapp.js';
@@ -28,6 +29,12 @@ async function main() {
   const hunterScheduler = HunterScheduler.getInstance();
   hunterScheduler.start();
   console.log('✓ Hunter scheduler initialized');
+
+  // Initialize notification pusher (WA-push bridge for owner notifications).
+  // Guarded: claim-before-send guarantees no double-send; never crashes process.
+  const notifPusher = NotificationPusherScheduler.getInstance();
+  notifPusher.start();
+  console.log('✓ Notification pusher initialized');
 
   // Connect WhatsApp via BaileysManager (multi-tenant)
   const baileysManager = BaileysManager.getInstance();
