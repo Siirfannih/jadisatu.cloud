@@ -13,6 +13,49 @@ export const apiRoutes = new Hono();
 
 const store = ConversationStore.getInstance();
 
+// ============================================================
+// POST /api/admin/send-message
+// Body: { tenant_id?: string, to: string, text: string }
+// Sends a raw WhatsApp message from the admin tenant's connected socket to an
+// arbitrary number. Used for transactional OTP from the official Jadisatu
+// number. Internal shared-secret auth (same token as send-from-owner).
+// ============================================================
+apiRoutes.post("/admin/send-message", async (c) => {
+  const expectedSecret = process.env.PAPERCLIP_SHARED_TOKEN || "";
+  if (expectedSecret) {
+    const authHeader = c.req.header("authorization") || "";
+    const provided =
+      c.req.header("x-internal-secret") ||
+      authHeader.replace(/^Bearer\s+/i, "");
+    if (provided !== expectedSecret) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+  }
+
+  let body: { tenant_id?: string; to?: string; text?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const to = (body.to ?? "").replace(/[^\d]/g, "");
+  const text = (body.text ?? "").trim();
+  const tenantId = (body.tenant_id ?? "mandala").trim() || "mandala";
+  if (!to || !text) return c.json({ error: "to + text required" }, 400);
+  if (text.length > 1000) return c.json({ error: "Max 1000 chars" }, 400);
+
+  const { WhatsAppAdapter } = await import("../channels/whatsapp.js");
+  let sent = false;
+  try {
+    sent = await WhatsAppAdapter.getInstance().send(to, text, tenantId, true);
+  } catch (err) {
+    console.error("[admin/send-message] WA dispatch failed:", err);
+  }
+  console.log(`[admin/send-message] tenant=${tenantId} to=${to} sent=${sent}`);
+  return c.json({ sent });
+});
+
+
 // List all conversations (for CRM dashboard)
 apiRoutes.get('/conversations', async (c) => {
   const tenant = c.req.query('tenant') || 'mandala';
