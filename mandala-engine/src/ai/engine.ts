@@ -4,6 +4,120 @@ import { isInternalMessage } from '../channels/message-guard.js';
 import type { AssembledContext, AIConfig, AIResponse } from '../types/shared.js';
 import type { MandalaTask } from '../tasks/types.js';
 
+/**
+ * Build the per-turn reply instructions for an INBOUND customer message.
+ *
+ * Order matters and is enforced as an explicit reasoning pre-step:
+ *   1. LANGUAGE   — detect the customer's language, mirror it (persona shapes tone, NOT language).
+ *   2. INTENT STACK — a message can carry several intents; pick the PRIMARY by business priority.
+ *                     A greeting is context, never the whole intent unless it is the only thing said.
+ *   3. ACK → JAWAB → ARAH — acknowledge, answer the primary intent, open a business-relevant next step.
+ *
+ * The lead-score engagement band still gates how far Mandala may push PRODUCT for a prospect being
+ * warmed up — but it is now SUBORDINATE to intent: if the customer explicitly asks price/product/
+ * booking, answer the need regardless of how cold the score is.
+ *
+ * Exported (not just used by AIEngine) so the guardrails are unit-testable without an LLM call.
+ */
+export function buildReplyInstructions(lastMessage: string, leadScore: number): string {
+  let engagementGuide: string;
+  if (leadScore >= 70) {
+    engagementGuide = 'LEVEL PROSPEK: HOT — sudah sangat tertarik. Boleh direct, bahas detail & pricing kalau ditanya. Tetap conversational.';
+  } else if (leadScore >= 50) {
+    engagementGuide = 'LEVEL PROSPEK: WARM — mulai terbuka. Boleh perkenalkan apa yang kamu kerjakan secara natural, hubungkan ke kebutuhan mereka. Jangan push.';
+  } else if (leadScore >= 30) {
+    engagementGuide = 'LEVEL PROSPEK: LUKEWARM — baru sedikit kenal. Bangun trust dulu, jangan obral produk.';
+  } else {
+    engagementGuide = 'LEVEL PROSPEK: COLD — belum kenal. Untuk pembuka/basa-basi, fokus ke MEREKA & bangun rapport, jangan dorong produk.';
+  }
+
+  return [
+    `Customer mengirim: "${lastMessage}"`,
+    '',
+    '== DIAGNOSA DULU (lakukan dalam hati SEBELUM menulis) ==',
+    '',
+    '1. BAHASA (paling utama, tentukan dulu):',
+    '   - Deteksi bahasa pesan customer. Balas dalam bahasa yang SAMA.',
+    '   - Customer pakai English → balas English. Indonesia → Indonesia. Campur ID-EN → cermin campurannya secara natural.',
+    '   - Bahasa customer MENANG atas persona brand. Persona mengatur TONE (santai/formal/hangat), BUKAN bahasa.',
+    '   - Brand Indonesia boleh sisip sapaan lokal ("kak") HANYA kalau customer pakai ID atau campuran. JANGAN balas Indonesia ke customer yang murni English.',
+    '   - Cermin formalitas: santai→santai, formal/marah→naik satu tingkat lebih rapi.',
+    '',
+    '2. INTENT STACK (pesan bisa punya >1 maksud — jangan paksa jadi 1 label):',
+    '   Daftar semua maksud di pesan, lalu pilih PRIMARY berdasar prioritas (atas = menang):',
+    '     1) keluhan/marah/isu sensitif/legal      → empati + after-sales/eskalasi',
+    '     2) siap beli / bayar / konfirmasi booking → bantu closing',
+    '     3) tanya harga / stok / ketersediaan / produk/jasa → jawab kebutuhannya (CS/sales)',
+    '     4) keberatan / ragu / membandingkan       → tangani objection',
+    '     5) status order / operasional             → bantu cek/selesaikan',
+    '     6) sapaan (halo/selamat malam/hello)      → cukup di-ACK',
+    '     7) basa-basi ringan                       → rapport ringan',
+    '     8) tidak jelas / "mau tanya" saja         → KLARIFIKASI, jangan menebak',
+    '   ATURAN:',
+    '   - Sapaan TIDAK PERNAH mengalahkan intent bisnis. Sapaan + pertanyaan harga → JAWAB harganya, sapaan cukup jadi pembuka.',
+    '   - Keluhan + sapaan → keluhan menang. Siap-beli + pertanyaan → siap-beli menang.',
+    '   - GREETING-ONLY (tidak ada maksud lain): ACK hangat + TAWARKAN BANTUAN yang berorientasi layanan ("ada yang bisa aku bantu?" / "how can I help you today?"). DILARANG tanya hal personal seperti "lagi santai atau sibuk?" — itu off-topic & bukan konteks layanan.',
+    '   - Kalau ragu intent-nya apa → klarifikasi singkat, jangan asal jawab.',
+    '',
+    '== BALAS pakai ACK → JAWAB → ARAH ==',
+    '- ACK: akui sapaan/maksud customer dengan singkat & natural.',
+    '- JAWAB: jawab PRIMARY intent. Kalau butuh data (harga/stok/jadwal/ketersediaan) yang TIDAK ada di knowledge/brand memory → JANGAN mengarang. Bilang jujur "aku cekkan dulu biar nggak salah info ya" lalu lanjut kualifikasi.',
+    '- ARAH: satu langkah berikutnya yang RELEVAN ke kebutuhan bisnis customer (mis. minta tanggal/jumlah orang/varian/no. order) — BUKAN pertanyaan personal yang tidak nyambung.',
+    '',
+    engagementGuide,
+    'PENTING: level prospek di atas hanya mengatur seberapa jauh kamu menyinggung PRODUK untuk prospek yang lagi dihangatkan. Kalau customer EKSPLISIT minta harga/produk/booking, LAYANI kebutuhannya apa pun levelnya — jangan ditahan.',
+    '',
+    '== FORMAT ==',
+    '- Reply seperti admin sungguhan di chat — natural, mengalir, anti AI-slop.',
+    '- Jumlah bubble BERVARIASI sesuai konteks: jawaban singkat 1 bubble, normal 2-3, penjelasan 4-6 bubble pendek. Jangan selalu sama.',
+    '- Pisahkan bubble dengan |||',
+    '- Akhiri dengan metadata: [META]{"intent":"...","confidence":0-1,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    '== CONTOH (perhatikan: BAHASA dicerminkan, sapaan tidak menelan intent bisnis, langkah berikutnya relevan) ==',
+    '',
+    'EN, sapaan saja:',
+    'Good evening! Thanks for reaching out, how can I help you today?|||[META]{"intent":"greeting","confidence":0.9,"score_delta":2,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    'ID, sapaan saja:',
+    'selamat malam kak 😊|||ada yang bisa aku bantu?|||[META]{"intent":"greeting","confidence":0.9,"score_delta":2,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    'ID, sapaan + tanya harga (data harga ADA):',
+    'selamat malam kak 😊 ada pricelist-nya|||kakak rencana menginap tanggal berapa dan untuk berapa orang? biar aku bantu cekkan harga yang paling pas|||[META]{"intent":"asking_price","confidence":0.9,"score_delta":12,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    'ID, sapaan + tanya harga (data harga TIDAK ADA — jangan ngarang):',
+    'selamat malam kak 😊 ada pricelist-nya, tapi aku cekkan dulu biar nggak salah info ya|||kakak rencana menginap tanggal berapa dan untuk berapa orang?|||[META]{"intent":"asking_price","confidence":0.9,"score_delta":12,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    'EN, sapaan + tanya harga:',
+    'Good evening! Yes, we have a room pricelist 😊|||may I know your check-in date and how many guests, so I can suggest the most suitable option?|||[META]{"intent":"asking_price","confidence":0.9,"score_delta":12,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    'ID, sapaan + keluhan (keluhan menang):',
+    'halo kak, maaf ya pesanannya belum sampai 🙏|||aku bantu cek sekarang, boleh kirim nomor ordernya?|||[META]{"intent":"complaint","confidence":0.9,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    'ID, siap beli:',
+    'hai kak, siap 😊 sage size L aku cekkan dulu ya|||kalau ready, mau dikirim ke alamat yang sama atau alamat baru?|||[META]{"intent":"ready_to_buy","confidence":0.9,"score_delta":18,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    'Campuran ID-EN (cermin campurannya):',
+    'halo kak, yes ada pricelist untuk villa|||kakak rencana stay tanggal berapa dan untuk berapa orang?|||[META]{"intent":"asking_price","confidence":0.85,"score_delta":12,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    'Vague ("kak mau tanya") → klarifikasi:',
+    'boleh kak 😊|||mau tanya soal produk, harga, booking, atau pesanan yang lagi berjalan?|||[META]{"intent":"other","confidence":0.6,"score_delta":3,"should_flag":false,"flag_reason":""}[/META]',
+    '',
+    '== CONTOH SALAH (JANGAN ditiru) ==',
+    '❌ Customer "Hello good evening" dibalas "halo kak, good evening juga 🙏 lagi santai atau masih sibuk nih?" — SALAH bahasa (EN dibalas ID) + pertanyaan personal off-topic. Benar: "Good evening! Thanks for reaching out, how can I help you today?"',
+    '❌ Sapaan + tanya harga tapi cuma dijawab sapaannya doang — intent bisnis ketelan.',
+    '❌ Mengarang harga/stok/jadwal yang belum dikonfirmasi brand.',
+    '❌ Pesan dead-end tanpa langkah berikutnya.',
+    '',
+    '== SELF-CHECK sebelum kirim (kalau ada yang gagal, TULIS ULANG) ==',
+    '[ ] Bahasa balasan = bahasa customer?',
+    '[ ] Primary intent terjawab (bukan cuma sapaannya)?',
+    '[ ] Sapaan di-ACK tanpa menelan intent bisnis?',
+    '[ ] Langkah berikutnya relevan ke kebutuhan customer (bukan pertanyaan personal)?',
+    '[ ] Tidak mengarang harga/stok/jadwal?',
+    '[ ] Tidak dead-end?',
+  ].join('\n');
+}
+
 export class AIEngine {
   private static instance: AIEngine;
   private assembler = ContextAssembler.getInstance();
@@ -67,7 +181,7 @@ export class AIEngine {
       if (parsed.messages.length === 0 && text.length > 0) {
         // AI returned text but parsing produced 0 messages — treat the text as the message
         console.warn('[ai-engine] Fallback: using raw text as single message (no ||| found)');
-        const cleanText = text.replace(/\[\s*META\s*\][\s\S]*?\[\s*\/\s*META\s*\]/gi, '').trim();
+        const cleanText = text.replace(/\[META\].*?\[\/META\]/s, '').trim();
         if (cleanText) {
           parsed.messages = [cleanText];
           parsed.delays = [0];
@@ -170,7 +284,7 @@ Output JSON:
     parts.push('6. DILARANG sebut produk, layanan, harga, atau apa yang kamu/Jadisatu jual di pesan outreach pertama');
     parts.push('7. DILARANG pakai numbered list, bold, atau format template');
     parts.push('8. Pesan outreach pertama HARUS fokus ke MEREKA (tanya kabar, tanya bisnis) — bukan tentang kamu atau Jadisatu');
-    parts.push('9. Biasanya akhiri dengan pertanyaan/hook yang memancing reply, tapi kalau customer singkat/ambigu, baca situasi dulu dan jangan maksa.');
+    parts.push('9. WAJIB akhiri dengan pertanyaan atau hook yang MEMANCING customer reply. Jangan kirim pesan dead-end (hanya acknowledge tanpa lanjutan).');
 
     // Constraints
     const constraints: string[] = [];
@@ -214,57 +328,15 @@ Output JSON:
   }
 
   private buildUserMessage(context: AssembledContext, lastMessage: string): string {
-    // Determine engagement context from lead score and phase
+    // Determine engagement context from lead score; intent-aware reply scaffold
+    // (language mirror → intent stack → ACK/JAWAB/ARAH) lives in buildReplyInstructions.
     const score = context.lead_score?.score ?? 0;
-    const phase = context.phase_instruction || '';
-    let engagementGuide = '';
-
-    if (score >= 70) {
-      engagementGuide = 'LEVEL: HOT — customer sangat tertarik. Boleh direct, bahas detail, pricing jika ditanya. Tetap conversational.';
-    } else if (score >= 50) {
-      engagementGuide = 'LEVEL: WARM — customer mulai terbuka. Boleh perkenalkan apa yang kamu kerjakan secara natural, hubungkan ke pain points mereka. Jangan push.';
-    } else if (score >= 30) {
-      engagementGuide = 'LEVEL: LUKEWARM — customer sedikit kenal. Fokus share pengalaman yang relatable. JANGAN sebut produk spesifik. Bangun trust.';
-    } else {
-      engagementGuide = 'LEVEL: COLD — belum kenal. Kamu TEMAN CURHAT, BUKAN sales. JANGAN sebut produk/layanan. Fokus 100% ke MEREKA — tanya, dengarkan, empati. Gali informasi secara natural. Biasanya akhiri dengan pertanyaan, KECUALI mereka capek/ambigu/mau-sudahan; saat itu baca perasaannya dulu, jangan maksa.';
-    }
-
-    const parts = [
-      `Customer mengirim: "${lastMessage}"`,
-      '',
-      engagementGuide,
-      '',
-      'INSTRUKSI:',
-      '1. BACA pesan customer di atas dengan teliti. Responsmu HARUS menjawab/menanggapi apa yang customer katakan atau tanyakan.',
-      '2. DILARANG menjawab dengan informasi yang tidak ditanya oleh customer.',
-      '3. Reply seperti admin biasa di WhatsApp — casual, natural, seperti chat sama teman.',
-      '4. FOKUS ke customer dulu, bukan produk. Dengarkan, tanya, empati.',
-      '   PERTANYAAN: biasanya pancing obrolan dengan pertanyaan/hook, TAPI bukan wajib tiap giliran. Kalau customer pendek/ambigu/capek/mau-sudahan ("capek", "udah ah", "gpp") JANGAN asumsi dan JANGAN dorong sales/topik baru. Baca dulu: tanya klarifikasi lembut soal perasaan/maksud mereka ("capek kenapa kak? sama kerjaan atau gimana?") atau kasih ruang. Lebih baik tanya daripada nebak salah.',
-      '5. Jumlah bubble HARUS benar-benar bervariasi dan natural. JANGAN selalu pola "komentar + pertanyaan = 2 bubble" karena itu pola bot, gampang ketebak customer dan berisiko kedeteksi WhatsApp:',
-      '   - 1 bubble: jawaban singkat ("oke kak"/"siap"), ATAU saat baca situasi ("capek kenapa kak?")',
-      '   - 2 bubble: ack + lanjutan',
-      '   - 3-4 bubble pendek: cerita atau jelasin bertahap',
-      '   - Pilih sesuai ISI pesan, acak senatural manusia. Manusia TIDAK konsisten jumlah bubble-nya.',
-      '6. Jika perlu pecah jadi beberapa pesan, pisahkan dengan |||',
-      '7. Di akhir, tambahkan metadata: [META]{"intent":"...","confidence":0-1,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
-      '',
-      'Contoh output (variasi jumlah bubble):',
-      '',
-      'Contoh 1 bubble: oke kak, lagi sibuk apa nih sekarang?|||[META]{"intent":"rapport","confidence":0.9,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
-      '',
-      'Contoh 2 bubble: wah seneng dengernya kak|||lagi ngerjain apa nih kak sekarang?|||[META]{"intent":"rapport","confidence":0.8,"score_delta":0,"should_flag":false,"flag_reason":""}[/META]',
-      '',
-      'Contoh 3 bubble: oh keren kak, sosmed management ya?|||pasti rame banget ya|||handle berapa klien kak sekarang?|||[META]{"intent":"discovery","confidence":0.8,"score_delta":3,"should_flag":false,"flag_reason":""}[/META]',
-      '',
-      'POLA: biasanya ada pertanyaan/hook biar obrolan hidup, TAPI bukan hukum mati. Saat customer capek/ambigu/mau-sudahan, utamakan baca perasaan mereka dan boleh 1 bubble tanpa pertanyaan baru. Hindari dead-end yang dingin, tapi JANGAN maksa interogasi.',
-    ];
-
-    return parts.join('\n');
+    return buildReplyInstructions(lastMessage, score);
   }
 
   private parseResponse(text: string): AIResponse {
     // Extract metadata
-    const metaMatch = text.match(/\[\s*META\s*\]([\s\S]*?)\[\s*\/\s*META\s*\]/i);
+    const metaMatch = text.match(/\[META\](.*?)\[\/META\]/s);
     let internal = {
       intent: 'unknown',
       confidence: 0.5,
@@ -289,7 +361,7 @@ Output JSON:
     }
 
     // Extract messages (split by |||)
-    let cleanText = text.replace(/\[\s*META\s*\][\s\S]*?\[\s*\/\s*META\s*\]/gi, '').trim();
+    let cleanText = text.replace(/\[META\].*?\[\/META\]/s, '').trim();
 
     // Additional cleanup: strip any remaining internal artifacts
     cleanText = cleanText
@@ -343,7 +415,7 @@ Output JSON:
       internal: {
         intent: 'error_fallback',
         confidence: 0,
-        should_flag_owner: false, // tech/LLM errors are logged, not an owner [FLAG]
+        should_flag_owner: true,
         flag_reason: 'AI engine error — need human intervention',
       },
     };
