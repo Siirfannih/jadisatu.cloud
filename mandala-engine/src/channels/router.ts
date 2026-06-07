@@ -147,6 +147,54 @@ export class MessageRouter {
 
     console.log(`[router] Sales mode — Customer ${message.sender_number}: "${message.content.substring(0, 50)}..." [phase=${conversation.phase}, score=${conversation.lead_score}]`);
 
+    // ── Step 0: Task-aware reply (ADR-004) ──
+    // If this conversation has an active To-Do task, let the web task system
+    // decide the reply (grounded in the Task Contract) or pause/escalate, so
+    // Mandala stays on-goal instead of drifting into generic chit-chat.
+    if (senderType === 'customer') {
+      try {
+        const TASK_WEB_URL = process.env.WEB_BASE_URL || 'http://localhost:3000';
+        const TASK_SECRET = process.env.PAPERCLIP_SHARED_TOKEN || '';
+        const taskResp = await fetch(`${TASK_WEB_URL}/api/tasks/inbound-reply`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(TASK_SECRET ? { 'x-internal-secret': TASK_SECRET } : {}),
+          },
+          body: JSON.stringify({
+            conversation_id: conversation.id,
+            customer_message: message.content,
+          }),
+        });
+        if (taskResp.ok) {
+          const tr = (await taskResp.json()) as {
+            handled?: boolean;
+            reply?: string | null;
+            pause?: boolean;
+            escalate?: boolean;
+            response_class?: string;
+          };
+          if (tr.handled) {
+            console.log(`[router] Task-aware inbound: class=${tr.response_class} pause=${tr.pause} escalate=${tr.escalate} reply=${tr.reply ? 'yes' : 'no'}`);
+            if (tr.reply) {
+              await this.sendMessage(conversation, 'mandala', tr.reply, 'whatsapp');
+              conversation.current_handler = 'mandala';
+              await this.store.update(conversation);
+              return;
+            }
+            if (tr.pause || tr.escalate) {
+              conversation.current_handler = 'owner';
+              await this.store.update(conversation);
+              this.handoffTimer.cancel(conversation.id);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[router] Task-aware inbound check failed (fallthrough):', err);
+      }
+    }
+
     // ── Step 1: Fast local resistance check ──
     const resistance = this.resistanceDetector.detect(message.content);
     if (resistance) {
