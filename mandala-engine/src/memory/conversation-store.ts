@@ -1,6 +1,32 @@
 import { getSupabase } from './supabase-client.js';
 import type { Conversation, Message } from '../types/shared.js';
 
+/** Canonical MSISDN: strip any @suffix and non-digits, 08…→628…. */
+function normalizeMsisdn(input: string): string {
+  let s = (input || '').replace(/@.*$/, '').replace(/\D/g, '');
+  if (s.startsWith('0')) s = '62' + s.slice(1);
+  return s;
+}
+
+/**
+ * The customer_number format variants the same human may be stored as, so a
+ * lookup matches regardless of which form created the row. Includes the raw input
+ * (covers an unresolved "@lid"). Bare-digit variants are only added when the input
+ * actually carries a phone number (≥8 digits) — avoids matching on a stray LID id.
+ */
+function numberVariants(input: string): string[] {
+  const set = new Set<string>([input]);
+  if (!input.endsWith('@lid')) {
+    const bare = normalizeMsisdn(input);
+    if (bare.length >= 8) {
+      set.add(bare);
+      set.add(`${bare}@s.whatsapp.net`);
+      set.add(`+${bare}`);
+    }
+  }
+  return [...set];
+}
+
 /**
  * Conversation store backed by Supabase.
  * Replaces the previous in-memory Map implementation.
@@ -124,14 +150,21 @@ export class ConversationStore {
 
   async getByCustomer(tenantId: string, customerNumber: string): Promise<Conversation | undefined> {
     const db = getSupabase();
-    const { data: conv } = await db
+    // Match across the format variants the same human can appear as: bare "62…",
+    // "62…@s.whatsapp.net", "+62…", and the raw input (e.g. an unresolved "@lid").
+    // The web/task side creates phone-keyed rows; the engine inbound may arrive in
+    // any of these forms. Pick the most-recently-active match.
+    const variants = numberVariants(customerNumber);
+    const { data: convs } = await db
       .from('mandala_conversations')
       .select('*')
       .eq('tenant_id', tenantId)
-      .eq('customer_number', customerNumber)
       .eq('status', 'active')
-      .single();
+      .in('customer_number', variants)
+      .order('last_message_at', { ascending: false })
+      .limit(1);
 
+    const conv = convs?.[0];
     if (!conv) return undefined;
 
     const messages = await this.getMessages(conv.id);

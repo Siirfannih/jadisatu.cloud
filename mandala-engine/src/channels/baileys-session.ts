@@ -240,10 +240,23 @@ export class BaileysSession extends EventEmitter {
 
               if (!text.trim()) continue;
 
-              // Resolve LID to phone JID if possible
-              const sender = this.resolveLid(rawJid);
-              if (sender !== rawJid) {
-                this.log(`LID resolved: ${rawJid} → ${sender}`);
+              // Resolve LID → phone JID. Baileys 6.7.x exposes the phone JID on
+              // each message as msg.key.senderPn (the reliable per-message source);
+              // prefer it, register the mapping, then fall back to the cumulative
+              // in-memory LID map. Phone identity is canonical so inbound lands on
+              // the SAME conversation the To-Do task (phone-keyed) was created on.
+              let sender = rawJid;
+              if (rawJid.endsWith('@lid')) {
+                const senderPn = (msg.key as { senderPn?: string }).senderPn;
+                if (senderPn && senderPn.endsWith('@s.whatsapp.net')) {
+                  this.registerLidMapping(rawJid, senderPn);
+                  sender = senderPn;
+                  this.log(`LID resolved via senderPn: ${rawJid} → ${sender}`);
+                } else {
+                  sender = this.resolveLid(rawJid);
+                  if (sender !== rawJid) this.log(`LID resolved via map: ${rawJid} → ${sender}`);
+                  else this.log(`LID UNRESOLVED (no senderPn/map): ${rawJid}`);
+                }
               }
 
               this.log(`From ${sender} (${msg.pushName || 'unknown'}): "${text.substring(0, 80)}"`);
