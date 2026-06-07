@@ -155,17 +155,27 @@ export class MessageRouter {
       try {
         const TASK_WEB_URL = process.env.WEB_BASE_URL || 'http://localhost:3000';
         const TASK_SECRET = process.env.PAPERCLIP_SHARED_TOKEN || '';
-        const taskResp = await fetch(`${TASK_WEB_URL}/api/tasks/inbound-reply`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(TASK_SECRET ? { 'x-internal-secret': TASK_SECRET } : {}),
-          },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            customer_message: message.content,
-          }),
-        });
+        // Bound the call: a slow/hung web app must NOT block every customer reply
+        // (Step-0 is awaited synchronously). On timeout we abort → catch → fallthrough.
+        const taskCtrl = new AbortController();
+        const taskTimer = setTimeout(() => taskCtrl.abort(), 8000);
+        let taskResp: Response;
+        try {
+          taskResp = await fetch(`${TASK_WEB_URL}/api/tasks/inbound-reply`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(TASK_SECRET ? { 'x-internal-secret': TASK_SECRET } : {}),
+            },
+            body: JSON.stringify({
+              conversation_id: conversation.id,
+              customer_message: message.content,
+            }),
+            signal: taskCtrl.signal,
+          });
+        } finally {
+          clearTimeout(taskTimer);
+        }
         if (taskResp.ok) {
           const tr = (await taskResp.json()) as {
             handled?: boolean;
