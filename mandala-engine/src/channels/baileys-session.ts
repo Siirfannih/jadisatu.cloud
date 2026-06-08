@@ -55,6 +55,22 @@ export class BaileysSession extends EventEmitter {
   private _status: SessionStatus = 'disconnected';
   /** LID → phone JID mapping (e.g. "48224043823326@lid" → "6281353848164@s.whatsapp.net") */
   private lidToPhone = new Map<string, string>();
+
+  /** Recent inbound text → ts, to drop WhatsApp multi-device duplicate deliveries. */
+  private recentTexts = new Map<string, number>();
+  private static DEDUP_WINDOW_MS = 7000;
+
+  private recordRecentText(text: string): void {
+    this.recentTexts.set(text.trim().toLowerCase(), Date.now());
+  }
+  private isRecentDuplicateText(text: string): boolean {
+    const key = text.trim().toLowerCase();
+    const now = Date.now();
+    for (const [k, ts] of this.recentTexts) {
+      if (now - ts > BaileysSession.DEDUP_WINDOW_MS) this.recentTexts.delete(k);
+    }
+    return this.recentTexts.has(key);
+  }
   private _qrCode?: string;
   private _phoneNumber?: string;
   private _connectedAt?: Date;
@@ -259,20 +275,41 @@ export class BaileysSession extends EventEmitter {
                 }
               }
 
-              this.log(`From ${sender} (${msg.pushName || 'unknown'}): "${text.substring(0, 80)}"`);
+              const ts = new Date((msg.messageTimestamp as number) * 1000);
+              const messageId = msg.key.id || '';
+              const pushName = msg.pushName || undefined;
+              const emitMessage = (snd: string) => {
+                // Drop WhatsApp multi-device duplicate deliveries of the same text.
+                if (this.isRecentDuplicateText(text)) {
+                  this.log(`Dropped duplicate delivery: "${text.substring(0, 40)}"`);
+                  return;
+                }
+                this.recordRecentText(text);
+                this.log(`From ${snd} (${pushName || 'unknown'}): "${text.substring(0, 80)}"`);
+                this.emit('message', {
+                  sender: snd,
+                  content: text,
+                  timestamp: ts,
+                  messageId,
+                  pushName,
+                  isGroup: false,
+                  raw: msg,
+                } satisfies BaileysMessage);
+              };
 
               // Mark as read
               try { await sock.readMessages([msg.key]); } catch { /* non-critical */ }
 
-              this.emit('message', {
-                sender,
-                content: text,
-                timestamp: new Date((msg.messageTimestamp as number) * 1000),
-                messageId: msg.key.id || '',
-                pushName: msg.pushName || undefined,
-                isGroup: false,
-                raw: msg,
-              } satisfies BaileysMessage);
+              // An UNRESOLVED "@lid" is usually the duplicate twin of a senderPn copy
+              // that resolves to the phone identity. Hold it briefly so the resolved
+              // copy (the one that reaches the task brain) wins; then drop if a
+              // same-text sibling already emitted. Resolved/normal messages emit now.
+              if (rawJid.endsWith('@lid') && sender === rawJid) {
+                const heldSender = rawJid;
+                setTimeout(() => emitMessage(heldSender), 3000);
+              } else {
+                emitMessage(sender);
+              }
             } catch (msgErr) {
               this.logError('Error processing message:', msgErr);
             }
