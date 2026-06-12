@@ -70,7 +70,7 @@ const REST_SAFETY = [
 function llmProviders(): LlmProvider[] {
   const list: LlmProvider[] = [];
   if (process.env.DASHSCOPE_API_KEY)
-    list.push({ name: 'qwen', kind: 'openai', apiKey: process.env.DASHSCOPE_API_KEY, baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', models: { fast: 'qwen-plus-2025-07-28', reasoning: 'qwen3-max' }, extraBody: { enable_thinking: false } });
+    list.push({ name: 'qwen', kind: 'openai', apiKey: process.env.DASHSCOPE_API_KEY, baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', models: { fast: 'qwen-plus-2025-07-28', reasoning: 'qwen-max' }, extraBody: { enable_thinking: false } });
   if (process.env.GEMINI_API_KEY)
     list.push({ name: 'gemini', kind: 'gemini', apiKey: process.env.GEMINI_API_KEY, models: { fast: 'gemini-2.5-flash', reasoning: 'gemini-2.5-pro' } });
   if (process.env.GROQ_API_KEY)
