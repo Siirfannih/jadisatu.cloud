@@ -18,23 +18,10 @@ function loadEnv(envPath) {
 
 module.exports = {
   apps: [
-    {
-      name: "jadisatu-nextjs",
-      cwd: "./nextjs-app",
-      script: "node_modules/next/dist/bin/next",
-      args: "start -p 3000",
-      env: {
-        NODE_ENV: "production",
-        PORT: 3000,
-        ...loadEnv(path.resolve(__dirname, 'nextjs-app/.env.local'))
-      },
-      exec_mode: "fork",
-      autorestart: true,
-      max_memory_restart: "512M",
-      log_date_format: "YYYY-MM-DD HH:mm:ss",
-      error_file: "/root/.pm2/logs/jadisatu-nextjs-error.log",
-      out_file: "/root/.pm2/logs/jadisatu-nextjs-out.log"
-    },
+    // NOTE: the legacy "jadisatu-nextjs" app (cwd ./nextjs-app, port 3000) was
+    // removed — it is dead (nextjs-app is gone) and crash-looped on :3000,
+    // stealing the port from the live web (jadisatu-v2-web at /root/jadisatu-v2,
+    // managed separately). Do NOT re-add it here.
     {
       name: "hunter-agent",
       cwd: "./hunter-agent/backend",
