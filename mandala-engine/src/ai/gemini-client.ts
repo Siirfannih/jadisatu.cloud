@@ -27,16 +27,50 @@ export function getGeminiClient(): GoogleGenerativeAI {
   return genAI;
 }
 
-export function getModel(modelName: string, config?: { temperature?: number; maxOutputTokens?: number }): GenerativeModel {
-  const client = getGeminiClient();
-  return client.getGenerativeModel({
-    model: modelName,
-    generationConfig: {
-      temperature: config?.temperature,
-      maxOutputTokens: config?.maxOutputTokens,
+/**
+ * Qwen-backed drop-in for the old Gemini GenerativeModel.
+ *
+ * Every legacy `getModel(...).generateContent(req)` call now routes through the
+ * Qwen-only orchestrator (generateText) with multi-model failover — so the ~12
+ * call sites that bypassed the orchestrator are Qwen-only too, with NO call-site
+ * edits. The passed model name (e.g. "gemini-2.5-pro") only selects the tier
+ * (reasoning vs fast); the actual model is Qwen. Supports the request shapes used
+ * in this repo: a plain string, or { systemInstruction, contents:[{parts:[{text}]}] }.
+ */
+export function getModel(modelName: string, config?: { temperature?: number; maxOutputTokens?: number }) {
+  return {
+    async generateContent(req: unknown): Promise<{ response: { text: () => string } }> {
+      let system: string | undefined;
+      let user = '';
+      let json = false;
+      if (typeof req === 'string') {
+        user = req;
+      } else if (req && typeof req === 'object') {
+        const r = req as Record<string, any>;
+        const si = r.systemInstruction;
+        if (typeof si === 'string') system = si;
+        else if (si?.parts) system = si.parts.map((p: any) => p?.text ?? '').join('\n');
+        else if (si?.text) system = si.text;
+        const contents = r.contents;
+        if (typeof contents === 'string') user = contents;
+        else if (Array.isArray(contents))
+          user = contents.flatMap((c: any) => (c?.parts ?? []).map((p: any) => p?.text ?? '')).join('\n');
+        if (r.generationConfig?.responseMimeType === 'application/json') json = true;
+      }
+      // Honor JSON-output prompts (Qwen json_object mode needs "json" in the text).
+      if (!json && /json/i.test(`${system ?? ''}\n${user}`)) json = true;
+      const text = await generateText({
+        system,
+        user,
+        model: modelName,
+        temperature: config?.temperature,
+        maxTokens: config?.maxOutputTokens,
+        json,
+      });
+      const out = json ? text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim() : text;
+      return { response: { text: () => out } };
     },
-    safetySettings: SAFETY_SETTINGS,
-  });
+  };
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -69,16 +103,26 @@ const REST_SAFETY = [
 
 function llmProviders(): LlmProvider[] {
   const list: LlmProvider[] = [];
-  if (process.env.DASHSCOPE_API_KEY)
-    list.push({ name: 'qwen', kind: 'openai', apiKey: process.env.DASHSCOPE_API_KEY, baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', models: { fast: 'qwen-plus-2025-07-28', reasoning: 'qwen-max' }, extraBody: { enable_thinking: false } });
-  if (process.env.GEMINI_API_KEY)
-    list.push({ name: 'gemini', kind: 'gemini', apiKey: process.env.GEMINI_API_KEY, models: { fast: 'gemini-2.5-flash', reasoning: 'gemini-2.5-pro' } });
-  if (process.env.GROQ_API_KEY)
-    list.push({ name: 'groq', kind: 'openai', apiKey: process.env.GROQ_API_KEY, baseUrl: 'https://api.groq.com/openai/v1', models: { fast: 'llama-3.3-70b-versatile', reasoning: 'llama-3.3-70b-versatile' } });
-  if (process.env.DEEPSEEK_API_KEY)
-    list.push({ name: 'deepseek', kind: 'openai', apiKey: process.env.DEEPSEEK_API_KEY, baseUrl: 'https://api.deepseek.com', models: { fast: 'deepseek-chat', reasoning: 'deepseek-reasoner' } });
-  if (process.env.GEMINI_API_KEY_2)
-    list.push({ name: 'gemini2', kind: 'gemini', apiKey: process.env.GEMINI_API_KEY_2, models: { fast: 'gemini-2.5-flash', reasoning: 'gemini-2.5-pro' } });
+  // ── Qwen-only (product decision) ──────────────────────────────────────────
+  // Generation runs on ONLY Qwen (Alibaba DashScope). Resilience = SEVERAL
+  // distinct Qwen models, each with its OWN independent daily free quota, so one
+  // model being rate-limited just fails over to the next Qwen model (never to a
+  // non-Qwen provider). The earlier outage came from pointing at ONE spent model
+  // (qwen-plus-2025-07-28); multiple models make a single quota cap non-fatal.
+  const QWEN_BASE = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
+  const qwen = (name: string, fast: string, reasoning: string, apiKey: string): LlmProvider => ({
+    name, kind: 'openai', apiKey, baseUrl: QWEN_BASE,
+    models: { fast, reasoning }, extraBody: { enable_thinking: false },
+  });
+  const dashKeys = [
+    { key: process.env.DASHSCOPE_API_KEY, suffix: '' },
+    { key: process.env.DASHSCOPE_API_KEY_2, suffix: '-k2' },
+  ].filter((k) => k.key) as Array<{ key: string; suffix: string }>;
+  for (const { key, suffix } of dashKeys) {
+    list.push(qwen('qwen-plus' + suffix, 'qwen3.5-plus-2026-02-15', 'qwen-max', key));
+    list.push(qwen('qwen-flash' + suffix, 'qwen-flash', 'qwen-plus', key));
+    list.push(qwen('qwen-turbo' + suffix, 'qwen-turbo', 'qwen-turbo', key));
+  }
 
   const order = (process.env.LLM_PROVIDER_ORDER ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   if (order.length) {
